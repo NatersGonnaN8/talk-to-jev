@@ -4,7 +4,7 @@
 
 ## What it is
 
-Two AIs through **OpenRouter**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`. Weather is Open-Meteo input (no key). Ten snaps on Workshop chips and Use Cases.
+Two AIs through **OpenRouter**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`. Ten snaps: **nine operator decisions** plus **Jacket** (Open-Meteo, the one weather case). Workshop lands on **Invoice exception**.
 
 ## Keys (BYOK)
 
@@ -25,7 +25,7 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 ## How to try
 
 1. Open `http://127.0.0.1:5182/settings`. OpenRouter should show **Key ready** (not the secret).
-2. Workshop: chip or Use Cases card → **Load weather** → **Ask Jev**.
+2. Workshop lands on **Invoice exception**. Other chips are operator snaps; **Jacket** is the weather case (**Load weather** → **Ask Jev**).
 3. Docs overlay still on `/docs`. History is local-only. Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
 
 ## How to start the tour
@@ -46,4 +46,4 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 - Search / direct OpenAI / Anthropic / Tavily / Brave are **not** wired yet — Settings is the home.
 - Pin Jev 1.13 unless Nate asks for latest.
 
-SPEC: `docs/SPEC.md` (v0.4) §3, §6.5, §7, §14.
+SPEC: `docs/SPEC.md` (v0.5) §3, §6.5, §7, §12, §14.

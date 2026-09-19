@@ -67,9 +67,10 @@ export function UseCasesPage({
         <span className="eyebrow">Ten snaps</span>
         <h1>Use Cases</h1>
         <p>
-          Same ten presets as the Workshop chips. Click a card to load the case
-          and Jev questions. Jev is not a chatbot — it returns choice, noul, and
-          score. Weather (Open-Meteo) is optional input, not a third model.
+          Nine operator snaps plus one weather case — the same list as the
+          Workshop chips. Click a card to load the case and Jev questions.
+          Jev is not a chatbot — it returns choice, noul, and score. Open-Meteo
+          is optional input on Jacket only, not a third model.
         </p>
       </section>
       <ul className="case-grid">
@@ -86,6 +87,9 @@ export function UseCasesPage({
               <h2>{s.label}</h2>
               <p className="case-pitch">{s.pitch}</p>
               <div className="type-chips">
+                {s.kind === "weather" ? (
+                  <span className="kind-chip weather">weather</span>
+                ) : null}
                 {s.types.map((t) => (
                   <FlipTip key={t} text={TYPE_TIP[t]}>
                     <span className={`type-chip ${t}`}>

@@ -45,7 +45,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "case",
     title: "The Case ticket is Jev state",
-    body: "This slip is what Jev judges. The LLM can draft it. Weather, samples, and your notes all live here as state — not as a chat with Jev.",
+    body: "This slip is what Jev judges. The LLM can draft it. Operator snaps and (on Jacket) weather all live here as state — not as a chat with Jev.",
     page: "workshop",
     hooks: ["case"],
     selectors: [".ticket"],
@@ -77,7 +77,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "use-cases",
     title: "Use Cases",
-    body: "Ten sample snaps — the same list as the Workshop chips. Open a card to load the case and Jev questions.",
+    body: "Nine operator snaps plus Jacket — the same list as the Workshop chips. Open a card to load the case and Jev questions.",
     page: "use-cases",
     hooks: ["use-cases", "use-cases-page"],
     texts: ["Use Cases"],
@@ -110,7 +110,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "weather",
     title: "Load weather",
-    body: "Weather is Open-Meteo input, not a third model. Load weather writes live conditions into the Case ticket. No extra API key.",
+    body: "Jacket is the one weather case. Load weather writes Open-Meteo into that ticket. Other snaps are operator decisions — no weather field.",
     page: "workshop",
     hooks: ["weather"],
     texts: ["Load weather"],

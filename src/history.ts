@@ -1,5 +1,9 @@
 import type { ChatMessage, JevAnswer, JevQuestion } from "./types";
-import { DEFAULT_QUESTIONS, DEFAULT_STATE } from "./types";
+import {
+  DEFAULT_QUESTIONS,
+  DEFAULT_STATE,
+  LANDING_SAMPLE_ID,
+} from "./samples";
 
 export const STORAGE_KEY = "talk-to-jev:chats";
 export const STORE_VERSION = 1;
@@ -40,7 +44,7 @@ export function emptySnapshot(): WorkshopSnapshot {
     questions: structuredClone(DEFAULT_QUESTIONS),
     answers: null,
     jevMeta: "",
-    samplePresetId: null,
+    samplePresetId: LANDING_SAMPLE_ID,
   };
 }
 
@@ -72,10 +76,12 @@ export function snapshotWorthSaving(snap: WorkshopSnapshot, titleLocked = false)
   if (snap.messages.some((m) => m.content.trim())) return true;
   if (snap.answers && Object.keys(snap.answers).length) return true;
   if (snap.jevMeta.trim()) return true;
-  if (snap.samplePresetId) return true;
+  if (snap.includeChat === false) return true;
+  const landing =
+    snap.samplePresetId == null || snap.samplePresetId === LANDING_SAMPLE_ID;
+  if (!landing) return true;
   if (snap.state.trim() !== DEFAULT_STATE.trim()) return true;
   if (stableJson(snap.questions) !== stableJson(DEFAULT_QUESTIONS)) return true;
-  if (snap.includeChat === false) return true;
   return false;
 }
 

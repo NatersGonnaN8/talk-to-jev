@@ -93,31 +93,3 @@ export type DocListItem = {
   source: string;
   fetchedAt: string;
 };
-
-export const DEFAULT_STATE =
-  "My card was charged twice. Please help ASAP.";
-
-export const DEFAULT_QUESTIONS: Record<string, JevQuestion> = {
-  department: {
-    type: "choice",
-    instructions: "Which team should handle this?",
-    criteria: {
-      billing: "Payments, invoicing, refunds",
-      technical: "Bugs, outages, integrations",
-      sales: "Pricing, upgrades, new accounts",
-    },
-  },
-  urgent: {
-    type: "noul",
-    instructions: "Does this message need urgent attention?",
-    criteria: {
-      true: "Explicitly time-sensitive",
-      false: "No urgency expressed",
-    },
-  },
-  frustration: {
-    type: "score",
-    instructions: "How frustrated is the customer?",
-    criteria: ["Calm", "Frustrated", "Very angry"],
-  },
-};

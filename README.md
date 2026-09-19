@@ -31,7 +31,7 @@ A first-run **Tour** overlay walks the Workshop. Skip once and it stays dismisse
 
 That **one OpenRouter key** runs both. Settings can also store OpenAI, Anthropic, Tavily, and Brave for later — they are **not called** in this MVP.
 
-Weather is **Open-Meteo** input (free, no key), written into the Case ticket. Not a third model.
+Weather is **Open-Meteo** input (free, no key) on the **Jacket** preset only — not a third model. Nine of the ten snaps are operator / business decisions.
 
 ---
 
@@ -39,8 +39,8 @@ Weather is **Open-Meteo** input (free, no key), written into the Case ticket. No
 
 | Page | Path | What it is |
 |---|---|---|
-| **Workshop** | `/` | Case ticket + LLM pane + Jev pane. **Load weather**, sample chips, **Ask Jev**, **Propose Jev questions**, **Feed Jev to LLM**. |
-| **Use Cases** | `/use-cases` (`/cases`) | Same ten sample snaps as the Workshop chips. |
+| **Workshop** | `/` | Case ticket + LLM pane + Jev pane. Lands on **Invoice exception**. Sample chips (9 business + Jacket). **Load weather** on Jacket only. **Ask Jev**, **Propose Jev questions**, **Feed Jev to LLM**. |
+| **Use Cases** | `/use-cases` (`/cases`) | Same ten snaps as the Workshop chips: nine operator cases plus Jacket. |
 | **Docs** | `/docs` | In-repo Jev snapshot. Eyeball = nice Markdown; code icon = raw source. |
 | **Settings** | `/settings` | BYOK. Paste keys; they stay in `.env.local` on this machine. |
 | **History** | Workshop chrome | Local threads in `localStorage` (this browser only). Not a server. |

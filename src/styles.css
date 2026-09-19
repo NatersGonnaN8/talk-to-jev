@@ -964,6 +964,21 @@ select:focus-visible,
   background: #f3d4c0;
 }
 
+.kind-chip {
+  font-family: "Fragment Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: var(--manila);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.kind-chip.weather {
+  background: var(--blueprint);
+}
+
 .flip-tip {
   position: absolute;
   left: 0;

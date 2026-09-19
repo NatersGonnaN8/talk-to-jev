@@ -46,7 +46,7 @@ Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRou
 - **hooks:** `case`
 - **selectors:** `.ticket`
 
-This slip is what Jev judges. The LLM can draft it. Weather, samples, and your notes all live here as state — not as a chat with Jev.
+This slip is what Jev judges. The LLM can draft it. Operator snaps and (on Jacket) weather all live here as state — not as a chat with Jev.
 
 ### 3. The LLM pane talks
 
@@ -82,7 +82,7 @@ Propose Jev questions asks the LLM for a JSON question map. After Jev answers, F
 - **hooks:** `use-cases`, `use-cases-page`
 - **texts:** Use Cases
 
-Ten sample snaps — the same list as the Workshop chips. Open a card to load the case and Jev questions.
+Nine operator snaps plus Jacket — the same list as the Workshop chips. Open a card to load the case and Jev questions.
 
 ### 7. Docs: eyeball vs code
 
@@ -119,4 +119,4 @@ Threads live in this browser’s localStorage. Refresh restores them. Keys are n
 - **hooks:** `weather`
 - **texts:** Load weather
 
-Weather is Open-Meteo input, not a third model. Load weather writes live conditions into the Case ticket. No extra API key.
+Jacket is the one weather case. Load weather writes Open-Meteo into that ticket. Other snaps are operator decisions — no weather field.

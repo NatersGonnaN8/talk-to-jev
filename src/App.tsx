@@ -16,8 +16,15 @@ import type {
   QuestionType,
 } from "./types";
 import { toNiceHtml } from "./markdown";
-import { DEFAULT_QUESTIONS, DEFAULT_STATE } from "./types";
-import { SAMPLE_CASES, cloneSample, type SampleId } from "./samples";
+import {
+  DEFAULT_QUESTIONS,
+  DEFAULT_STATE,
+  LANDING_SAMPLE_ID,
+  SAMPLE_CASES,
+  cloneSample,
+  isWeatherSample,
+  type SampleId,
+} from "./samples";
 import { DEFAULT_LOCATION_QUERY, mergeWeatherIntoCase } from "./weather";
 import { UseCasesPage } from "./UseCases";
 import { SettingsPage } from "./pages/Settings";
@@ -57,6 +64,39 @@ function newId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/** Map key for a user-added card whose id field is still empty. Never shown, never sent to Jev. */
+const BLANK_QUESTION_KEY_PREFIX = "__blank__:";
+const BLANK_QUESTION_ID_ERROR =
+  "Type a question id before asking Jev. We will not invent one.";
+
+function isBlankQuestionId(id: string) {
+  return !id.trim() || id.startsWith(BLANK_QUESTION_KEY_PREFIX);
+}
+
+function questionIdValue(storageKey: string) {
+  return isBlankQuestionId(storageKey) ? "" : storageKey;
+}
+
+function nextBlankQuestionKey() {
+  const suffix =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  return `${BLANK_QUESTION_KEY_PREFIX}${suffix}`;
+}
+
+function blankQuestionKeys(questions: Record<string, JevQuestion>) {
+  return Object.keys(questions).filter((id) => isBlankQuestionId(id));
+}
+
+function questionsForJev(questions: Record<string, JevQuestion>) {
+  const out: Record<string, JevQuestion> = {};
+  for (const [id, q] of Object.entries(questions)) {
+    if (!isBlankQuestionId(id)) out[id] = q;
+  }
+  return out;
+}
+
 function pct(n: number) {
   if (!Number.isFinite(n)) return "—";
   return `${Math.round(n * 1000) / 10}%`;
@@ -78,12 +118,14 @@ function parseProposedQuestions(text: string): Record<string, JevQuestion> | nul
     if (!map || typeof map !== "object") return null;
     const out: Record<string, JevQuestion> = {};
     for (const [id, q] of Object.entries(map as Record<string, unknown>)) {
+      const qid = id.trim();
+      if (!qid || isBlankQuestionId(qid)) continue;
       if (!q || typeof q !== "object") continue;
       const rec = q as Record<string, unknown>;
       const type = rec.type;
       const instructions = String(rec.instructions ?? "");
       if (type === "choice" && rec.criteria && typeof rec.criteria === "object") {
-        out[id] = {
+        out[qid] = {
           type: "choice",
           instructions,
           criteria: Object.fromEntries(
@@ -94,14 +136,14 @@ function parseProposedQuestions(text: string): Record<string, JevQuestion> | nul
           ),
         };
       } else if (type === "score" && Array.isArray(rec.criteria)) {
-        out[id] = {
+        out[qid] = {
           type: "score",
           instructions,
           criteria: rec.criteria.map((v) => String(v)),
         };
       } else if (type === "noul") {
         const c = rec.criteria;
-        out[id] = {
+        out[qid] = {
           type: "noul",
           instructions,
           criteria:
@@ -448,8 +490,9 @@ function Workshop({
     () => boot?.answers ?? null,
   );
   const [jevMeta, setJevMeta] = useState(() => boot?.jevMeta ?? "");
+  const [blankIdError, setBlankIdError] = useState(false);
   const [samplePresetId, setSamplePresetId] = useState<string | null>(
-    () => boot?.samplePresetId ?? null,
+    () => boot?.samplePresetId ?? LANDING_SAMPLE_ID,
   );
   const [locationQuery, setLocationQuery] = useState(DEFAULT_LOCATION_QUERY);
   const [weatherLine, setWeatherLine] = useState("");
@@ -480,6 +523,7 @@ function Workshop({
     setQuestions(snap.questions);
     setAnswers(snap.answers);
     setJevMeta(snap.jevMeta);
+    setBlankIdError(false);
     setSamplePresetId(snap.samplePresetId);
     setDraft("");
     setWeatherLine("");
@@ -521,13 +565,16 @@ function Workshop({
     setSamplePresetId(preset.id);
     setState(preset.state);
     setQuestions(preset.questions);
+    setBlankIdError(false);
     setAnswers(null);
     setJevMeta("");
     setMessages([]);
     setDraft("");
     setWeatherLine("");
     onToast(
-      `Loaded “${preset.label}”. Click Load weather for live Open-Meteo.`,
+      preset.kind === "weather"
+        ? `Loaded “${preset.label}”. Click Load weather for live Open-Meteo.`
+        : `Loaded “${preset.label}”.`,
     );
   }, [presetId, presetNonce, onToast]);
 
@@ -603,6 +650,7 @@ function Workshop({
         const parsed = parseProposedQuestions(full);
         if (parsed) {
           setQuestions(parsed);
+          setBlankIdError(false);
           onToast(`Loaded ${Object.keys(parsed).length} proposed questions into Jev.`);
         } else {
           onToast("LLM replied, but it was not valid questions JSON.");
@@ -617,11 +665,17 @@ function Workshop({
   };
 
   const onAskJev = async () => {
+    if (blankQuestionKeys(questions).length) {
+      setBlankIdError(true);
+      return;
+    }
+    const ready = questionsForJev(questions);
+    setBlankIdError(false);
     setBusy("jev");
     try {
       const payload = await askJev({
         state,
-        questions,
+        questions: ready,
         includeTranscript: includeChat,
         transcript: includeChat ? messages : [],
       });
@@ -724,29 +778,33 @@ function Workshop({
             </button>
           ))}
         </div>
-        <div className="weather-row" data-tutorial="weather">
-          <input
-            value={locationQuery}
-            onChange={(e) => setLocationQuery(e.target.value)}
-            placeholder="City or lat, lon"
-            aria-label="Weather location"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void onLoadWeather();
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="btn solid"
-            disabled={busy !== null}
-            onClick={() => void onLoadWeather()}
-          >
-            {busy === "weather" ? "Loading…" : "Load weather"}
-          </button>
-        </div>
-        {weatherLine ? <p className="weather-status">{weatherLine}</p> : null}
+        {isWeatherSample(samplePresetId) ? (
+          <div className="weather-row" data-tutorial="weather">
+            <input
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              placeholder="City or lat, lon"
+              aria-label="Weather location"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void onLoadWeather();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn solid"
+              disabled={busy !== null}
+              onClick={() => void onLoadWeather()}
+            >
+              {busy === "weather" ? "Loading…" : "Load weather"}
+            </button>
+          </div>
+        ) : null}
+        {isWeatherSample(samplePresetId) && weatherLine ? (
+          <p className="weather-status">{weatherLine}</p>
+        ) : null}
         <textarea
           className="case"
           value={state}
@@ -755,8 +813,9 @@ function Workshop({
           rows={8}
         />
         <p className="hint">
-          Jev judges this. The LLM can draft it. Weather is Open-Meteo input, not a
-          model.
+          {isWeatherSample(samplePresetId)
+            ? "Jev judges this. The LLM can draft it. Weather is Open-Meteo input, not a model."
+            : "Jev judges this. The LLM can draft it."}
         </p>
       </section>
 
@@ -849,7 +908,19 @@ function Workshop({
               {busy === "jev" ? "Asking…" : "Ask Jev"}
             </button>
           </header>
-          <QuestionEditor questions={questions} onChange={setQuestions} />
+          {blankIdError ? (
+            <p className="inline-error" role="alert">
+              {BLANK_QUESTION_ID_ERROR}
+            </p>
+          ) : null}
+          <QuestionEditor
+            questions={questions}
+            showBlankIdError={blankIdError}
+            onChange={(next) => {
+              setQuestions(next);
+              if (!blankQuestionKeys(next).length) setBlankIdError(false);
+            }}
+          />
           <div className="answers">
             {!answers ? (
               <p className="empty">Define questions, then ask Jev.</p>
@@ -869,17 +940,25 @@ function Workshop({
 function QuestionEditor({
   questions,
   onChange,
+  showBlankIdError,
 }: {
   questions: Record<string, JevQuestion>;
   onChange: (next: Record<string, JevQuestion>) => void;
+  showBlankIdError: boolean;
 }) {
   const entries = useMemo(() => Object.entries(questions), [questions]);
 
-  const setId = (oldId: string, nextId: string) => {
-    const id = nextId.trim() || oldId;
-    if (id === oldId) return;
+  const setId = (oldKey: string, nextId: string) => {
+    const trimmed = nextId.trim();
+    const uid = oldKey.startsWith(BLANK_QUESTION_KEY_PREFIX)
+      ? oldKey.slice(BLANK_QUESTION_KEY_PREFIX.length)
+      : typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    const newKey = trimmed || `${BLANK_QUESTION_KEY_PREFIX}${uid}`;
+    if (newKey === oldKey) return;
     const next: Record<string, JevQuestion> = {};
-    for (const [k, v] of entries) next[k === oldId ? id : k] = v;
+    for (const [k, v] of entries) next[k === oldKey ? newKey : k] = v;
     onChange(next);
   };
 
@@ -897,10 +976,16 @@ function QuestionEditor({
         <div className="q-card" key={id}>
           <div className="q-row">
             <input
-              className="id-input"
-              value={id}
+              className={
+                showBlankIdError && isBlankQuestionId(id)
+                  ? "id-input invalid"
+                  : "id-input"
+              }
+              value={questionIdValue(id)}
               onChange={(e) => setId(id, e.target.value)}
+              placeholder="question id"
               aria-label="Question id"
+              aria-invalid={showBlankIdError && isBlankQuestionId(id)}
             />
             <select
               value={q.type}
@@ -917,6 +1002,11 @@ function QuestionEditor({
               Remove
             </button>
           </div>
+          {showBlankIdError && isBlankQuestionId(id) ? (
+            <p className="inline-error" role="alert">
+              {BLANK_QUESTION_ID_ERROR}
+            </p>
+          ) : null}
           <textarea
             value={q.instructions}
             onChange={(e) => setQ(id, { ...q, instructions: e.target.value })}
@@ -1049,7 +1139,7 @@ function QuestionEditor({
         onClick={() =>
           onChange({
             ...questions,
-            [newId("q")]: emptyQuestion("noul"),
+            [nextBlankQuestionKey()]: emptyQuestion("noul"),
           })
         }
       >
