@@ -330,19 +330,33 @@ textarea.case {
 }
 
 .splitter {
-  width: 10px;
-  flex: 0 0 10px;
+  position: relative;
+  width: 8px;
+  flex: 0 0 8px;
   cursor: col-resize;
-  background:
-    linear-gradient(to bottom, transparent 8%, var(--pine) 8%, var(--pine) 92%, transparent 92%)
-      center / 2px 100% no-repeat,
-    repeating-linear-gradient(
-      to bottom,
-      var(--orange) 0 6px,
-      transparent 6px 12px
-    );
-  background-color: #eadfcb;
   touch-action: none;
+  background: var(--floor);
+}
+
+.splitter::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--line);
+  pointer-events: none;
+}
+
+.splitter:hover,
+.splitter:active {
+  background: #d2ddd4;
+}
+
+.splitter:hover::before,
+.splitter:active::before {
+  width: 3px;
+  background: var(--pine);
 }
 
 .thread {

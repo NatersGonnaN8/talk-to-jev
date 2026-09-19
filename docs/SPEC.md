@@ -128,7 +128,7 @@ Global chrome (all pages):
 - Left: product name **Talk to Jev** (links home Workshop)
 - Nav: **Workshop** | **Use Cases** | **Docs** | **Settings**
 - Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), **key pill** (status text; shortcut to Settings — see **Chrome key pill**), **Update Jev docs**
-- No native textarea resize grips. Pane widths use a custom vertical splitter.
+- No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch).
 - No native `<dialog>` / iframe for the coach. See §6.4.
 
 ### Chrome key pill → Settings
@@ -204,7 +204,7 @@ Layout (desktop):
 - Usage line: input tokens + cost when OpenRouter returns them
 - Empty answers: “Define questions, then ask Jev.”
 
-**Splitter:** drag the shared vertical edge. Not a native resize handle.
+**Splitter:** drag the shared vertical edge. Not a native resize handle. Nater (2026-09-19): the old style looked like “a sick candy cane” — dashed orange hatch on cream with a pine stripe. **Visual:** a thin, quiet mill/pine divider (hit target stays wide enough to grab). Rest: 1px `--line` seam, mill-floor gutter, `cursor: col-resize`. Hover / while dragging: the seam widens slightly to pine so it reads as a handle — no dashed circus stripe, no orange/blue hatch, no garnish. Hidden on mobile; panes stack full width. `resize: none` on textareas; never CSS `resize` for layout.
 
 **History** (local threads, overlay drawer — not a permanent sidebar):
 
@@ -358,7 +358,7 @@ Workshop, not a generic AI dashboard.
 
 Signature: the **case ticket** as a physical slip the two instruments share. Probability is a filled bar, not a pie.
 
-Slick = sharp, usable, no garnish. Tooltips (if any) stay fully on-screen, opaque, flip placement.
+Slick = sharp, usable, no garnish. Tooltips (if any) stay fully on-screen, opaque, flip placement. The Workshop pane splitter is a **quiet divider**, not decoration.
 
 ---
 
@@ -585,7 +585,7 @@ Before calling Workshop done:
 5. Feed Jev → LLM injects a visible note
 6. Docs page lists snapshot files; open one
 7. Update Jev docs button completes and the list refreshes
-8. Splitter drags; textareas have no native corner grip
+8. Splitter drags; textareas have no native corner grip. Splitter reads as a thin quiet seam (not a dashed orange candy-cane stripe); hover/drag shows a slightly wider pine handle
 9. `/docs` deep link works after refresh
 10. Docs overlay: eyeball shows rendered Markdown; code icon shows raw source; tips stay fully visible
 11. `/use-cases` shows **10** cards (9 business + Jacket, not ten weather titles); `/cases` is the same page
