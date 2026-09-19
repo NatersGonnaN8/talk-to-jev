@@ -36,6 +36,9 @@ The LLM is the cheap prose half. Jev is the cheap decision half. The app is the 
 - Never persist `OPENROUTER_API_KEY` or any secret in localStorage / history JSON.
 - No multi-user, no deploy, no billing UI.
 - Do not call Jev via chat completions (that 400s). Do not ask Jev to write poems or code.
+- No second weather API key, no paid weather wrapper. Weather is Open-Meteo (free, no key), server-side only.
+- Do not send weather to a third model. Open-Meteo → Case ticket → Jev / LLM.
+- No second weather API key. Weather (when wired) is Open-Meteo, keyless.
 
 ---
 
@@ -126,7 +129,11 @@ Layout (desktop):
 
 ```
 [ chrome ]
-[ CASE TICKET — shared state textarea + include-chat checkbox ]
+[ CASE TICKET ]
+  [ samples: 10 chips ]
+  [ location field + Load weather ]
+  [ include-chat checkbox ]
+  [ shared state textarea ]
 [ LLM pane | splitter | JEV pane ]
 ```
 
@@ -202,11 +209,44 @@ Layout:
 - **Update Jev docs** in chrome (same as Workshop)
 - Empty snapshot: explain the button / `npm run update-jev-docs`
 
+### 6.3 Use Cases — `/use-cases` (`/cases` alias)
+
+**Job:** show the **same ten** sample snaps that Workshop loads. One list in `src/samples.ts`. Do not invent a second catalog.
+
+Layout:
+
+```
+[ chrome ]
+[ manila intro slip ]
+[ 10 case cards ]
+```
+
+Each card: **label**, one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads that sample’s **case + questions** into Workshop. Stale Jev answers clear. Default billing-ticket demo stays the Workshop empty state when no `?case=` is set.
+
+The ten (ids stable; labels may tighten, not fork):
+
+| id | Label | Pitch (spirit) | Types |
+|---|---|---|---|
+| `jacket` | Jacket or no jacket | Walk out with the right layer | noul, choice |
+| `run` | Outdoor run | Go, shorten, or take it inside | choice, noul, score |
+| `rain-delay` | Rec sports rain delay | Play, delay, or call it | choice, noul |
+| `patio` | Patio dinner | Out, under cover, or inside | choice, score |
+| `garden` | Water the garden | Water now, wait on rain, or skip | choice, noul |
+| `commute` | Bike or bus | Pedal, bus, or stay home | choice, noul, score |
+| `grill` | Grill tonight? | Fire it, cook inside, or order | noul, choice |
+| `storm` | Storm prep | Close up, full prep, or ride it | noul, choice, score |
+| `harvest-festival` | Harvest festival | Hold the town festival this weekend? | noul, choice, score |
+| `travel-day` | Travel day | Fly, drive, or delay | choice, noul, score |
+
+Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usable. Tips (type-chip explanations) are **opaque**, stay fully on-screen, and **flip** (below if there is room; above if the card is low — never under sticky chrome). No native resize on this page.
+
+Weather (Open-Meteo) may later fill live conditions into Case; the sample **questions** stay this list either way.
+
 ---
 
 ## 7. API (local Vite middleware)
 
-All JSON unless noted. Never echo the API key.
+All JSON unless noted. Never echo the API key. Never dump upstream bodies that might contain secrets. Bind `127.0.0.1` only; do **not** set wide-open CORS (`Access-Control-Allow-Origin: *`). Same-origin UI does not need CORS.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -251,6 +291,7 @@ The LLM is told, every request:
 - Question ids are for code; put the full question in `instructions`.
 - When `mode` is `propose-questions`, reply with **only** a JSON object of questions (`type`, `instructions`, `criteria`).
 - Primer from `docs/jev/primer.md` is attached (truncated if huge).
+- A `## Weather` block in the case is observational Open-Meteo input. Do not invent a weather API call. Do not pretend to be Jev.
 
 ---
 
@@ -302,6 +343,24 @@ Before calling Workshop done:
 8. Splitter drags; textareas have no native corner grip
 9. `/docs` deep link works after refresh
 10. Docs overlay: eyeball shows rendered Markdown; code icon shows raw source; tips stay fully visible
+11. `/use-cases` shows **10** cards; `/cases` is the same page
+12. Click a card: Workshop loads that case + questions (`?case=` in the URL)
+13. `/api/health` JSON has `hasKey` boolean only — no key material in the body
+14. Tips on Use Cases cards stay fully visible (flip, opaque)
+
+---
+
+## 11. Open-source gate (2026-09-19)
+
+Nater wants this public soon (Jev wave). Flip GitHub to **public** only if all are true:
+
+1. `.env.local` is gitignored and was never committed
+2. `git log` / history has no API keys
+3. The browser never sees `OPENROUTER_API_KEY` (not in HTML, JS bundles, or API JSON)
+4. README says paste the key in `.env.local` only; key stays on the server; Jev is not a chatbot
+5. No secrets in client bundles (`dist/` / network)
+
+If any fail: **keep private**, fix what we can, report. LICENSE is MIT, copyright Nathan Utley, 2026.
 11. Send an LLM message, refresh: the thread is still in History and the transcript restores
 12. Click a past thread to restore case + questions + last Jev answers
 13. New chat starts a blank workshop; the previous thread remains in the list
@@ -311,3 +370,152 @@ Before calling Workshop done:
 12. Pick at least two sample chips: Case + Jev questions swap; Ask Jev returns typed answers
 13. Changing the location field and loading again replaces the weather block without wiping the Situation
 14. `/docs` overlay still works after the Workshop weather work
+
+---
+
+## 11. Weather input (Open-Meteo)
+
+Provider: **Open-Meteo** Forecast API + Geocoding API. No API key. CC BY 4.0 attribution in the weather block and a short UI hint. Server-side fetch only (Vite middleware). The browser never talks to Open-Meteo directly in MVP (keeps one network story: UI → local `/api/*`).
+
+**Default place:** Columbus, Ohio, United States (`39.9612, -82.9988`). Nate can change the location field to another city (`Nashville, TN`) or coordinates (`36.16, -86.78`).
+
+**Units (US default):** °F, mph, inches. Timezone: `auto` from Open-Meteo.
+
+**What loads into Jev state**
+
+The Case ticket owns a marked block:
+
+```
+<!-- weather:start -->
+…human-readable conditions + compact JSON…
+<!-- weather:end -->
+```
+
+**Load weather** replaces that span in place. If the markers are missing, the block is prepended. The Situation / rest of the case is not wiped.
+
+The block must include:
+
+- Place name, region, country, lat/lon, timezone
+- Observation time
+- Current: temp, feels-like, WMO weather text, humidity, wind + gusts, precip, cloud cover
+- Today + next 1–2 daily: high/low, precip chance/amount, weather text
+- Next ~12 hours: time, temp, precip probability, weather text
+- Compact JSON of the same facts (for Jev / the LLM)
+- Attribution line: weather data by Open-Meteo.com (CC BY 4.0). Weather is input, not a model.
+
+**Location parsing**
+
+1. `latitude` + `longitude` query params, or
+2. `q` matching `lat, lon`, or
+3. `q` as a geocoding search (`name` on `https://geocoding-api.open-meteo.com/v1/search`), first result, or
+4. Default Columbus, OH
+
+Unknown place → 404 `{ ok:false, message }` (no OpenRouter mention). Upstream failure → 502.
+
+**Not in MVP:** saved locations, maps, radar, air quality, a second paid weather key.
+
+---
+
+## 12. Ten sample cases (Workshop presets)
+
+One-click chips on the Case ticket. Each preset is a product contract: **id**, **short label**, **situation** (case text with a weather placeholder), **Jev questions**. All ten are weather-shaped. Clicking one:
+
+- Writes the situation into the Case textarea (placeholder weather block included)
+- Replaces the Jev question editor
+- Clears last Jev answers and the LLM thread (the previous case must not leak if “Include LLM chat” is on)
+- Marks that chip active
+- Does **not** fetch weather until **Load weather** (so a preset still works offline; live weather is the upgrade)
+
+Initial Workshop load stays the support-ticket demo (not a chip). None of the ten replace that default until clicked.
+
+Chip labels (keep these names unless a later SPEC edit renames them):
+
+| # | id | Chip | Mix |
+|---|---|---|---|
+| 1 | `jacket` | Jacket? | Practical. Noul + layer choice. |
+| 2 | `run` | Run go/no-go | Practical. Outdoor run vs treadmill. |
+| 3 | `rain-delay` | Rain delay | Practical. School / rec sports call. |
+| 4 | `patio` | Patio dinner | Practical. Eat out vs stay in. |
+| 5 | `garden` | Water the garden | Practical. Water vs skip for rain. |
+| 6 | `commute` | Bike vs bus | Practical. Commute mode. |
+| 7 | `grill` | Grill tonight? | Practical. Cook outside. |
+| 8 | `storm` | Storm prep | Practical. Windows / cushions / watch. |
+| 9 | `festival` | Harvest festival | Fun. TypeSafe/Jev NPC town call. |
+| 10 | `travel` | Travel day | Practical. Fly / drive / delay. |
+
+### 12.1 Jacket?
+
+Situation: 15–20 minute outdoor errand (coffee / walk). Judge jacket vs no jacket from weather + outing.
+
+- `wear_jacket` **noul** — Should they wear a jacket for this outing given the weather? true: jacket is warranted; false: comfortable without one.
+- `layer` **choice** — `tee` / `light_layer` / `insulated` / `rain_shell`
+
+### 12.2 Run go/no-go
+
+Situation: planned outdoor run (~45 min). Safety and comfort, not a coaching essay.
+
+- `go_outside` **noul** — Is it reasonable to run outdoors now?
+- `plan` **choice** — `outdoor_run` / `treadmill` / `wait_for_break` / `skip`
+- `conditions` **score** — Great / OK / Poor / Unsafe
+
+### 12.3 Rain delay
+
+Situation: youth rec / school outdoor game this afternoon. Field call.
+
+- `delay_game` **noul** — Should the game be delayed or called for weather?
+- `call` **choice** — `play` / `delay` / `move_indoors` / `cancel`
+- `field` **score** — Dry / Damp / Unsafe
+
+### 12.4 Patio dinner
+
+Situation: dinner plans with friends; patio is the preference.
+
+- `worth_going_out` **noul** — Worth leaving the house for dinner given the weather?
+- `venue` **choice** — `outdoor_patio` / `indoor_table` / `takeout` / `stay_in`
+
+### 12.5 Water the garden
+
+Situation: backyard vegetables, evening watering habit.
+
+- `water_today` **noul** — Should they water the garden today?
+- `timing` **choice** — `water_now` / `water_evening` / `skip_rain_coming` / `skip_already_wet`
+
+### 12.6 Bike vs bus
+
+Situation: 3-mile commute, bike is the default in decent weather.
+
+- `bike_ok` **noul** — Is biking this commute reasonable in this weather?
+- `mode` **choice** — `bike` / `bus` / `drive` / `wfh`
+
+### 12.7 Grill tonight?
+
+Situation: weeknight dinner, charcoal/gas grill on a deck.
+
+- `grill` **noul** — Should they grill outdoors tonight?
+- `plan` **choice** — `grill_now` / `grill_later` / `indoor_cook` / `takeout`
+
+### 12.8 Storm prep
+
+Situation: house with open windows and porch cushions; a system is in the forecast.
+
+- `close_windows` **noul** — Should they close windows and bring loose things in now?
+- `prep` **choice** — `none` / `close_and_stow` / `full_storm_prep`
+- `urgency` **score** — Calm / Watch / Act now
+
+### 12.9 Harvest festival (fun)
+
+Situation: TypeSafe-games / Jev NPC energy. A town crier asks whether to hold the harvest festival in the square this afternoon. Jev is the town’s snap-judgment engine, not a novelist.
+
+- `hold_festival` **noul** — Should the town hold the harvest festival in the square this afternoon?
+- `venue` **choice** — `town_square` / `guild_hall` / `postpone_dawn` / `cancel_season`
+- `omen` **score** — Fair winds / Uneasy sky / Ill omen
+
+### 12.10 Travel day
+
+Situation: morning departure, could fly, drive, or wait a day. Judge disruption from weather, not airline politics.
+
+- `leave_today` **noul** — Should they leave today given the weather?
+- `mode` **choice** — `fly` / `drive` / `delay_until_clear` / `cancel`
+- `disruption` **score** — Smooth / Bumps / Severe
+
+Each situation file in `src/samples.ts` must match this contract (ids, types, option keys). Copy may be slightly warmer than this SPEC outline; question **ids** and **types** must not drift.
