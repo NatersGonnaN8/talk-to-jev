@@ -3,7 +3,7 @@
 **Status:** v0.4 — 2026-09-19  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
-**GitHub:** `talk-to-jev` (public only after the §14 security checklist)  
+**GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
 **Local:** Vite UI + API on `http://127.0.0.1:5182` (`strictPort`, bind `127.0.0.1` only)
 
 This file is the contract. Code trails these decisions.

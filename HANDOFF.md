@@ -1,31 +1,43 @@
 # Talk to Jev — handoff
 
-**2026-09-19** — README + first-run **Tour** overlay. Private GitHub https://github.com/NatersGonnaN8/talk-to-jev. Local `http://127.0.0.1:5182`.
+**2026-09-19** — BYOK Settings live. GitHub still **private** (https://github.com/NatersGonnaN8/talk-to-jev). Local `http://127.0.0.1:5182`. Settings: `http://127.0.0.1:5182/settings`.
 
 ## What it is
 
-Two AIs, **one OpenRouter key**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Jev is **not** a chatbot. Shared **Case** ticket is Jev `state`.
+Two AIs through **OpenRouter**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`. Weather is Open-Meteo input (no key). Ten snaps on Workshop chips and Use Cases.
 
-**Settings** (`/settings`) is the BYOK paste place. Keys write to gitignored `.env.local` on the server. Optional later slots (saved, not called): OpenAI, Anthropic, Tavily, Brave.
+## Keys (BYOK)
 
-**Weather is input, not a third model.** Open-Meteo, server-side, **Load weather** into the Case ticket.
+Paste in **Settings** — not a template file. Keys write to gitignored `.env.local` on the **server**. Browser never stores raw keys in localStorage.
 
-**Tour:** first visit (no `localStorage["talk-to-jev:tutorial-done"]`) opens a custom coach overlay on Workshop. Chrome **Tour** restarts it. Skip / Done persist the flag. Code: `src/tutorial.ts` + `src/TutorialOverlay.tsx`.
+| Env | Today |
+|---|---|
+| `OPENROUTER_API_KEY` | Required for LLM + Jev |
+| `OPENAI_API_KEY` | Saved only |
+| `ANTHROPIC_API_KEY` | Saved only |
+| `TAVILY_API_KEY` | Saved only |
+| `BRAVE_API_KEY` | Saved only |
 
-## Pages
+Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Never `VITE_` prefixes.
 
-Workshop `/` · Use Cases `/use-cases` · Docs `/docs` (eyeball / code) · Settings `/settings` · History (Workshop drawer)
+`GET /api/health` → booleans only (`hasKey`, `keys.*`). `GET /api/settings` → present + last-4, never the full key.
 
-## How to start the tour
+## How to try
 
-1. Open `http://127.0.0.1:5182`
-2. First visit: overlay appears. Or chrome **Tour**.
-3. To reset: clear `talk-to-jev:tutorial-done` in this origin’s localStorage, then refresh (or click **Tour**).
+1. Open `http://127.0.0.1:5182/settings`. OpenRouter should show **Key ready** (not the secret).
+2. Workshop: chip or Use Cases card → **Load weather** → **Ask Jev**.
+3. Docs overlay still on `/docs`. History is local-only. Tour is chrome **Tour**.
+
+## GitHub safety (2026-09-19)
+
+- `.env` / `.env.local` are gitignored and **not tracked**. Not on GitHub.
+- History has env **names** in docs/code, not key **values** (`sk-or-v1-` count 0).
+- Repo was **private** at audit time. Safe to push. Do **not** flip public if a later leak appears.
 
 ## Do next
 
-- Keep `.env.local` gitignored. Never `VITE_` keys. Never commit secrets.
+- Keep `.env.local` gitignored. Rotate the OpenRouter key if it ever leaked outside this machine.
+- Search / direct OpenAI / Anthropic / Tavily / Brave are **not** wired yet — Settings is the home.
 - Pin Jev 1.13 unless Nate asks for latest.
-- Public GitHub only after SPEC §14 checklist.
 
-SPEC: `docs/SPEC.md` (v0.4). README is the OSS 2-minute path.
+SPEC: `docs/SPEC.md` (v0.4) §3, §6.5, §7, §14.
