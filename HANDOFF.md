@@ -28,6 +28,12 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 2. Workshop: chip or Use Cases card → **Load weather** → **Ask Jev**.
 3. Docs overlay still on `/docs`. History is local-only. Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
 
+## How to start the tour
+
+- First visit (no `talk-to-jev:tutorial-done`): overlay opens on Workshop.
+- Anytime: chrome **Tour**.
+- Reset: clear that localStorage key, refresh. Skip / Done writes `"1"` so refresh does not nag.
+
 ## GitHub safety (2026-09-19)
 
 - `.env` / `.env.local` are gitignored and **not tracked**. Not on GitHub.
