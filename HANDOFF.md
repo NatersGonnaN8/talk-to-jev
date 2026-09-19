@@ -1,23 +1,39 @@
 # Talk to Jev — handoff
 
-**2026-09-19** — Local Workshop history + Use Cases + OSS gate. GitHub `NatersGonnaN8/talk-to-jev` (public only if the SPEC open-source checklist passed). Local `http://127.0.0.1:5182`. Use Cases: `http://127.0.0.1:5182/use-cases` (`/cases` alias).
+**2026-09-19** — Weather + ten sample snaps live. Private GitHub https://github.com/NatersGonnaN8/talk-to-jev. Local `http://127.0.0.1:5182`.
 
 ## What it is
 
-Two AIs, one OpenRouter key. LLM talks (`deepseek/deepseek-v4-flash` chat completions). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`. Weather is Open-Meteo input (no extra key). Ten sample snaps live in `src/samples.ts` — Workshop chips and **Use Cases** cards are the same list.
+Two AIs, **one OpenRouter key**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`.
 
-## Chat history (this browser only)
+**Weather is input, not a third model.** [Open-Meteo](https://open-meteo.com) (free, no key) is fetched server-side (`GET /api/weather`). **Load weather** writes current + a short forecast into the Case ticket. Default place: Columbus, OH (change the field to another city or `lat, lon`).
 
-- Chrome **History** (Workshop) opens a sage drawer. New chat, Clear current, click to restore, Rename, Delete.
-- Stored in `localStorage` key **`talk-to-jev:chats`** (v1 JSON, cap 50). Code: `src/history.ts` + `src/HistoryPanel.tsx`.
-- Restores the LLM thread, case text, include-chat, Jev questions, last Jev answers, and sample preset id.
-- No accounts, no server DB, **no API keys** in that JSON. Refresh keeps the list.
+Ten snaps live in `src/samples.ts` (Workshop chips **and** Use Cases cards, same list):
+
+1. Jacket?
+2. Run go/no-go
+3. Rain delay
+4. Patio dinner
+5. Water the garden
+6. Bike vs bus
+7. Grill tonight?
+8. Storm prep
+9. Harvest festival (fun / TypeSafe-games NPC)
+10. Travel day
+
+## How to try them
+
+1. Open `http://127.0.0.1:5182` (Key ready pill).
+2. Click a chip, or **Use Cases** → a card (`/use-cases`, `/cases` alias).
+3. **Load weather** (default Columbus, OH). Jev state gets a marked Open-Meteo block.
+4. **Ask Jev** — typed choice / noul / score, not prose.
+
+Docs overlay (eyeball / code) is still on `/docs`. History is local-only.
 
 ## Do next
 
-- Keep `.env.local` as the only key file. Never `VITE_OPENROUTER_API_KEY`. Never put keys in localStorage.
+- Keep `.env.local` as the only key file. Never `VITE_OPENROUTER_API_KEY`.
 - Refresh docs after TypeSafe ships notes: button or `npm run update-jev-docs`.
 - Pin Jev 1.13 unless Nate asks for latest.
-- If GitHub is still private, a checklist item failed — read the last agent report before flipping visibility.
 
-SPEC: `docs/SPEC.md` (v0.3). License: MIT, Nathan Utley 2026.
+SPEC: `docs/SPEC.md` (v0.3).
