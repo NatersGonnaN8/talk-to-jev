@@ -1,6 +1,6 @@
 # Talk to Jev — handoff
 
-**2026-09-19** — MVP scaffolded. Private GitHub `talk-to-jev`. Local `http://127.0.0.1:5182`.
+**2026-09-19** — MVP live. Private GitHub https://github.com/NatersGonnaN8/talk-to-jev. Local `http://127.0.0.1:5182`.
 
 ## What it is
 
