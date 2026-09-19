@@ -5,48 +5,25 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { WeatherHttpError, getWeather, searchPlaces } from "./server/weather";
+import {
+  healthKeyFlags,
+  isProviderId,
+  loadEnvMap as loadDotenv,
+  present,
+  sanitizePublicError,
+  settingsPayload,
+  upsertProviderValue,
+} from "./server/settings";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const envFile = resolve(here, ".env.local");
 const docsRoot = resolve(here, "docs", "jev");
 
 const DEFAULT_JEV = "typesafe/jev-1.13";
 const DEFAULT_LLM = "deepseek/deepseek-v4-flash";
 
-function loadDotenv() {
-  const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) {
-    if (typeof v === "string") env[k] = v;
-  }
-  if (!existsSync(envFile)) return env;
-  for (const line of readFileSync(envFile, "utf8").split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq < 1) continue;
-    const key = trimmed.slice(0, eq);
-    let val = trimmed.slice(eq + 1);
-    if (
-      (val.startsWith('"') && val.endsWith('"')) ||
-      (val.startsWith("'") && val.endsWith("'"))
-    ) {
-      val = val.slice(1, -1);
-    }
-    env[key] = val; // .env.local wins over a stale Windows user-level OPENROUTER_API_KEY
-  }
-  return env;
-}
-
-function present(value: string | undefined) {
-  return Boolean(value && value.trim());
-}
-
 function publicError(err: unknown): string {
   const raw = err instanceof Error ? err.message : "server error";
-  if (/bearer\s+\S+|sk-or-|OPENROUTER_API_KEY|api[_-]?key\s*[:=]/i.test(raw)) {
-    return "Request failed.";
-  }
-  return raw;
+  return sanitizePublicError(raw);
 }
 
 function send(res: ServerResponse, code: number, body: unknown) {
@@ -178,13 +155,31 @@ function workshopApi(): Plugin {
         try {
           if (req.method === "GET" && url === "/api/health") {
             const docs = docsIndex();
+            const keys = healthKeyFlags(env);
             return send(res, 200, {
               ok: true,
-              hasKey: present(env.OPENROUTER_API_KEY),
+              hasKey: keys.openrouter,
+              keys,
               jevModel: env.JEV_MODEL || DEFAULT_JEV,
               llmModel: env.LLM_MODEL || DEFAULT_LLM,
               docs: { files: docs.files.length, fetchedAt: docs.fetchedAt },
             });
+          }
+
+          if (req.method === "GET" && url === "/api/settings") {
+            return send(res, 200, settingsPayload());
+          }
+
+          if (req.method === "POST" && url === "/api/settings") {
+            const body = await jsonBody(req);
+            if (!isProviderId(body.id)) {
+              return send(res, 400, { ok: false, message: "Unknown key slot." });
+            }
+            if (typeof body.value !== "string") {
+              return send(res, 400, { ok: false, message: "value must be a string." });
+            }
+            upsertProviderValue(body.id, body.value);
+            return send(res, 200, settingsPayload());
           }
 
           if (req.method === "GET" && url === "/api/docs") {

@@ -20,7 +20,10 @@ import { DEFAULT_QUESTIONS, DEFAULT_STATE } from "./types";
 import { SAMPLE_CASES, cloneSample, type SampleId } from "./samples";
 import { DEFAULT_LOCATION_QUERY, mergeWeatherIntoCase } from "./weather";
 import { UseCasesPage } from "./UseCases";
+import { SettingsPage } from "./pages/Settings";
 import { HistoryPanel } from "./HistoryPanel";
+import { TutorialOverlay } from "./TutorialOverlay";
+import { isTutorialDone, type TutorialPage } from "./tutorial";
 import {
   activeThread,
   deleteChat,
@@ -35,11 +38,12 @@ import {
   type WorkshopSnapshot,
 } from "./history";
 
-type Page = "workshop" | "docs" | "use-cases";
+type Page = "workshop" | "docs" | "use-cases" | "settings";
 
 function pageFromPath(): Page {
   const p = window.location.pathname;
   if (p.startsWith("/docs")) return "docs";
+  if (p.startsWith("/settings")) return "settings";
   if (p.startsWith("/use-cases") || p.startsWith("/cases")) return "use-cases";
   return "workshop";
 }
@@ -161,6 +165,8 @@ export function App() {
   const [toast, setToast] = useState("");
   const [updating, setUpdating] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(() => !isTutorialDone());
+  const [tourKey, setTourKey] = useState(0);
 
   useEffect(() => {
     const onPop = () => {
@@ -184,6 +190,9 @@ export function App() {
     } else if (next === "use-cases") {
       window.history.pushState({}, "", "/use-cases");
       setCaseId(null);
+    } else if (next === "settings") {
+      window.history.pushState({}, "", "/settings");
+      setCaseId(null);
     } else if (sampleId) {
       window.history.pushState({}, "", `/?case=${encodeURIComponent(sampleId)}`);
       setCaseId(sampleId);
@@ -194,6 +203,15 @@ export function App() {
     }
     setPage(next);
     if (next !== "workshop") setHistoryOpen(false);
+  };
+
+  const goTour = (next: TutorialPage) => {
+    go(next);
+  };
+
+  const startTour = () => {
+    setTourKey((k) => k + 1);
+    setTourOpen(true);
   };
 
   const onUpdateDocs = async () => {
@@ -236,6 +254,7 @@ export function App() {
           <button
             className={page === "use-cases" ? "nav-btn on" : "nav-btn"}
             type="button"
+            data-tutorial="use-cases"
             onClick={() => go("use-cases")}
           >
             Use Cases
@@ -243,16 +262,35 @@ export function App() {
           <button
             className={page === "docs" ? "nav-btn on" : "nav-btn"}
             type="button"
+            data-tutorial="docs"
             onClick={() => go("docs")}
           >
             Docs
           </button>
+          <button
+            className={page === "settings" ? "nav-btn on" : "nav-btn"}
+            type="button"
+            data-tutorial="settings"
+            onClick={() => go("settings")}
+          >
+            Settings
+          </button>
         </nav>
         <div className="chrome-right">
+          <button
+            type="button"
+            className="btn ghost"
+            data-tutorial="tour"
+            aria-label="Start tour"
+            onClick={startTour}
+          >
+            Tour
+          </button>
           {page === "workshop" ? (
             <button
               className={historyOpen ? "btn ghost on" : "btn ghost"}
               type="button"
+              data-tutorial="history"
               aria-expanded={historyOpen}
               aria-controls="workshop-history"
               onClick={() => setHistoryOpen((open) => !open)}
@@ -260,22 +298,24 @@ export function App() {
               History
             </button>
           ) : null}
-          <span
+          <button
+            type="button"
             className={
               health == null ? "pill" : health.hasKey ? "pill ready" : "pill missing"
             }
             title={
               health?.hasKey
-                ? "OPENROUTER_API_KEY is set on the server"
-                : "Paste OPENROUTER_API_KEY into .env.local"
+                ? "OpenRouter key is on the server — open Settings"
+                : "Need OpenRouter key — open Settings"
             }
+            onClick={() => go("settings")}
           >
             {health == null
               ? "Checking key…"
               : health.hasKey
                 ? "Key ready"
                 : "Need OpenRouter key"}
-          </span>
+          </button>
           <button
             className="btn ghost"
             type="button"
@@ -296,7 +336,15 @@ export function App() {
       ) : null}
       {page === "docs" ? <DocsPage /> : null}
       {page === "use-cases" ? (
-        <UseCasesPage onOpen={(id) => go("workshop", id)} />
+        <div data-tutorial="use-cases-page">
+          <UseCasesPage onOpen={(id) => go("workshop", id)} />
+        </div>
+      ) : null}
+      {page === "settings" ? (
+        <SettingsPage
+          onToast={setToast}
+          onSaved={async () => setHealth(await getHealth())}
+        />
       ) : null}
       <div hidden={page !== "workshop"}>
         <Workshop
@@ -310,6 +358,12 @@ export function App() {
           onBlankWorkshop={() => go("workshop")}
         />
       </div>
+      <TutorialOverlay
+        key={tourKey}
+        open={tourOpen}
+        onDismiss={() => setTourOpen(false)}
+        onGo={goTour}
+      />
     </div>
   );
 }
@@ -603,7 +657,7 @@ function Workshop({
         onRename={onRenameChat}
         onDelete={onDeleteChat}
       />
-      <section className="ticket">
+      <section className="ticket" data-tutorial="case">
         <div className="ticket-head">
           <span className="eyebrow">Case</span>
           <label className="check">
@@ -628,7 +682,7 @@ function Workshop({
             </button>
           ))}
         </div>
-        <div className="weather-row">
+        <div className="weather-row" data-tutorial="weather">
           <input
             value={locationQuery}
             onChange={(e) => setLocationQuery(e.target.value)}
@@ -665,13 +719,13 @@ function Workshop({
       </section>
 
       <section className="board">
-        <article className="pane llm" style={{ flex: `${split} 1 0` }}>
+        <article className="pane llm" data-tutorial="llm" style={{ flex: `${split} 1 0` }}>
           <header className="pane-head">
             <div>
               <span className="eyebrow">LLM</span>
               <code>{health?.llmModel ?? "deepseek/deepseek-v4-flash"}</code>
             </div>
-            <div className="row-actions">
+            <div className="row-actions" data-tutorial="wire">
               <button
                 type="button"
                 className="btn ghost"
@@ -737,7 +791,7 @@ function Workshop({
           onPointerDown={onSplitPointer}
         />
 
-        <article className="pane jev" style={{ flex: `${100 - split} 1 0` }}>
+        <article className="pane jev" data-tutorial="jev" style={{ flex: `${100 - split} 1 0` }}>
           <header className="pane-head">
             <div>
               <span className="eyebrow">Jev</span>
@@ -746,6 +800,7 @@ function Workshop({
             <button
               type="button"
               className="btn solid"
+              data-tutorial="ask-jev"
               disabled={locked}
               onClick={() => void onAskJev()}
             >
@@ -1133,7 +1188,12 @@ function DocsPage() {
       </aside>
       <article className="doc-view">
         {active && text ? (
-          <div className="doc-overlay" role="group" aria-label="Markdown view">
+          <div
+            className="doc-overlay"
+            data-tutorial="docs-view"
+            role="group"
+            aria-label="Markdown view"
+          >
             <button
               type="button"
               className={view === "nice" ? "view-btn on" : "view-btn"}

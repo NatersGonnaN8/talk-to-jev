@@ -131,8 +131,8 @@ Default demo case and questions (official-shaped):
 Global chrome (all pages):
 
 - Left: product name **Talk to Jev** (links home Workshop)
-- Nav: **Workshop** | **Use Cases** | **Docs** (and **Settings** only if that page exists)
-- Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), key pill (`Key ready` / `Need OpenRouter key`), **Update Jev docs**
+- Nav: **Workshop** | **Use Cases** | **Docs** | **Settings**
+- Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), key pill (`Key ready` / `Need OpenRouter key` — opens Settings), **Update Jev docs**
 - No native textarea resize grips. Pane widths use a custom vertical splitter.
 - No native `<dialog>` / iframe for the coach. See §6.4.
 
@@ -278,6 +278,27 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 **Code:** `src/tutorial.ts` (step list + storage helpers) and `src/TutorialOverlay.tsx`. Hook live controls with `data-tutorial` attributes. Overlay may switch Workshop ↔ Docs for those steps, then continue.
 
 **Do not:** use `<dialog>`, an iframe, `resize:` other than `none`, or a translucent card.
+
+### 6.5 Settings — `/settings`
+
+**Job:** BYOK home. Paste provider keys. Keys stay on this machine in gitignored `.env.local`. The browser never stores raw keys in localStorage.
+
+Layout:
+
+```
+[ chrome ]
+[ manila intro slip ]
+[ five key rows ]
+```
+
+Each row, in this order: **OpenRouter**, **OpenAI**, **Anthropic**, **Tavily**, **Brave**.
+
+- Label + short why (OpenRouter = LLM + Jev today; others unused until search / direct models land)
+- Password-style input + **Save** (no native resize grips)
+- Status **Key ready** / **missing** without revealing the value. Ready may show last-4 only
+- Tips (status / last-4 help) are **opaque**, fully on-screen, and **flip** (below if there is room; above if the row is low — never under sticky chrome)
+
+Saving one row POSTs `/api/settings` `{ id, value }` and writes that env var on the server. Empty save clears the slot. Clear the input after a successful save. OpenRouter still powers LLM + Jev; do not wire Tavily / Brave / OpenAI / Anthropic live calls in MVP.
 
 ---
 
@@ -553,6 +574,11 @@ Before calling Workshop done:
 25. Next walks at least 3 steps; Back returns; missing targets (Use Cases / Settings / weather if not landed) are skipped, not crashed
 26. Skip dismisses; refresh does not reopen the overlay
 27. Chrome **Tour** restarts the overlay; Docs eyeball/code step still keeps that view overlay fully visible
+28. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
+29. Saving an empty unused key (e.g. OpenAI) does not echo a full key in the UI or JSON
+30. `GET /api/settings` has `present` / `last4` only — no full key
+31. Chrome key pill opens `/settings`
+32. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 
 ---
 

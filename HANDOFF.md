@@ -1,39 +1,31 @@
 # Talk to Jev — handoff
 
-**2026-09-19** — Weather + ten sample snaps live. Private GitHub https://github.com/NatersGonnaN8/talk-to-jev. Local `http://127.0.0.1:5182`.
+**2026-09-19** — README + first-run **Tour** overlay. Private GitHub https://github.com/NatersGonnaN8/talk-to-jev. Local `http://127.0.0.1:5182`.
 
 ## What it is
 
-Two AIs, **one OpenRouter key**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`.
+Two AIs, **one OpenRouter key**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Jev is **not** a chatbot. Shared **Case** ticket is Jev `state`.
 
-**Weather is input, not a third model.** [Open-Meteo](https://open-meteo.com) (free, no key) is fetched server-side (`GET /api/weather`). **Load weather** writes current + a short forecast into the Case ticket. Default place: Columbus, OH (change the field to another city or `lat, lon`).
+**Settings** (`/settings`) is the BYOK paste place. Keys write to gitignored `.env.local` on the server. Optional later slots (saved, not called): OpenAI, Anthropic, Tavily, Brave.
 
-Ten snaps live in `src/samples.ts` (Workshop chips **and** Use Cases cards, same list):
+**Weather is input, not a third model.** Open-Meteo, server-side, **Load weather** into the Case ticket.
 
-1. Jacket?
-2. Run go/no-go
-3. Rain delay
-4. Patio dinner
-5. Water the garden
-6. Bike vs bus
-7. Grill tonight?
-8. Storm prep
-9. Harvest festival (fun / TypeSafe-games NPC)
-10. Travel day
+**Tour:** first visit (no `localStorage["talk-to-jev:tutorial-done"]`) opens a custom coach overlay on Workshop. Chrome **Tour** restarts it. Skip / Done persist the flag. Code: `src/tutorial.ts` + `src/TutorialOverlay.tsx`.
 
-## How to try them
+## Pages
 
-1. Open `http://127.0.0.1:5182` (Key ready pill).
-2. Click a chip, or **Use Cases** → a card (`/use-cases`, `/cases` alias).
-3. **Load weather** (default Columbus, OH). Jev state gets a marked Open-Meteo block.
-4. **Ask Jev** — typed choice / noul / score, not prose.
+Workshop `/` · Use Cases `/use-cases` · Docs `/docs` (eyeball / code) · Settings `/settings` · History (Workshop drawer)
 
-Docs overlay (eyeball / code) is still on `/docs`. History is local-only.
+## How to start the tour
+
+1. Open `http://127.0.0.1:5182`
+2. First visit: overlay appears. Or chrome **Tour**.
+3. To reset: clear `talk-to-jev:tutorial-done` in this origin’s localStorage, then refresh (or click **Tour**).
 
 ## Do next
 
-- Keep `.env.local` as the only key file. Never `VITE_OPENROUTER_API_KEY`.
-- Refresh docs after TypeSafe ships notes: button or `npm run update-jev-docs`.
+- Keep `.env.local` gitignored. Never `VITE_` keys. Never commit secrets.
 - Pin Jev 1.13 unless Nate asks for latest.
+- Public GitHub only after SPEC §14 checklist.
 
-SPEC: `docs/SPEC.md` (v0.3).
+SPEC: `docs/SPEC.md` (v0.4). README is the OSS 2-minute path.

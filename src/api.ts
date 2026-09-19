@@ -1,9 +1,30 @@
-import type { Health } from "./types";
+import type { Health, SettingsResponse } from "./types";
 import type { WeatherResponse } from "./weather";
 
 export async function getHealth(): Promise<Health> {
   const res = await fetch("/api/health");
   return (await res.json()) as Health;
+}
+
+export async function getSettings(): Promise<SettingsResponse> {
+  const res = await fetch("/api/settings");
+  const body = (await res.json()) as SettingsResponse;
+  if (!res.ok) throw new Error(body.message || "Settings failed");
+  return body;
+}
+
+export async function saveSetting(
+  id: string,
+  value: string,
+): Promise<SettingsResponse> {
+  const res = await fetch("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, value }),
+  });
+  const body = (await res.json()) as SettingsResponse;
+  if (!res.ok) throw new Error(body.message || "Save failed");
+  return body;
 }
 
 export async function updateDocs() {

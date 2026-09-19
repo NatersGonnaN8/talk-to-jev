@@ -49,9 +49,39 @@ export type ScoreAnswer = {
 
 export type JevAnswer = ChoiceAnswer | NoulAnswer | ScoreAnswer;
 
+export type KeyId =
+  | "openrouter"
+  | "openai"
+  | "anthropic"
+  | "tavily"
+  | "brave";
+
+export type KeyStatus = {
+  id: KeyId;
+  env: string;
+  label: string;
+  why: string;
+  required: boolean;
+  present: boolean;
+  last4: string | null;
+};
+
+export type SettingsResponse = {
+  ok: boolean;
+  keys: KeyStatus[];
+  message?: string;
+};
+
 export type Health = {
   ok: boolean;
   hasKey: boolean;
+  keys?: {
+    openrouter: boolean;
+    openai: boolean;
+    anthropic: boolean;
+    tavily: boolean;
+    brave: boolean;
+  };
   jevModel: string;
   llmModel: string;
   docs: { files: number; fetchedAt: string };
