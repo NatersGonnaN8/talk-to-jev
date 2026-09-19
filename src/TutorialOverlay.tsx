@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   TUTORIAL_STEPS,
+  TUTORIAL_UI,
   findTutorialTarget,
   hasLaterStep,
   markTutorialDone,
+  queryTutorialEl,
   stepExistsInDom,
+  tutorialKicker,
   type TutorialPage,
   type TutorialStep,
 } from "./tutorial";
@@ -85,7 +88,6 @@ export function TutorialOverlay({
   const [cursor, setCursor] = useState(0);
   const [hole, setHole] = useState<Hole | null>(null);
   const [pos, setPos] = useState<Pos>({ top: CHROME + 28, left: 24 });
-  const [busy, setBusy] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const cursorRef = useRef(cursor);
@@ -94,8 +96,10 @@ export function TutorialOverlay({
   onGoRef.current = onGo;
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
+  const runId = useRef(0);
 
   const finish = useCallback(() => {
+    runId.current += 1;
     markTutorialDone();
     onDismissRef.current();
   }, []);
@@ -115,31 +119,29 @@ export function TutorialOverlay({
 
   const activate = useCallback(
     async (start: number, dir: 1 | -1) => {
-      setBusy(true);
-      try {
-        if (start < 0) {
-          setCursor(0);
-          return;
-        }
-        for (let i = start; i >= 0 && i < TUTORIAL_STEPS.length; i += dir) {
-          const step = TUTORIAL_STEPS[i];
-          onGoRef.current(step.page);
-          await waitFrames(4);
-          if (step.page === "docs") await ensureDocsView();
-          await waitFrames(2);
-          const needs =
-            Boolean(step.hooks?.length) ||
-            Boolean(step.selectors?.length) ||
-            Boolean(step.texts?.length);
-          const target = findTutorialTarget(step);
-          if (needs && !target) continue;
-          setCursor(i);
-          return;
-        }
-        if (dir === 1) finish();
-      } finally {
-        setBusy(false);
+      const mine = ++runId.current;
+      if (start < 0) {
+        setCursor(0);
+        return;
       }
+      for (let i = start; i >= 0 && i < TUTORIAL_STEPS.length; i += dir) {
+        if (mine !== runId.current) return;
+        const step = TUTORIAL_STEPS[i];
+        onGoRef.current(step.page);
+        await waitFrames(2);
+        if (mine !== runId.current) return;
+        if (step.page === "docs") await ensureDocsView();
+        await waitFrames(2);
+        if (mine !== runId.current) return;
+        const needs =
+          Boolean(step.hooks?.length) ||
+          Boolean(step.selectors?.length) ||
+          Boolean(step.texts?.length);
+        if (needs && !queryTutorialEl(step, false)) continue;
+        setCursor(i);
+        return;
+      }
+      if (dir === 1 && mine === runId.current) finish();
     },
     [finish],
   );
@@ -147,12 +149,15 @@ export function TutorialOverlay({
   useEffect(() => {
     if (!open) return;
     void activate(0, 1);
+    return () => {
+      runId.current += 1;
+    };
   }, [open, activate]);
 
   useLayoutEffect(() => {
     if (!open) return;
     layout(TUTORIAL_STEPS[cursor] ?? TUTORIAL_STEPS[0]);
-  }, [open, cursor, layout, busy]);
+  }, [open, cursor, layout]);
 
   useEffect(() => {
     if (!open) return;
@@ -204,35 +209,32 @@ export function TutorialOverlay({
         aria-labelledby="tour-title"
         aria-describedby="tour-body"
       >
-        <p className="tour-kicker">
-          Tour · {shown} / {total}
-        </p>
+        <p className="tour-kicker">{tutorialKicker(shown, total)}</p>
         <h2 id="tour-title">{step.title}</h2>
         <p id="tour-body">{step.body}</p>
         <div className="tour-actions">
-          <button type="button" className="btn ghost" onClick={finish} disabled={busy}>
-            Skip
+          <button type="button" className="btn ghost" onClick={finish}>
+            {TUTORIAL_UI.skip}
           </button>
           <span className="tour-spacer" />
           <button
             type="button"
             className="btn ghost"
-            disabled={busy || cursor === 0}
+            disabled={cursor === 0}
             onClick={() => void activate(cursor - 1, -1)}
           >
-            Back
+            {TUTORIAL_UI.back}
           </button>
           <button
             ref={nextRef}
             type="button"
             className="btn solid"
-            disabled={busy}
             onClick={() => {
               if (last) finish();
-              else void activate(cursor + 1, 1);
+              else void activate(cursorRef.current + 1, 1);
             }}
           >
-            {last ? "Done" : "Next"}
+            {last ? TUTORIAL_UI.done : TUTORIAL_UI.next}
           </button>
         </div>
       </aside>

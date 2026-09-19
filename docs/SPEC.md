@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.4 — 2026-09-19  
+**Status:** v0.5 — 2026-09-19  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -23,7 +23,7 @@ Jev is TypeSafe’s first **System One** model. It is **not** a chatbot. You sen
 
 The LLM is the cheap prose half. Jev is the cheap decision half. The app is the wire between them.
 
-**Weather is input, not a third model.** Live conditions come from **Open-Meteo** (free, no API key), fetched server-side, and written into the Case ticket as Jev `state` (and therefore LLM context). Still **one OpenRouter key**.
+**Weather is one use case, not the product.** Nater (2026-09-19): “Weather is literally one use case.” Nine of the ten snaps are **operator / business** decisions. Live conditions come from **Open-Meteo** (free, no API key), fetched server-side, and written into the Case ticket **only for the Jacket preset**. Still **one OpenRouter key**.
 
 ---
 
@@ -112,17 +112,12 @@ Shared **case** (the Jev `state`) sits in a ticket strip at the top. Both models
 | **Ask Jev** | Decisions API. `state` = case text, plus optional `{ transcript }` of the LLM thread. `questions` = the editor on the Jev pane. |
 | **Propose questions** | LLM is asked to return a JSON `questions` map for this case. Valid maps replace (or merge into) the Jev editor. Invalid JSON stays in chat as prose. |
 | **Feed Jev → LLM** | Inject a user-visible note into the LLM thread summarizing typed answers (choice / noul / score / confidence). Next LLM turn sees it. |
-| **Load weather** | Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on the Case ticket. Does not call Jev or the LLM. |
-| **Sample case** | One click (Workshop chip **or** Use Cases card) loads the same `src/samples.ts` preset: Case situation (weather placeholder), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
+| **Load weather** | **Jacket preset only.** Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on the Case ticket. Does not call Jev or the LLM. Hidden on business presets. |
+| **Sample case** | One click (Workshop chip **or** Use Cases card) loads the same `src/samples.ts` preset: Case situation (weather placeholder **only** on Jacket), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
 
 Code owns routing. The UI shows probabilities; it does not pretend a typed answer is “correct.”
 
-Default demo case and questions (official-shaped):
-
-- State: `My card was charged twice. Please help ASAP.`
-- `department` choice: billing / technical / sales
-- `urgent` noul
-- `frustration` score: Calm / Frustrated / Very angry
+**Landing preset (first-open and New chat):** **Invoice exception** (`invoice`) — a business chip. Not Jacket. Not the old one-line “My card was charged twice” demo. That chip is visually on. See §12.
 
 ---
 
@@ -132,9 +127,27 @@ Global chrome (all pages):
 
 - Left: product name **Talk to Jev** (links home Workshop)
 - Nav: **Workshop** | **Use Cases** | **Docs** | **Settings**
-- Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), key pill (`Key ready` / `Need OpenRouter key` — opens Settings), **Update Jev docs**
+- Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), **key pill** (status text; shortcut to Settings — see **Chrome key pill**), **Update Jev docs**
 - No native textarea resize grips. Pane widths use a custom vertical splitter.
 - No native `<dialog>` / iframe for the coach. See §6.4.
+
+### Chrome key pill → Settings
+
+The right-side key-status pill is a **shortcut to Settings** (`/settings`). It is not a second Settings label — nav already has **Settings**. Visible text stays the OpenRouter key status. Never rename the pill to the word “Settings.”
+
+| State | Visible text | `title` (and accessible name) |
+|---|---|---|
+| checking | `Checking key…` | Checking OpenRouter key — open Settings |
+| ready | `Key ready` | OpenRouter key is on the server — open Settings |
+| missing | `Need OpenRouter key` | Need OpenRouter key — paste in Settings |
+| error | `Key check failed` | Could not check OpenRouter key — open Settings |
+
+Behavior (every state, including checking / missing / error):
+
+- Real `<button type="button">` — not a dead `<span>`. Keyboard: Enter / Space, same as any button.
+- Cursor `pointer`.
+- Click (and keyboard activate) uses the same route as the Settings nav item: `/settings`.
+- Missing-key title tells you to **paste in Settings**. Ready / checking / error titles still say this opens Settings.
 
 ### 6.1 Workshop — `/`
 
@@ -145,8 +158,8 @@ Layout (desktop):
 ```
 [ chrome ]
 [ CASE TICKET ]
-  [ samples: 10 chips ]
-  [ location field + Load weather ]
+  [ samples: 10 chips — 9 business + Jacket ]
+  [ location field + Load weather ]   ← Jacket only; hidden on business chips
   [ include-chat checkbox ]
   [ shared state textarea ]
 [ LLM pane | splitter | JEV pane ]
@@ -156,11 +169,11 @@ Layout (desktop):
 
 - Label: **Case** (this is Jev’s `state`)
 - Checkbox **Include LLM chat in Jev state** (default on)
-- **Samples** row: ten one-click chips (see §12). Active chip is visually on. The initial load is still the support-ticket demo (not one of the ten).
-- **Weather row:** location field (default **Columbus, OH**) + **Load weather**. Accepts a city / “City, ST” (Open-Meteo geocoding) or `lat, lon`. Loading does not require the OpenRouter key.
-- Textarea, `resize: none`, fills the ticket. **Load weather** replaces the marked weather block (or prepends one).
-- Helper: “Jev judges this. The LLM can draft it. Weather is Open-Meteo input, not a model.”
-- After a successful load, a one-line status under the row: resolved place + now summary (e.g. `Columbus, Ohio · 72°F · Partly cloudy`). Toast on failure.
+- **Samples** row: ten one-click chips (see §12). Active chip is visually on. **First-open** and **New chat** load **Invoice exception** (`invoice`) — a business snap — not Jacket.
+- **Weather row:** shown **only** when the active preset is **Jacket?** (`jacket`). Location field (default **Columbus, OH**) + **Load weather**. **Hide** the row on the nine business presets (do not leave a disabled weather form that still makes the Workshop look like a weather app). Accepts a city / “City, ST” (Open-Meteo geocoding) or `lat, lon`. Loading does not require the OpenRouter key.
+- Textarea, `resize: none`, fills the ticket. **Load weather** (Jacket only) replaces the marked weather block (or prepends one).
+- Helper: “Jev judges this. The LLM can draft it.” On Jacket only, add: “Weather is Open-Meteo input, not a model.”
+- After a successful weather load, a one-line status under the row: resolved place + now summary (e.g. `Columbus, Ohio · 72°F · Partly cloudy`). Toast on failure.
 
 **LLM pane** (manila / prose)
 
@@ -192,12 +205,12 @@ Layout (desktop):
 **History** (local threads, overlay drawer — not a permanent sidebar):
 
 - Chrome **History** opens a left drawer over the Workshop (sage mill, like the Docs rail). Backdrop click or Escape closes it. No native resize grips.
-- **New chat** — save the open thread if it has anything worth keeping, then start a blank workshop (default case + default questions, empty LLM thread, no Jev answers).
+- **New chat** — save the open thread if it has anything worth keeping, then start the landing workshop (**Invoice exception** + its questions, empty LLM thread, no Jev answers, that chip on).
 - **Clear current** — empty the open LLM thread and last Jev answers; keep the case ticket, include-chat checkbox, and question editor.
-- Click a past thread to restore it: LLM messages, case text, include-chat, Jev questions, last Jev answers (if any), and selected sample preset id when weather/samples exist.
+- Click a past thread to restore it: LLM messages, case text, include-chat, Jev questions, last Jev answers (if any), and selected sample preset id.
 - Title: auto from the first user line, else the case’s first line, else “Untitled case”. Optional rename (pencil); a renamed title stays until the user edits it again.
 - Each row shows the title plus a timestamp (`updatedAt`).
-- Delete one thread (trash). Deleting the open thread starts a blank workshop. Deleting the last thread leaves an empty workshop, not a ghost list item.
+- Delete one thread (trash). Deleting the open thread returns to the **Invoice exception** landing. Deleting the last thread leaves that landing, not a ghost list item.
 - Survives refresh. Does not sync across browsers or machines.
 
 **Mobile:** stack Case → LLM → Jev. Splitter hidden; panes full width. History drawer uses most of the viewport width.
@@ -226,7 +239,7 @@ Layout:
 
 ### 6.3 Use Cases — `/use-cases` (`/cases` alias)
 
-**Job:** show the **same ten** sample snaps that Workshop loads. One list in `src/samples.ts`. Do not invent a second catalog.
+**Job:** show the **same ten** sample snaps that Workshop loads — **nine business** + **one weather** (Jacket). One list in `src/samples.ts`. Do not invent a second catalog.
 
 Layout:
 
@@ -236,7 +249,7 @@ Layout:
 [ 10 case cards ]
 ```
 
-Each card: **label** (same as the Workshop chip), one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads **the same preset** as the Workshop chip: situation + questions, clear answers + LLM thread, mark that sample active. Default billing-ticket demo stays the Workshop empty state when no `?case=` is set.
+Each card: **label** (same as the Workshop chip), one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). The Jacket card may stamp **weather**; business cards do not. Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads **the same preset** as the Workshop chip: situation + questions, clear answers + LLM thread, mark that sample active. Workshop with no `?case=` still lands on **Invoice exception**.
 
 The ten ids, labels, and question maps **are §12**. This page is the gallery; Workshop chips are the compact picker. One module: `src/samples.ts`.
 
@@ -269,13 +282,15 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 3. **LLM pane** — prose / draft / chat.
 4. **Jev pane** — typed `choice` / `noul` / `score` + **Ask Jev**.
 5. **Propose Jev questions** / **Feed Jev to LLM** if those buttons exist.
-6. **Use Cases** tab if it exists.
+6. **Use Cases** — nine operator snaps plus one weather case (Jacket), same list as Workshop chips.
 7. **Docs** — eyeball (nice Markdown) vs code (raw snapshot). May navigate to `/docs`.
 8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
 9. **History** if the chrome control exists.
-10. **Load weather** if that control exists (Open-Meteo input, not a third model).
+10. **Load weather** if that control is **visible** (Jacket preset only; Open-Meteo input, not a third model). Skip when the weather row is hidden on a business preset.
 
 **Code:** `src/tutorial.ts` (step list + storage helpers) and `src/TutorialOverlay.tsx`. Hook live controls with `data-tutorial` attributes. Overlay may switch Workshop ↔ Docs for those steps, then continue.
+
+**Copy (2026-09-19):** All overlay walkthrough text lives in **one** module: `src/tutorial.ts` (`TUTORIAL_STEPS` titles/bodies plus `TUTORIAL_UI` chrome/controls). The overlay and the chrome **Tour** button **import** that module — it is the live source of truth, not a dump. Human-readable twin for chat and copy edits: [`docs/TOUR.md`](TOUR.md) (keep 1:1 with `src/tutorial.ts`). Do not leave tour strings inline in `App.tsx`.
 
 **Do not:** use `<dialog>`, an iframe, `resize:` other than `none`, or a translucent card.
 
@@ -378,7 +393,7 @@ ChatThread:
   questions           // Jev question editor
   answers             // last Jev answers or null
   jevMeta             // usage line if any
-  samplePresetId      // weather/sample preset id if that UI exists; else null
+  samplePresetId      // §12 preset id; landing `invoice` is the empty default (not a ghost thread)
 ```
 
 Rules:
@@ -388,13 +403,15 @@ Rules:
 - Corrupt or unknown `v` → start empty (do not throw).
 - Quota errors: drop oldest inactive threads and retry; never crash the Workshop.
 - Composer draft and pane split are not required to persist.
-- Empty untouched defaults are **not** stored as ghost threads. A thread is written once it has messages, a renamed title, a non-default case, non-default questions, Jev answers, or a sample preset.
+- Empty untouched **landing** (Invoice exception, `samplePresetId` `invoice` or null, no messages, no answers, questions unchanged) is **not** stored as a ghost thread. A thread is written once it has messages, a renamed title, a non-landing case, non-landing questions, Jev answers, or a **non-landing** sample preset (including Jacket).
 
 ---
 
 ## 11. Weather input (Open-Meteo)
 
 Provider: **Open-Meteo** Forecast API + Geocoding API. No API key. CC BY 4.0 attribution in the weather block and a short UI hint. Server-side fetch only (Vite middleware). The browser never talks to Open-Meteo directly in MVP (keeps one network story: UI → local `/api/*`).
+
+**Workshop chrome:** location field + **Load weather** render **only** on Jacket (`jacket`). `/api/weather` stays for that case. Business presets never show the weather row — the Workshop must not look like a weather app.
 
 **Default place:** Columbus, Ohio, United States (`39.9612, -82.9988`). Nate can change the location field to another city (`Nashville, TN`) or coordinates (`36.16, -86.78`).
 
@@ -549,7 +566,7 @@ Before calling Workshop done:
 
 1. Health pill shows key state accurately
 2. Send an LLM message; streamed reply appears
-3. Ask Jev on the default case; three answers render (choice / noul / score)
+3. Ask Jev on the landing **Invoice exception**; three answers render (choice / noul / score)
 4. Propose questions replaces or fills the editor
 5. Feed Jev → LLM injects a visible note
 6. Docs page lists snapshot files; open one
@@ -557,18 +574,19 @@ Before calling Workshop done:
 8. Splitter drags; textareas have no native corner grip
 9. `/docs` deep link works after refresh
 10. Docs overlay: eyeball shows rendered Markdown; code icon shows raw source; tips stay fully visible
-11. `/use-cases` shows **10** cards; `/cases` is the same page
+11. `/use-cases` shows **10** cards (9 business + Jacket, not ten weather titles); `/cases` is the same page
 12. Click a card: Workshop loads that case + questions (`?case=` in the URL)
 13. `/api/health` JSON has `hasKey` / `keys.*` booleans only — no key material in the body
 14. Tips on Use Cases cards stay fully visible (flip, opaque)
 15. Send an LLM message, refresh: the thread is still in History and the transcript restores
 16. Click a past thread to restore case + questions + last Jev answers
-17. New chat starts a blank workshop; the previous thread remains in the list
+17. New chat returns to Invoice exception; the previous thread remains in the list
 18. Delete one thread; it is gone after refresh
 19. `localStorage["talk-to-jev:chats"]` has no API key
-20. **Load weather** (default Columbus, OH) fills the Case ticket weather block; status line shows place + now; no OpenRouter key required
-21. Pick at least two sample chips: Case + Jev questions swap; Ask Jev returns typed answers
-22. Changing the location field and loading again replaces the weather block without wiping the Situation
+20. First-open Workshop: **Invoice exception** chip is on; weather row is **hidden**. Jacket chip shows the weather row; switching back to a business chip hides it again
+21. On Jacket: **Load weather** (default Columbus, OH) fills the Case ticket weather block; status line shows place + now; no OpenRouter key required
+22. Pick at least two **business** chips plus Jacket: Case + Jev questions swap; Ask Jev returns typed answers
+23. On Jacket: changing the location field and loading again replaces the weather block without wiping the Situation
 23. `/docs` overlay still works after the Workshop weather work
 24. First visit (or clear `talk-to-jev:tutorial-done`): coach overlay appears on Workshop; card fully on-screen and opaque
 25. Next walks at least 3 steps; Back returns; missing targets (Use Cases / Settings / weather if not landed) are skipped, not crashed
@@ -577,7 +595,7 @@ Before calling Workshop done:
 28. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
 29. Saving an empty unused key (e.g. OpenAI) does not echo a full key in the UI or JSON
 30. `GET /api/settings` has `present` / `last4` only — no full key
-31. Chrome key pill opens `/settings`
+31. Chrome key pill (checking / ready / missing / error) is a real button with `cursor: pointer`; click and keyboard go to `/settings`; `title` mentions Settings on every state (missing: paste in Settings); visible label stays the key status, not the word Settings
 32. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 
 ---

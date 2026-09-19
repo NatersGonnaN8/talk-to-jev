@@ -26,7 +26,7 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 
 1. Open `http://127.0.0.1:5182/settings`. OpenRouter should show **Key ready** (not the secret).
 2. Workshop: chip or Use Cases card → **Load weather** → **Ask Jev**.
-3. Docs overlay still on `/docs`. History is local-only. Tour is chrome **Tour**.
+3. Docs overlay still on `/docs`. History is local-only. Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
 
 ## GitHub safety (2026-09-19)
 

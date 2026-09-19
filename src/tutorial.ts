@@ -1,4 +1,7 @@
-/** First-run / Tour coach. Storage: `talk-to-jev:tutorial-done`. Never store keys. */
+/** First-run / Tour coach. Storage: `talk-to-jev:tutorial-done`. Never store keys.
+ * Live copy SoT — overlay + chrome Tour button import this module.
+ * Human-readable twin (keep 1:1): `docs/TOUR.md`.
+ */
 
 export const TUTORIAL_DONE_KEY = "talk-to-jev:tutorial-done";
 
@@ -16,6 +19,21 @@ export type TutorialStep = {
   /** Exact button / nav labels */
   texts?: string[];
 };
+
+/** Overlay chrome + card controls. Keep in sync with `docs/TOUR.md`. */
+export const TUTORIAL_UI = {
+  chromeLabel: "Tour",
+  chromeAria: "Start tour",
+  kickerPrefix: "Tour",
+  skip: "Skip",
+  back: "Back",
+  next: "Next",
+  done: "Done",
+} as const;
+
+export function tutorialKicker(shown: number, total: number): string {
+  return `${TUTORIAL_UI.kickerPrefix} · ${shown} / ${total}`;
+}
 
 export const TUTORIAL_STEPS: TutorialStep[] = [
   {

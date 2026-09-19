@@ -1,0 +1,122 @@
+# Talk to Jev — Tour copy
+
+**This is the file to open in chat** when editing walkthrough text.
+
+Live overlay **imports** `src/tutorial.ts` (`TUTORIAL_STEPS` + `TUTORIAL_UI`). Keep this markdown **1:1** with that module. If they drift, `src/tutorial.ts` wins in the running app — paste the same strings there so Nate’s edits ship.
+
+Storage: `localStorage["talk-to-jev:tutorial-done"]` = `"1"` after Skip or Done. Chrome **Tour** restarts. Escape matches Skip (dismiss + mark done). Missing targets skip that step; they do not block the tour.
+
+---
+
+## Chrome
+
+| Control | Copy |
+|---|---|
+| Header button | Tour |
+| Aria-label | Start tour |
+
+## Card chrome
+
+| Control | Copy |
+|---|---|
+| Kicker | `Tour · {n} / {total}` |
+| Skip | Skip |
+| Back | Back |
+| Next | Next |
+| Done | Done (replaces Next on the last available step) |
+
+---
+
+## Steps (10)
+
+Each step is independent. **page** is where the overlay navigates. **hooks** are `data-tutorial` ids (first match wins). **selectors** / **texts** are fallbacks.
+
+### 1. Two AIs, one key
+
+- **id:** `welcome`
+- **page:** workshop
+- **target:** none (centered welcome — no spotlight)
+
+Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRouter key runs chat completions and the Decisions API. Jev is System One: state plus typed questions, then probabilities — not a chatbot.
+
+### 2. The Case ticket is Jev state
+
+- **id:** `case`
+- **page:** workshop
+- **hooks:** `case`
+- **selectors:** `.ticket`
+
+This slip is what Jev judges. The LLM can draft it. Weather, samples, and your notes all live here as state — not as a chat with Jev.
+
+### 3. The LLM pane talks
+
+- **id:** `llm`
+- **page:** workshop
+- **hooks:** `llm`
+- **selectors:** `.pane.llm`
+
+Manila side: draft the case, ask how to phrase a question, or chat. This is the prose half. Jev never writes in this thread.
+
+### 4. Ask Jev typed questions
+
+- **id:** `jev`
+- **page:** workshop
+- **hooks:** `jev`, `ask-jev`
+- **selectors:** `.pane.jev`
+
+Blueprint side: choice, noul, or score — not essays. Add questions, then Ask Jev. You get probabilities, not a paragraph.
+
+### 5. Pass work across the wire
+
+- **id:** `wire`
+- **page:** workshop
+- **hooks:** `wire`
+- **selectors:** `.pane.llm .row-actions`
+
+Propose Jev questions asks the LLM for a JSON question map. After Jev answers, Feed Jev to LLM drops those typed results into the chat.
+
+### 6. Use Cases
+
+- **id:** `use-cases`
+- **page:** use-cases
+- **hooks:** `use-cases`, `use-cases-page`
+- **texts:** Use Cases
+
+Ten sample snaps — the same list as the Workshop chips. Open a card to load the case and Jev questions.
+
+### 7. Docs: eyeball vs code
+
+- **id:** `docs`
+- **page:** docs
+- **hooks:** `docs-view`, `docs`
+- **selectors:** `.doc-overlay`
+- **texts:** Docs
+
+Official Jev docs live in this repo. Open a page, then the eyeball for a nice read or the code icon for the raw snapshot.
+
+### 8. Settings — bring your own key
+
+- **id:** `settings`
+- **page:** settings
+- **hooks:** `settings-page`, `settings`
+- **texts:** Settings
+
+Paste your OpenRouter key here. It stays on the server — never in git, never in the browser. Optional later: OpenAI, Anthropic, Tavily, Brave. They are saved only until those features land.
+
+### 9. History stays on this machine
+
+- **id:** `history`
+- **page:** workshop
+- **hooks:** `history`
+- **texts:** History
+
+Threads live in this browser’s localStorage. Refresh restores them. Keys are never stored here.
+
+### 10. Load weather
+
+- **id:** `weather`
+- **page:** workshop
+- **hooks:** `weather`
+- **texts:** Load weather
+
+Weather is Open-Meteo input, not a third model. Load weather writes live conditions into the Case ticket. No extra API key.
