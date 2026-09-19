@@ -29,7 +29,8 @@ export type ChatStore = {
   chats: ChatThread[];
 };
 
-const SECRET_FIELD = /^(openrouter_api_key|api_key|apikey|authorization|token|secret)$/i;
+const SECRET_FIELD =
+  /^(openrouter_api_key|openai_api_key|anthropic_api_key|tavily_api_key|brave_api_key|api_key|apikey|authorization|token|secret)$/i;
 
 export function emptySnapshot(): WorkshopSnapshot {
   return {
@@ -46,9 +47,24 @@ export function emptySnapshot(): WorkshopSnapshot {
 export function autoTitle(messages: ChatMessage[], state: string): string {
   const firstUser = messages.find((m) => m.role === "user" && m.content.trim());
   if (firstUser) return clipTitle(firstUser.content);
-  const caseLine = state.trim().split(/\r?\n/).find((l) => l.trim());
+  const caseLine = firstMeaningfulCaseLine(state);
   if (caseLine) return clipTitle(caseLine);
   return "Untitled case";
+}
+
+function firstMeaningfulCaseLine(state: string) {
+  const withoutWeather = state.replace(
+    /<!--\s*weather:start\s-->[\s\S]*?<!--\s*weather:end\s-->/gi,
+    "\n",
+  );
+  for (const raw of withoutWeather.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("<!--")) continue;
+    if (/^#{1,6}\s/.test(line)) continue;
+    return line;
+  }
+  return "";
 }
 
 export function snapshotWorthSaving(snap: WorkshopSnapshot, titleLocked = false): boolean {
@@ -226,7 +242,15 @@ function normalizeStore(raw: unknown): ChatStore | null {
   if (!raw || typeof raw !== "object") return null;
   const rec = raw as Record<string, unknown>;
   if (rec.v !== 1) return null;
-  if ("OPENROUTER_API_KEY" in rec) delete rec.OPENROUTER_API_KEY;
+  for (const k of [
+    "OPENROUTER_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "TAVILY_API_KEY",
+    "BRAVE_API_KEY",
+  ]) {
+    if (k in rec) delete rec[k];
+  }
   const chatsIn = Array.isArray(rec.chats) ? rec.chats : [];
   const chats = chatsIn
     .map(normalizeThread)
