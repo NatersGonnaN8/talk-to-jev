@@ -107,7 +107,8 @@ textarea {
   color: #b7e0c4;
 }
 
-.pill.missing {
+.pill.missing,
+.pill.error {
   color: #f3c1c8;
   background: #3a2228;
 }
@@ -1002,6 +1003,11 @@ select:focus-visible,
 .chrome button.pill {
   border: 0;
   cursor: pointer;
+}
+
+.chrome button.pill:hover,
+.chrome button.pill:focus-visible {
+  box-shadow: inset 0 0 0 1px #6a8574;
 }
 
 .settings {

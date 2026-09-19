@@ -23,7 +23,7 @@ import { UseCasesPage } from "./UseCases";
 import { SettingsPage } from "./pages/Settings";
 import { HistoryPanel } from "./HistoryPanel";
 import { TutorialOverlay } from "./TutorialOverlay";
-import { isTutorialDone, type TutorialPage } from "./tutorial";
+import { isTutorialDone, TUTORIAL_UI, type TutorialPage } from "./tutorial";
 import {
   activeThread,
   deleteChat,
@@ -157,11 +157,42 @@ function emptyQuestion(type: QuestionType): JevQuestion {
   };
 }
 
+/** Chrome key-status pill — shortcut to Settings, never a second “Settings” label. */
+function chromeKeyPill(health: Health | null, failed: boolean) {
+  if (failed) {
+    return {
+      className: "pill error",
+      label: "Key check failed",
+      title: "Could not check OpenRouter key — open Settings",
+    };
+  }
+  if (health == null) {
+    return {
+      className: "pill",
+      label: "Checking key…",
+      title: "Checking OpenRouter key — open Settings",
+    };
+  }
+  if (health.hasKey) {
+    return {
+      className: "pill ready",
+      label: "Key ready",
+      title: "OpenRouter key is on the server — open Settings",
+    };
+  }
+  return {
+    className: "pill missing",
+    label: "Need OpenRouter key",
+    title: "Need OpenRouter key — paste in Settings",
+  };
+}
+
 export function App() {
   const [page, setPage] = useState<Page>(pageFromPath);
   const [caseId, setCaseId] = useState<string | null>(caseFromSearch);
   const [presetNonce, setPresetNonce] = useState(0);
   const [health, setHealth] = useState<Health | null>(null);
+  const [healthError, setHealthError] = useState(false);
   const [toast, setToast] = useState("");
   const [updating, setUpdating] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -179,8 +210,14 @@ export function App() {
 
   useEffect(() => {
     getHealth()
-      .then(setHealth)
-      .catch(() => setHealth(null));
+      .then((h) => {
+        setHealth(h);
+        setHealthError(false);
+      })
+      .catch(() => {
+        setHealth(null);
+        setHealthError(true);
+      });
   }, []);
 
   const go = (next: Page, sampleId?: SampleId) => {
@@ -222,13 +259,20 @@ export function App() {
       setToast(
         `Docs updated: ${r.fetched} ok, ${r.failed} failed, ${r.files} listed.`,
       );
-      setHealth(await getHealth());
+      try {
+        setHealth(await getHealth());
+        setHealthError(false);
+      } catch {
+        setHealthError(true);
+      }
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Update failed");
     } finally {
       setUpdating(false);
     }
   };
+
+  const keyPill = chromeKeyPill(health, healthError);
 
   return (
     <div className="app">
@@ -281,10 +325,10 @@ export function App() {
             type="button"
             className="btn ghost"
             data-tutorial="tour"
-            aria-label="Start tour"
+            aria-label={TUTORIAL_UI.chromeAria}
             onClick={startTour}
           >
-            Tour
+            {TUTORIAL_UI.chromeLabel}
           </button>
           {page === "workshop" ? (
             <button
@@ -300,21 +344,12 @@ export function App() {
           ) : null}
           <button
             type="button"
-            className={
-              health == null ? "pill" : health.hasKey ? "pill ready" : "pill missing"
-            }
-            title={
-              health?.hasKey
-                ? "OpenRouter key is on the server — open Settings"
-                : "Need OpenRouter key — open Settings"
-            }
+            className={keyPill.className}
+            title={keyPill.title}
+            aria-label={keyPill.title}
             onClick={() => go("settings")}
           >
-            {health == null
-              ? "Checking key…"
-              : health.hasKey
-                ? "Key ready"
-                : "Need OpenRouter key"}
+            {keyPill.label}
           </button>
           <button
             className="btn ghost"
@@ -343,7 +378,14 @@ export function App() {
       {page === "settings" ? (
         <SettingsPage
           onToast={setToast}
-          onSaved={async () => setHealth(await getHealth())}
+          onSaved={async () => {
+            try {
+              setHealth(await getHealth());
+              setHealthError(false);
+            } catch {
+              setHealthError(true);
+            }
+          }}
         />
       ) : null}
       <div hidden={page !== "workshop"}>
