@@ -109,8 +109,8 @@ Shared **case** (the Jev `state`) sits in a ticket strip at the top. Both models
 | Action | What happens |
 |---|---|
 | **Ask the LLM** | Chat completions. System prompt includes `primer.md` so the LLM knows Jev’s contract (state + questions, not chat). Optional: last Jev answers. Case text (including any weather block) is the current case. |
-| **Ask Jev** | Decisions API. `state` = case text, plus optional `{ transcript }` of the LLM thread. `questions` = the editor on the Jev pane. |
-| **Propose questions** | LLM is asked to return a JSON `questions` map for this case. Valid maps replace (or merge into) the Jev editor. Invalid JSON stays in chat as prose. |
+| **Ask Jev** | Decisions API. `state` = case text, plus optional `{ transcript }` of the LLM thread. `questions` = the editor on the Jev pane. If any question **id is blank**, show a clear **inline** error on that card and **do not** call Jev. Never silently invent an id (`q_*`, random suffixes, or similar). |
+| **Propose questions** | LLM is asked to return a JSON `questions` map for this case. Valid maps replace (or merge into) the Jev editor. Invalid JSON stays in chat as prose. Skip entries with a blank id — do not mint a placeholder id for them. If the user then **Ask Jev** with a still-blank id, same inline error as above. |
 | **Feed Jev → LLM** | Inject a user-visible note into the LLM thread summarizing typed answers (choice / noul / score / confidence). Next LLM turn sees it. |
 | **Load weather** | **Jacket preset only.** Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on the Case ticket. Does not call Jev or the LLM. Hidden on business presets. |
 | **Sample case** | One click (Workshop chip **or** Use Cases card) loads the same `src/samples.ts` preset: Case situation (weather placeholder **only** on Jacket), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
@@ -189,9 +189,13 @@ Layout (desktop):
 - Eyebrow: `JEV` + model id
 - Question editor: add / remove questions
   - Fields: id, type (`choice` | `noul` | `score`), instructions
+  - **Add question** inserts a new card with an **empty id**. The user types the id. Do **not** auto-generate `q_*` / random suffixes. Only **user-added** cards start blank — presets keep their real ids (`wear_jacket`, business ids, and the rest in `src/samples.ts`).
+  - Id input placeholder: `question id` (a hint, not a fake value). The field value stays empty until they type.
+  - New-card defaults (empty editor UX): type `noul`, empty instructions, empty true/false criteria. Switching type uses the same empty choice (two blank option rows) / score (Low / Medium / High) / noul defaults as today.
   - Choice: option key + description rows (add/remove). 1–255 options in spirit; UI allows at least 2.
   - Score: ordered level lines (min 2)
   - Noul: optional true / false criteria
+  - Blank id on **Ask Jev** (or sending the editor through the propose → ask flow): inline error on the card, do not call Jev, do not invent an id.
 - **Ask Jev**
 - Answers: one card per question
   - Choice: selected option, probability bars, confidence stamp
@@ -607,6 +611,7 @@ Before calling Workshop done:
 31. `GET /api/settings` has `present` / `last4` only — no full key
 32. Chrome key pill (checking / ready / missing / error) is a real button with `cursor: pointer`; click and keyboard go to `/settings`; `title` mentions Settings on every state (missing: paste in Settings); visible label stays the key status, not the word Settings
 33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
+34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`). Typing an id works. **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled.
 
 ---
 

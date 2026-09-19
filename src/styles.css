@@ -406,6 +406,17 @@ textarea.case {
   gap: 0.4rem;
 }
 
+.id-input.invalid {
+  border-color: #a33a22;
+}
+
+.inline-error {
+  margin: 0;
+  color: #8a2a12;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 .q-row,
 .crit-row {
   display: grid;
