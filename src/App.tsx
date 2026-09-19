@@ -1,0 +1,820 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  askJev,
+  getHealth,
+  listDocs,
+  readDoc,
+  streamLlm,
+  updateDocs,
+} from "./api";
+import type {
+  ChatMessage,
+  Health,
+  JevAnswer,
+  JevQuestion,
+  QuestionType,
+} from "./types";
+import { DEFAULT_QUESTIONS, DEFAULT_STATE } from "./types";
+
+type Page = "workshop" | "docs";
+
+function pageFromPath(): Page {
+  return window.location.pathname.startsWith("/docs") ? "docs" : "workshop";
+}
+
+function newId(prefix: string) {
+  return `${prefix}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function pct(n: number) {
+  if (!Number.isFinite(n)) return "—";
+  return `${Math.round(n * 1000) / 10}%`;
+}
+
+function parseProposedQuestions(text: string): Record<string, JevQuestion> | null {
+  const trimmed = text.trim();
+  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const raw = fence ? fence[1] : trimmed;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const map =
+      parsed &&
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "questions" in parsed
+        ? (parsed as { questions: unknown }).questions
+        : parsed;
+    if (!map || typeof map !== "object") return null;
+    const out: Record<string, JevQuestion> = {};
+    for (const [id, q] of Object.entries(map as Record<string, unknown>)) {
+      if (!q || typeof q !== "object") continue;
+      const rec = q as Record<string, unknown>;
+      const type = rec.type;
+      const instructions = String(rec.instructions ?? "");
+      if (type === "choice" && rec.criteria && typeof rec.criteria === "object") {
+        out[id] = {
+          type: "choice",
+          instructions,
+          criteria: Object.fromEntries(
+            Object.entries(rec.criteria as Record<string, unknown>).map(([k, v]) => [
+              k,
+              v == null ? "" : String(v),
+            ]),
+          ),
+        };
+      } else if (type === "score" && Array.isArray(rec.criteria)) {
+        out[id] = {
+          type: "score",
+          instructions,
+          criteria: rec.criteria.map((v) => String(v)),
+        };
+      } else if (type === "noul") {
+        const c = rec.criteria;
+        out[id] = {
+          type: "noul",
+          instructions,
+          criteria:
+            c && typeof c === "object"
+              ? {
+                  true: String((c as { true?: string }).true ?? ""),
+                  false: String((c as { false?: string }).false ?? ""),
+                }
+              : undefined,
+        };
+      }
+    }
+    return Object.keys(out).length ? out : null;
+  } catch {
+    return null;
+  }
+}
+
+function summarizeAnswers(answers: Record<string, JevAnswer>) {
+  const lines = ["Jev returned typed answers (not prose):"];
+  for (const [id, a] of Object.entries(answers)) {
+    if (a.type === "choice") {
+      lines.push(
+        `- ${id}: choice=${a.choice} confidence=${a.confidence ?? "n/a"} probs=${JSON.stringify(a.probabilities)}`,
+      );
+    } else if (a.type === "noul") {
+      lines.push(`- ${id}: noul P(true)=${a.noul}`);
+    } else if (a.type === "score") {
+      lines.push(
+        `- ${id}: score=${a.score} confidence=${a.confidence ?? "n/a"}`,
+      );
+    }
+  }
+  lines.push("Use these as signals. A typed answer can still be wrong.");
+  return lines.join("\n");
+}
+
+function emptyQuestion(type: QuestionType): JevQuestion {
+  if (type === "choice") {
+    return {
+      type: "choice",
+      instructions: "",
+      criteria: { option_a: "", option_b: "" },
+    };
+  }
+  if (type === "score") {
+    return { type: "score", instructions: "", criteria: ["Low", "Medium", "High"] };
+  }
+  return {
+    type: "noul",
+    instructions: "",
+    criteria: { true: "", false: "" },
+  };
+}
+
+export function App() {
+  const [page, setPage] = useState<Page>(pageFromPath);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [toast, setToast] = useState("");
+  const [updating, setUpdating] = useState(false);
+
+  useEffect(() => {
+    const onPop = () => setPage(pageFromPath());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
+    getHealth()
+      .then(setHealth)
+      .catch(() => setHealth(null));
+  }, []);
+
+  const go = (next: Page) => {
+    const path = next === "docs" ? "/docs" : "/";
+    window.history.pushState({}, "", path);
+    setPage(next);
+  };
+
+  const onUpdateDocs = async () => {
+    setUpdating(true);
+    setToast("Fetching official Jev docs…");
+    try {
+      const r = await updateDocs();
+      setToast(
+        `Docs updated: ${r.fetched} ok, ${r.failed} failed, ${r.files} listed.`,
+      );
+      setHealth(await getHealth());
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <div className="app">
+      <header className="chrome">
+        <a
+          className="mark"
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            go("workshop");
+          }}
+        >
+          Talk to Jev
+        </a>
+        <nav className="nav">
+          <button
+            className={page === "workshop" ? "nav-btn on" : "nav-btn"}
+            type="button"
+            onClick={() => go("workshop")}
+          >
+            Workshop
+          </button>
+          <button
+            className={page === "docs" ? "nav-btn on" : "nav-btn"}
+            type="button"
+            onClick={() => go("docs")}
+          >
+            Docs
+          </button>
+        </nav>
+        <div className="chrome-right">
+          <span
+            className={
+              health == null ? "pill" : health.hasKey ? "pill ready" : "pill missing"
+            }
+            title={
+              health?.hasKey
+                ? "OPENROUTER_API_KEY is set on the server"
+                : "Paste OPENROUTER_API_KEY into .env.local"
+            }
+          >
+            {health == null
+              ? "Checking key…"
+              : health.hasKey
+                ? "Key ready"
+                : "Need OpenRouter key"}
+          </span>
+          <button
+            className="btn ghost"
+            type="button"
+            disabled={updating}
+            onClick={() => void onUpdateDocs()}
+          >
+            {updating ? "Updating…" : "Update Jev docs"}
+          </button>
+        </div>
+      </header>
+      {toast ? (
+        <div className="toast" role="status">
+          {toast}
+          <button type="button" className="toast-x" onClick={() => setToast("")}>
+            Close
+          </button>
+        </div>
+      ) : null}
+      {page === "docs" ? (
+        <DocsPage />
+      ) : (
+        <Workshop
+          health={health}
+          onToast={setToast}
+        />
+      )}
+    </div>
+  );
+}
+
+function Workshop({
+  health,
+  onToast,
+}: {
+  health: Health | null;
+  onToast: (s: string) => void;
+}) {
+  const [state, setState] = useState(DEFAULT_STATE);
+  const [includeChat, setIncludeChat] = useState(true);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState<"llm" | "jev" | "propose" | null>(null);
+  const [split, setSplit] = useState(50);
+  const [questions, setQuestions] =
+    useState<Record<string, JevQuestion>>(DEFAULT_QUESTIONS);
+  const [answers, setAnswers] = useState<Record<string, JevAnswer> | null>(null);
+  const [jevMeta, setJevMeta] = useState("");
+  const threadRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, busy]);
+
+  const locked = health?.hasKey === false || busy !== null;
+
+  const sendLlm = async (mode: "chat" | "propose-questions", extra?: string) => {
+    const content = extra ?? draft.trim();
+    if (mode === "chat" && !content) return;
+    const nextUser: ChatMessage =
+      mode === "propose-questions"
+        ? {
+            role: "user",
+            content:
+              "Propose atomic Jev questions for this case. Return JSON only.",
+          }
+        : { role: "user", content };
+    const history = [...messages, nextUser];
+    setMessages([...history, { role: "assistant", content: "" }]);
+    if (!extra) setDraft("");
+    setBusy(mode === "propose-questions" ? "propose" : "llm");
+    try {
+      const full = await streamLlm(
+        {
+          messages: history,
+          state,
+          jevAnswers: answers ?? undefined,
+          mode,
+        },
+        (text) => {
+          setMessages((m) => {
+            const copy = [...m];
+            copy[copy.length - 1] = { role: "assistant", content: text };
+            return copy;
+          });
+        },
+      );
+      if (mode === "propose-questions") {
+        const parsed = parseProposedQuestions(full);
+        if (parsed) {
+          setQuestions(parsed);
+          onToast(`Loaded ${Object.keys(parsed).length} proposed questions into Jev.`);
+        } else {
+          onToast("LLM replied, but it was not valid questions JSON.");
+        }
+      }
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "LLM failed");
+      setMessages((m) => m.slice(0, -1));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onAskJev = async () => {
+    setBusy("jev");
+    try {
+      const payload = await askJev({
+        state,
+        questions,
+        includeTranscript: includeChat,
+        transcript: includeChat ? messages : [],
+      });
+      setAnswers((payload.answers ?? {}) as Record<string, JevAnswer>);
+      const usage = payload.usage as
+        | { input_tokens?: number; cost?: number }
+        | undefined;
+      const bits = [
+        payload.model ? String(payload.model) : "",
+        usage?.input_tokens != null ? `${usage.input_tokens} in` : "",
+        usage?.cost != null ? `$${Number(usage.cost).toFixed(6)}` : "",
+      ].filter(Boolean);
+      setJevMeta(bits.join(" · "));
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "Jev failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const feedJev = () => {
+    if (!answers) return;
+    const note = summarizeAnswers(answers);
+    setMessages((m) => [
+      ...m,
+      { role: "user", content: note },
+      {
+        role: "assistant",
+        content: "Got Jev’s typed answers. Ask me what to do with the probabilities.",
+      },
+    ]);
+    onToast("Fed Jev’s answers into the LLM thread.");
+  };
+
+  const onSplitPointer = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const rail = e.currentTarget.parentElement;
+    if (!rail) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent) => {
+      const rect = rail.getBoundingClientRect();
+      const x = ((ev.clientX - rect.left) / rect.width) * 100;
+      setSplit(Math.min(72, Math.max(28, x)));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }, []);
+
+  return (
+    <main className="workshop">
+      <section className="ticket">
+        <div className="ticket-head">
+          <span className="eyebrow">Case</span>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={includeChat}
+              onChange={(e) => setIncludeChat(e.target.checked)}
+            />
+            Include LLM chat in Jev state
+          </label>
+        </div>
+        <textarea
+          className="case"
+          value={state}
+          onChange={(e) => setState(e.target.value)}
+          placeholder="What Jev should judge"
+          rows={3}
+        />
+        <p className="hint">Jev judges this. The LLM can draft it.</p>
+      </section>
+
+      <section className="board">
+        <article className="pane llm" style={{ flex: `${split} 1 0` }}>
+          <header className="pane-head">
+            <div>
+              <span className="eyebrow">LLM</span>
+              <code>{health?.llmModel ?? "deepseek/deepseek-v4-flash"}</code>
+            </div>
+            <div className="row-actions">
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={locked}
+                onClick={() => void sendLlm("propose-questions")}
+              >
+                {busy === "propose" ? "Proposing…" : "Propose Jev questions"}
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={!answers || busy !== null}
+                onClick={feedJev}
+              >
+                Feed Jev to LLM
+              </button>
+            </div>
+          </header>
+          <div className="thread" ref={threadRef}>
+            {messages.length === 0 ? (
+              <p className="empty">
+                Draft the case, or ask how to phrase a Jev question.
+              </p>
+            ) : (
+              messages.map((m, i) => (
+                <div key={`${m.role}-${i}`} className={`bubble ${m.role}`}>
+                  <span className="who">{m.role === "user" ? "You" : "LLM"}</span>
+                  <pre>{m.content || (busy && i === messages.length - 1 ? "…" : "")}</pre>
+                </div>
+              ))
+            )}
+          </div>
+          <form
+            className="composer"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void sendLlm("chat");
+            }}
+          >
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Talk to the LLM"
+              rows={2}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void sendLlm("chat");
+                }
+              }}
+            />
+            <button className="btn solid" type="submit" disabled={locked || !draft.trim()}>
+              {busy === "llm" ? "Sending…" : "Send"}
+            </button>
+          </form>
+        </article>
+
+        <div
+          className="splitter"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panes"
+          onPointerDown={onSplitPointer}
+        />
+
+        <article className="pane jev" style={{ flex: `${100 - split} 1 0` }}>
+          <header className="pane-head">
+            <div>
+              <span className="eyebrow">Jev</span>
+              <code>{health?.jevModel ?? "typesafe/jev-1.13"}</code>
+            </div>
+            <button
+              type="button"
+              className="btn solid"
+              disabled={locked}
+              onClick={() => void onAskJev()}
+            >
+              {busy === "jev" ? "Asking…" : "Ask Jev"}
+            </button>
+          </header>
+          <QuestionEditor questions={questions} onChange={setQuestions} />
+          <div className="answers">
+            {!answers ? (
+              <p className="empty">Define questions, then ask Jev.</p>
+            ) : (
+              Object.entries(answers).map(([id, a]) => (
+                <AnswerCard key={id} id={id} answer={a} />
+              ))
+            )}
+            {jevMeta ? <p className="meta">{jevMeta}</p> : null}
+          </div>
+        </article>
+      </section>
+    </main>
+  );
+}
+
+function QuestionEditor({
+  questions,
+  onChange,
+}: {
+  questions: Record<string, JevQuestion>;
+  onChange: (next: Record<string, JevQuestion>) => void;
+}) {
+  const entries = useMemo(() => Object.entries(questions), [questions]);
+
+  const setId = (oldId: string, nextId: string) => {
+    const id = nextId.trim() || oldId;
+    if (id === oldId) return;
+    const next: Record<string, JevQuestion> = {};
+    for (const [k, v] of entries) next[k === oldId ? id : k] = v;
+    onChange(next);
+  };
+
+  const setQ = (id: string, q: JevQuestion) => onChange({ ...questions, [id]: q });
+
+  const remove = (id: string) => {
+    const next = { ...questions };
+    delete next[id];
+    onChange(next);
+  };
+
+  return (
+    <div className="q-list">
+      {entries.map(([id, q]) => (
+        <div className="q-card" key={id}>
+          <div className="q-row">
+            <input
+              className="id-input"
+              value={id}
+              onChange={(e) => setId(id, e.target.value)}
+              aria-label="Question id"
+            />
+            <select
+              value={q.type}
+              onChange={(e) =>
+                setQ(id, emptyQuestion(e.target.value as QuestionType))
+              }
+              aria-label="Question type"
+            >
+              <option value="choice">choice</option>
+              <option value="noul">noul</option>
+              <option value="score">score</option>
+            </select>
+            <button type="button" className="btn tiny" onClick={() => remove(id)}>
+              Remove
+            </button>
+          </div>
+          <textarea
+            value={q.instructions}
+            onChange={(e) => setQ(id, { ...q, instructions: e.target.value })}
+            placeholder="Instructions (the full question)"
+            rows={2}
+          />
+          {q.type === "choice" ? (
+            <div className="criteria">
+              {Object.entries(q.criteria).map(([k, v]) => (
+                <div className="crit-row" key={k}>
+                  <input
+                    value={k}
+                    onChange={(e) => {
+                      const criteria = { ...q.criteria };
+                      delete criteria[k];
+                      criteria[e.target.value || k] = v;
+                      setQ(id, { ...q, criteria });
+                    }}
+                    aria-label="Option key"
+                  />
+                  <input
+                    value={v}
+                    onChange={(e) =>
+                      setQ(id, {
+                        ...q,
+                        criteria: { ...q.criteria, [k]: e.target.value },
+                      })
+                    }
+                    aria-label="Option description"
+                  />
+                  <button
+                    type="button"
+                    className="btn tiny"
+                    onClick={() => {
+                      const criteria = { ...q.criteria };
+                      delete criteria[k];
+                      setQ(id, { ...q, criteria });
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn tiny"
+                onClick={() =>
+                  setQ(id, {
+                    ...q,
+                    criteria: { ...q.criteria, [newId("opt")]: "" },
+                  })
+                }
+              >
+                Add option
+              </button>
+            </div>
+          ) : null}
+          {q.type === "score" ? (
+            <div className="criteria">
+              {q.criteria.map((level, i) => (
+                <div className="crit-row" key={i}>
+                  <span className="lvl">{i}</span>
+                  <input
+                    value={level}
+                    onChange={(e) => {
+                      const criteria = [...q.criteria];
+                      criteria[i] = e.target.value;
+                      setQ(id, { ...q, criteria });
+                    }}
+                    aria-label={`Score level ${i}`}
+                  />
+                  <button
+                    type="button"
+                    className="btn tiny"
+                    onClick={() =>
+                      setQ(id, {
+                        ...q,
+                        criteria: q.criteria.filter((_, j) => j !== i),
+                      })
+                    }
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn tiny"
+                onClick={() => setQ(id, { ...q, criteria: [...q.criteria, ""] })}
+              >
+                Add level
+              </button>
+            </div>
+          ) : null}
+          {q.type === "noul" ? (
+            <div className="criteria">
+              <div className="crit-row">
+                <span className="lvl">true</span>
+                <input
+                  value={q.criteria?.true ?? ""}
+                  onChange={(e) =>
+                    setQ(id, {
+                      ...q,
+                      criteria: { ...q.criteria, true: e.target.value },
+                    })
+                  }
+                  placeholder="What yes means"
+                />
+              </div>
+              <div className="crit-row">
+                <span className="lvl">false</span>
+                <input
+                  value={q.criteria?.false ?? ""}
+                  onChange={(e) =>
+                    setQ(id, {
+                      ...q,
+                      criteria: { ...q.criteria, false: e.target.value },
+                    })
+                  }
+                  placeholder="What no means"
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ))}
+      <button
+        type="button"
+        className="btn ghost"
+        onClick={() =>
+          onChange({
+            ...questions,
+            [newId("q")]: emptyQuestion("noul"),
+          })
+        }
+      >
+        Add question
+      </button>
+    </div>
+  );
+}
+
+function AnswerCard({ id, answer }: { id: string; answer: JevAnswer }) {
+  if (answer.type === "noul") {
+    const p = Number(answer.noul);
+    return (
+      <div className="answer">
+        <header>
+          <code>{id}</code>
+          <span className="stamp">noul {pct(p)}</span>
+        </header>
+        <div className="bar">
+          <span style={{ width: `${Math.min(100, Math.max(0, p * 100))}%` }} />
+        </div>
+        <p className="meta">P(true), not a separate confidence.</p>
+      </div>
+    );
+  }
+  const probs = answer.probabilities ?? {};
+  return (
+    <div className="answer">
+      <header>
+        <code>{id}</code>
+        <span className="stamp">
+          {answer.type === "choice"
+            ? `choice ${answer.choice}`
+            : `score ${answer.score}`}
+          {answer.confidence != null ? ` · conf ${pct(answer.confidence)}` : ""}
+        </span>
+      </header>
+      <ul className="probs">
+        {Object.entries(probs).map(([k, v]) => (
+          <li key={k}>
+            <span>
+              {answer.type === "score" && answer.legend
+                ? `${k} ${answer.legend[k] ?? ""}`
+                : k}
+            </span>
+            <div className="bar">
+              <span style={{ width: `${Math.min(100, Math.max(0, Number(v) * 100))}%` }} />
+            </div>
+            <em>{pct(Number(v))}</em>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function DocsPage() {
+  const [files, setFiles] = useState<
+    Array<{ path: string; title: string; source: string; fetchedAt: string }>
+  >([]);
+  const [q, setQ] = useState("");
+  const [active, setActive] = useState("");
+  const [text, setText] = useState("Pick a page from the snapshot.");
+  const [err, setErr] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const data = await listDocs();
+      setFiles(data.files);
+      setErr("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not list docs");
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const shown = files.filter((f) => {
+    const hay = `${f.path} ${f.title} ${f.source}`.toLowerCase();
+    return hay.includes(q.toLowerCase());
+  });
+
+  const open = async (path: string) => {
+    setActive(path);
+    try {
+      const doc = await readDoc(path);
+      setText(doc.text);
+      setErr("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not open doc");
+    }
+  };
+
+  return (
+    <main className="docs">
+      <aside className="doc-rail">
+        <input
+          className="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search snapshot"
+        />
+        {err ? <p className="empty">{err}</p> : null}
+        {files.length === 0 ? (
+          <p className="empty">
+            Snapshot is empty. Use Update Jev docs or `npm run update-jev-docs`.
+          </p>
+        ) : (
+          <ul>
+            {shown.map((f) => (
+              <li key={f.path}>
+                <button
+                  type="button"
+                  className={active === f.path ? "doc-link on" : "doc-link"}
+                  onClick={() => void open(f.path)}
+                >
+                  <strong>{f.title}</strong>
+                  <span>{f.path}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </aside>
+      <article className="doc-view">
+        <pre>{text}</pre>
+      </article>
+    </main>
+  );
+}

@@ -1,0 +1,59 @@
+{
+  "primerPaths": [
+    "typesafe/introduction.md",
+    "typesafe/introduction/quickstart.md",
+    "typesafe/concepts/system-one.md",
+    "typesafe/concepts/state.md",
+    "typesafe/primitives.md",
+    "typesafe/primitives/choice.md",
+    "typesafe/primitives/score.md",
+    "typesafe/primitives/noul.md",
+    "typesafe/primitives/advanced.md",
+    "typesafe/confidence.md",
+    "typesafe/concepts/how-to-build-with-system-one.md",
+    "typesafe/api.md",
+    "typesafe/models.md",
+    "typesafe/model-jaggedness/jev-1.13.md",
+    "openrouter/decisions-api.md",
+    "openrouter/jev-1.13.md",
+    "jevai/home.md",
+    "typesafe-site/introducing-system-one-models-and-jev.md"
+  ],
+  "extra": [
+    {
+      "id": "jevai/home.md",
+      "url": "https://jevai.dev/",
+      "title": "jevai.dev — Jev developer guide"
+    },
+    {
+      "id": "openrouter/jev-1.13.md",
+      "url": "https://openrouter.ai/typesafe/jev-1.13",
+      "title": "OpenRouter — TypeSafe Jev 1.13"
+    },
+    {
+      "id": "openrouter/jev-latest.md",
+      "url": "https://openrouter.ai/~typesafe/jev-latest",
+      "title": "OpenRouter — TypeSafe Jev latest alias"
+    },
+    {
+      "id": "openrouter/decisions-api.md",
+      "url": "https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request",
+      "title": "OpenRouter — Decisions API"
+    },
+    {
+      "id": "typesafe-site/introducing-system-one-models-and-jev.md",
+      "url": "https://typesafe.ai/blog/introducing-system-one-models-and-jev",
+      "title": "TypeSafe — Introducing System One Models & Jev"
+    },
+    {
+      "id": "pydantic/typesafe-jev.md",
+      "url": "https://pydantic.dev/docs/ai/models/typesafe/",
+      "title": "Pydantic AI — TypeSafe (Jev)"
+    },
+    {
+      "id": "cloudflare/jev.md",
+      "url": "https://developers.cloudflare.com/ai/models/typesafe/jev/",
+      "title": "Cloudflare Workers AI — Jev"
+    }
+  ]
+}

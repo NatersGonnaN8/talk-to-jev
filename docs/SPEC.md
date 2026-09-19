@@ -38,6 +38,7 @@ The LLM is the cheap prose half. Jev is the cheap decision half. The app is the 
 ## 3. Auth and models
 
 - **One secret:** `OPENROUTER_API_KEY` in gitignored `.env.local`.
+- `.env.local` **wins** over a Windows user-level `OPENROUTER_API_KEY` (that env var can be stale and 401).
 - Key stays on the **server** (Vite middleware). The browser never sees it.
 - Optional overrides in `.env.local`:
   - `JEV_MODEL` default `typesafe/jev-1.13` (pin; do not silently follow `~typesafe/jev-latest` in MVP)
