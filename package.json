@@ -10,6 +10,7 @@
     "update-jev-docs": "node scripts/update-jev-docs.mjs"
   },
   "dependencies": {
+    "marked": "^18.0.13",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

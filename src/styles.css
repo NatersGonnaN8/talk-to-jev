@@ -475,16 +475,167 @@ textarea {
 }
 
 .doc-view {
-  padding: 1rem 1.25rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem 2rem;
   overflow: auto;
   background: #f7f4ec;
 }
 
+.doc-overlay {
+  position: sticky;
+  top: 0.7rem;
+  align-self: flex-end;
+  z-index: 40;
+  display: flex;
+  gap: 2px;
+  margin: 0 0 -2.6rem;
+  padding: 3px;
+  background: #142018;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px #14201833;
+}
+
+.view-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #c9d6cc;
+  cursor: pointer;
+}
+
+.view-btn.on {
+  background: #2f5d4a;
+  color: #f3e7d3;
+}
+
+.view-btn .tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #142018;
+  color: #f3e7d3;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  padding: 0.28rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.view-btn:last-child .tip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.view-btn:hover .tip,
+.view-btn:focus-visible .tip {
+  opacity: 1;
+}
+
+.doc-code,
 .doc-view pre {
   white-space: pre-wrap;
   font-family: "Fragment Mono", monospace;
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+.doc-code {
+  margin: 2.4rem 0 0;
+}
+
+.empty.pick {
+  margin-top: 2rem;
+}
+
+.md-nice {
+  max-width: 44rem;
+  padding-right: 4.2rem;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.md-nice > :first-child {
+  margin-top: 0.2rem;
+}
+
+.md-nice h1,
+.md-nice h2,
+.md-nice h3 {
+  font-family: "Bricolage Grotesque", sans-serif;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.md-nice h1 {
+  font-size: 1.7rem;
+}
+
+.md-nice h2 {
+  font-size: 1.25rem;
+  margin-top: 1.6rem;
+}
+
+.md-nice a {
+  color: var(--pine);
+}
+
+.md-nice code {
+  font-family: "Fragment Mono", monospace;
+  font-size: 0.84em;
+  background: #efe6d4;
+  padding: 0.08rem 0.28rem;
+  border-radius: 4px;
+}
+
+.md-nice pre {
+  background: #142018;
+  color: #eef6ee;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.md-nice pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.md-nice table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.md-nice th,
+.md-nice td {
+  border: 1px solid #c4cebf;
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+}
+
+.md-nice th {
+  background: #e7eee4;
+}
+
+.md-nice blockquote {
+  margin: 1rem 0;
+  padding: 0.1rem 0 0.1rem 0.9rem;
+  border-left: 3px solid var(--pine);
+  color: var(--mute);
 }
 
 button:focus-visible,

@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.1 — 2026-09-19  
+**Status:** v0.2 — 2026-09-19  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** private `talk-to-jev`  
@@ -171,7 +171,13 @@ Layout:
 ```
 
 - Left: filterable list from `GET /api/docs` (path, title, source, fetched_at)
-- Right: rendered markdown of the selected file (`GET /api/docs/file?path=`)
+- Right: the selected file (`GET /api/docs/file?path=`)
+- **View overlay** (sticky, top-right of the document pane — not a second chrome bar): two icon buttons
+  - **Eyeball** — nice view: rendered Markdown (strip YAML frontmatter; GFM tables/code). Default for `.md`
+  - **Code** — source view: raw file in `Fragment Mono`
+- Overlay tips are opaque, sit **below** the icons (overlay is at the top; flip would clip under chrome), and stay fully on-screen
+- JSON files still get both modes; nice view pretty-prints JSON
+- Empty pane (no file yet): no overlay; “Pick a page from the snapshot.”
 - **Update Jev docs** in chrome (same as Workshop)
 - Empty snapshot: explain the button / `npm run update-jev-docs`
 
@@ -238,3 +244,4 @@ Before calling Workshop done:
 7. Update Jev docs button completes and the list refreshes
 8. Splitter drags; textareas have no native corner grip
 9. `/docs` deep link works after refresh
+10. Docs overlay: eyeball shows rendered Markdown; code icon shows raw source; tips stay fully visible

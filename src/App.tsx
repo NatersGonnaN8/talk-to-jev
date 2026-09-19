@@ -14,6 +14,7 @@ import type {
   JevQuestion,
   QuestionType,
 } from "./types";
+import { toNiceHtml } from "./markdown";
 import { DEFAULT_QUESTIONS, DEFAULT_STATE } from "./types";
 
 type Page = "workshop" | "docs";
@@ -742,13 +743,60 @@ function AnswerCard({ id, answer }: { id: string; answer: JevAnswer }) {
   );
 }
 
+function IconEye() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18">
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12 18.2 18.2 12 18.2 2.2 12 2.2 12Z"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="2.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function IconCode() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18">
+      <polyline
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points="9 18 3 12 9 6"
+      />
+      <polyline
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points="15 6 21 12 15 18"
+      />
+    </svg>
+  );
+}
+
 function DocsPage() {
   const [files, setFiles] = useState<
     Array<{ path: string; title: string; source: string; fetchedAt: string }>
   >([]);
   const [q, setQ] = useState("");
   const [active, setActive] = useState("");
-  const [text, setText] = useState("Pick a page from the snapshot.");
+  const [text, setText] = useState("");
+  const [view, setView] = useState<"nice" | "code">("nice");
   const [err, setErr] = useState("");
 
   const load = useCallback(async () => {
@@ -769,6 +817,11 @@ function DocsPage() {
     const hay = `${f.path} ${f.title} ${f.source}`.toLowerCase();
     return hay.includes(q.toLowerCase());
   });
+
+  const niceHtml = useMemo(() => {
+    if (!active || !text) return "";
+    return toNiceHtml(text, active);
+  }, [active, text]);
 
   const open = async (path: string) => {
     setActive(path);
@@ -813,7 +866,40 @@ function DocsPage() {
         )}
       </aside>
       <article className="doc-view">
-        <pre>{text}</pre>
+        {active && text ? (
+          <div className="doc-overlay" role="group" aria-label="Markdown view">
+            <button
+              type="button"
+              className={view === "nice" ? "view-btn on" : "view-btn"}
+              aria-pressed={view === "nice"}
+              aria-label="Nice view"
+              onClick={() => setView("nice")}
+            >
+              <IconEye />
+              <span className="tip">Nice view</span>
+            </button>
+            <button
+              type="button"
+              className={view === "code" ? "view-btn on" : "view-btn"}
+              aria-pressed={view === "code"}
+              aria-label="Code view"
+              onClick={() => setView("code")}
+            >
+              <IconCode />
+              <span className="tip">Code view</span>
+            </button>
+          </div>
+        ) : null}
+        {!active ? (
+          <p className="empty pick">Pick a page from the snapshot.</p>
+        ) : view === "code" ? (
+          <pre className="doc-code">{text}</pre>
+        ) : (
+          <div
+            className="md-nice"
+            dangerouslySetInnerHTML={{ __html: niceHtml }}
+          />
+        )}
       </article>
     </main>
   );
