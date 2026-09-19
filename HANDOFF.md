@@ -1,6 +1,6 @@
 # Talk to Jev — handoff
 
-**2026-09-19** — BYOK Settings live. GitHub still **private** (https://github.com/NatersGonnaN8/talk-to-jev). Local `http://127.0.0.1:5182`. Settings: `http://127.0.0.1:5182/settings`.
+**2026-09-19** — BYOK Settings live. GitHub is **public** (https://github.com/NatersGonnaN8/talk-to-jev). Local `http://127.0.0.1:5182`. Use Cases: `http://127.0.0.1:5182/use-cases`. Settings: `http://127.0.0.1:5182/settings`.
 
 ## What it is
 
@@ -32,7 +32,7 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 
 - `.env` / `.env.local` are gitignored and **not tracked**. Not on GitHub.
 - History has env **names** in docs/code, not key **values** (`sk-or-v1-` count 0).
-- Repo was **private** at audit time. Safe to push. Do **not** flip public if a later leak appears.
+- Repo flipped **public** after the §14 checklist: gitignore, history scan, health/settings JSON, README, and client bundle.
 
 ## Do next
 
