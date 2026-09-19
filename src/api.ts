@@ -1,4 +1,5 @@
 import type { Health } from "./types";
+import type { WeatherResponse } from "./weather";
 
 export async function getHealth(): Promise<Health> {
   const res = await fetch("/api/health");
@@ -31,6 +32,15 @@ export async function readDoc(path: string) {
   const body = await res.json();
   if (!res.ok) throw new Error(body.message || "Doc not found");
   return body as { ok: true; path: string; text: string };
+}
+
+export async function fetchWeather(q: string): Promise<WeatherResponse> {
+  const res = await fetch(`/api/weather?q=${encodeURIComponent(q)}`);
+  const body = (await res.json()) as WeatherResponse;
+  if (!res.ok || !body.ok) {
+    throw new Error(body.message || "Weather request failed");
+  }
+  return body;
 }
 
 export async function askJev(payload: {

@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { WeatherHttpError, getWeather, searchPlaces } from "./server/weather";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const envFile = resolve(here, ".env.local");
@@ -38,6 +39,14 @@ function loadDotenv() {
 
 function present(value: string | undefined) {
   return Boolean(value && value.trim());
+}
+
+function publicError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "server error";
+  if (/bearer\s+\S+|sk-or-|OPENROUTER_API_KEY|api[_-]?key\s*[:=]/i.test(raw)) {
+    return "Request failed.";
+  }
+  return raw;
 }
 
 function send(res: ServerResponse, code: number, body: unknown) {
@@ -140,6 +149,8 @@ function llmSystem(state: string, jevAnswers: unknown, mode: string) {
 
 Jev is TypeSafe's System One model. It is NOT an LLM. It does not write. It evaluates a state against typed questions in one parallel call and returns choice / noul / score answers with probabilities. OpenRouter route: POST https://openrouter.ai/api/alpha/decisions (never chat/completions). Pin typesafe/jev-1.13.
 
+A weather block in the case (<!-- weather:start --> or ## Weather) is observational Open-Meteo input. Do not invent weather. Do not pretend to be Jev.
+
 Rules from the stored docs:
 - One snap judgment per question. Decompose; compose in code.
 - Question ids are for code; put the whole question in instructions.
@@ -188,6 +199,36 @@ function workshopApi(): Plugin {
             return send(res, 200, { ok: true, path: q, text });
           }
 
+          if (req.method === "GET" && url === "/api/weather") {
+            const params = new URL(req.url || "", "http://127.0.0.1").searchParams;
+            try {
+              const payload = await getWeather({
+                q: params.get("q") || undefined,
+                latitude: params.get("latitude") || undefined,
+                longitude: params.get("longitude") || undefined,
+              });
+              return send(res, 200, { ok: true, ...payload });
+            } catch (err) {
+              if (err instanceof WeatherHttpError) {
+                return send(res, err.status, { ok: false, message: err.message });
+              }
+              throw err;
+            }
+          }
+
+          if (req.method === "GET" && url === "/api/geo") {
+            const q = new URL(req.url || "", "http://127.0.0.1").searchParams.get("q") || "";
+            try {
+              const results = await searchPlaces(q);
+              return send(res, 200, { ok: true, results });
+            } catch (err) {
+              if (err instanceof WeatherHttpError) {
+                return send(res, err.status, { ok: false, message: err.message });
+              }
+              throw err;
+            }
+          }
+
           if (req.method === "POST" && url === "/api/docs/update") {
             // Native ESM snapshotter — no TS types shipped with the .mjs
             const { updateJevDocs } = (await import(
@@ -232,7 +273,10 @@ function workshopApi(): Plugin {
               headers: orHeaders(env),
               body: JSON.stringify({ model, state, questions }),
             });
-            const payload = await upstream.json().catch(() => ({}));
+            const payload = (await upstream.json().catch(() => ({}))) as Record<
+              string,
+              unknown
+            >;
             if (!upstream.ok) {
               return send(res, 502, {
                 ok: false,
@@ -240,7 +284,12 @@ function workshopApi(): Plugin {
                 status: upstream.status,
               });
             }
-            return send(res, 200, { ok: true, model, ...payload });
+            return send(res, 200, {
+              ok: true,
+              model: typeof payload.model === "string" ? payload.model : model,
+              answers: payload.answers,
+              usage: payload.usage,
+            });
           }
 
           if (req.method === "POST" && url === "/api/llm") {
@@ -291,8 +340,7 @@ function workshopApi(): Plugin {
 
           return send(res, 404, { ok: false, message: "unknown api" });
         } catch (err) {
-          const message = err instanceof Error ? err.message : "server error";
-          return send(res, 500, { ok: false, message });
+          return send(res, 500, { ok: false, message: publicError(err) });
         }
       });
     },
@@ -305,10 +353,12 @@ export default defineConfig({
     port: 5182,
     strictPort: true,
     host: "127.0.0.1",
+    cors: false,
   },
   preview: {
     port: 5182,
     strictPort: true,
     host: "127.0.0.1",
+    cors: false,
   },
 });
