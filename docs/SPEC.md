@@ -245,9 +245,11 @@ Layout:
 
 ```
 [ chrome ]
-[ manila intro slip ]
+[ manila intro slip — 9 operator snaps + Jacket ]
 [ 10 case cards ]
 ```
+
+Intro slip: nine operator snaps plus one weather case. Same list as the Workshop chips. Jev returns `choice` / `noul` / `score` — not a chatbot. Open-Meteo is optional input on Jacket only.
 
 Each card: **label** (same as the Workshop chip), one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). The Jacket card may stamp **weather**; business cards do not. Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads **the same preset** as the Workshop chip: situation + questions, clear answers + LLM thread, mark that sample active. Workshop with no `?case=` still lands on **Invoice exception**.
 
@@ -454,109 +456,117 @@ Unknown place → 404 `{ ok:false, message }` (no OpenRouter mention). Upstream 
 
 ## 12. Ten sample cases (Workshop presets)
 
-One-click chips on the Case ticket **and** cards on **Use Cases**. Same ten. Each preset is a product contract: **id**, **short label**, **pitch**, **situation** (case text with a weather placeholder), **Jev questions**. All ten are weather-shaped. Clicking a chip or a Use Cases card:
+One-click chips on the Case ticket **and** cards on **Use Cases**. Same ten. One module: `src/samples.ts`. Do not fork a second catalog.
 
-- Writes the situation into the Case textarea (placeholder weather block included)
+Nater (2026-09-19): weather is **literally one use case**. The other nine are **business / operator** snaps — real tickets and memos (amounts, SLA, customer tier, policy quotes), not lifestyle weather, not sports-weather, not “festival in the rain.” Mix Jev primitives **choice**, **noul**, and **score** across the set (not all noul). Cheap LLM can still draft; Jev returns probabilities.
+
+Each preset is a product contract: **id**, **short label**, **pitch**, **kind** (`business` | `weather`), **situation** (case text), **Jev questions** (2–4, with ids / types / option keys). Clicking a chip or a Use Cases card:
+
+- Writes the situation into the Case textarea (weather placeholder **only** on Jacket)
 - Replaces the Jev question editor
 - Clears last Jev answers and the LLM thread (the previous case must not leak if “Include LLM chat” is on)
 - Marks that chip active
-- Does **not** fetch weather until **Load weather** (so a preset still works offline; live weather is the upgrade)
+- Shows or hides the weather row from **kind** (Jacket only)
+- Does **not** fetch weather until **Load weather** on Jacket (offline-safe; live weather is the upgrade)
 
-Initial Workshop load stays the support-ticket demo (not a chip). None of the ten replace that default until clicked.
+**Landing:** first-open Workshop and New chat load **Invoice exception** (`invoice`). That chip is on. Jacket remains available as one chip/card.
 
-Chip labels (keep these names unless a later SPEC edit renames them):
+| # | id | Chip | Kind | Mix |
+|---|---|---|---|---|
+| 1 | `invoice` | Invoice exception | business | AP. Pay / hold / reject. choice + noul + score. **Landing.** |
+| 2 | `ticket` | Ticket route | business | Queue. billing / engineering / success / spam. |
+| 3 | `lead` | Lead qualify | business | Book demo / nurture / disqualify. |
+| 4 | `refund` | Refund call | business | Full / partial / deny. |
+| 5 | `hire` | Hire screen | business | Advance / hold / pass. |
+| 6 | `launch` | Launch go/no-go | business | Ship / wait / rollback plan. |
+| 7 | `chargeback` | Chargeback | business | Accept / represent / block. |
+| 8 | `vendor` | Vendor risk | business | Sign / redline / walk. |
+| 9 | `moderate` | Moderate | business | Go live / edit / kill. |
+| 10 | `jacket` | Jacket? | weather | Outdoor layer. Open-Meteo optional. **The one weather case.** |
 
-| # | id | Chip | Mix |
-|---|---|---|---|
-| 1 | `jacket` | Jacket? | Practical. Noul + layer choice. |
-| 2 | `run` | Run go/no-go | Practical. Outdoor run vs treadmill. |
-| 3 | `rain-delay` | Rain delay | Practical. School / rec sports call. |
-| 4 | `patio` | Patio dinner | Practical. Eat out vs stay in. |
-| 5 | `garden` | Water the garden | Practical. Water vs skip for rain. |
-| 6 | `commute` | Bike vs bus | Practical. Commute mode. |
-| 7 | `grill` | Grill tonight? | Practical. Cook outside. |
-| 8 | `storm` | Storm prep | Practical. Windows / cushions / watch. |
-| 9 | `festival` | Harvest festival | Fun. TypeSafe/Jev NPC town call. |
-| 10 | `travel` | Travel day | Practical. Fly / drive / delay. |
+### 12.1 Invoice exception (landing)
 
-### 12.1 Jacket?
+AP queue. INV-18442, Northwind Logistics LLC, Net-30, 3 years, no prior disputes. Invoice $18,640 vs PO-9921 $16,200 (+15.1%). Fuel surcharge $1,980 not on PO; pallet repair $460 with a carrier claim. Policy AP-4.2: auto-pay ≤ $250 or ≤ 2%; hold 2–5% or $250–$2,000; reject or amend above that. Fuel needs a signed addendum (none on file). Buyer: pay fuel if verbal winter band, do not pay pallet. Vendor dunning 8 days past terms. SLA: AP close Friday 5pm ET.
 
-Situation: 15–20 minute outdoor errand (coffee / walk). Judge jacket vs no jacket from weather + outing.
+- `action` **choice** — `pay` / `hold` / `reject`
+- `within_policy` **noul** — Is paying this invoice as-is within AP-4.2? true: within policy; false: exception needs hold or reject
+- `exception_risk` **score** — Routine / Watch / Material
 
-- `wear_jacket` **noul** — Should they wear a jacket for this outing given the weather? true: jacket is warranted; false: comfortable without one.
+### 12.2 Ticket route
+
+Zendesk #482911, 14m old, Enterprise ARR $94k, first-response SLA 1h. Subject mixes production webhook 500s and a duplicate $2,400 invoice. Three similar 5xx tickets in 40m. Duplicate Stripe charge id. Sender matches account owner. Queues: billing / engineering / success / spam.
+
+- `queue` **choice** — `billing` / `engineering` / `success` / `spam`
+- `urgent` **noul** — Does this need Sev-1 / immediate attention? true: production or enterprise-at-risk now; false: can wait the SLA
+- `severity` **score** — Low / Medium / Sev-1
+
+### 12.3 Lead qualify
+
+HubSpot D-44190. Harbor & Pine Credit Union, ~$2.1B assets, VP Operations, DNA core. Inbound: decision engine for loan exception queues, budget this FY, demo Thursday. ICP: CU/community bank $500M–$10B, ops/risk buyer, exception or KYC queues. They asked for on-prem; we are cloud + VPC only.
+
+- `disposition` **choice** — `book_demo` / `nurture` / `disqualify`
+- `icp_fit` **noul** — Does this account match ICP? true: ICP; false: out of ICP
+- `intent` **score** — Cold / Warm / Hot
+
+### 12.4 Refund call
+
+Stripe $247 annual renewal, order ORD-77120, Maya Chen, 11 months, lifetime $1,104, two small prior refunds, risk 12/100. Renewed 19h ago; 3 logins this period. Policy R-3: full if unused or 14-day new-customer window (she is not new). Partial: unused months minus consumed month if cancel within 7 days of renewal. Deny: abuse, >2 refunds/year, or fully consumed. Chargeback threat is not itself a deny.
+
+- `decision` **choice** — `full` / `partial` / `deny`
+- `policy_allows_full` **noul** — Does R-3 allow a full refund here? true: full is in policy; false: it is not
+- `abuse_risk` **score** — Clean / Watch / Abuse
+
+### 12.5 Hire screen
+
+SWE-II Decision Systems. Jordan Hale, 4.5 years, fintech routing rules (Rails), claims a “System-One-style classifier” but described sklearn + Slack bot. Comp $165k + 0.15% (band $140–170k, 0.08–0.20%). Musts: production backend, judgment-under-uncertainty, tradeoffs. Auto-pass: cannot discuss a real production system, or >$190k. Interviewer: strong communicator, light systems design.
+
+- `outcome` **choice** — `advance` / `hold` / `pass`
+- `meets_musts` **noul** — Do they meet the must-have scorecard? true: yes; false: no
+- `fit` **score** — Weak / Mixed / Strong
+
+### 12.6 Launch go/no-go
+
+billing-vats 2.12.0, ship window today 16:00–18:00 ET, PDF engine for EU VAT invoices (~1,100 Friday). Open P1: umlauts as `?` on the tagged worker image; fix is on a newer untagged build. Rollback: feature flag off, tested <2m. Go: no P1 on the artifact we ship. Wait: retag. Rollback-plan: ship a known P1 only with a documented revert (legal has not asked).
+
+- `call` **choice** — `ship` / `wait` / `rollback_plan`
+- `artifact_ready` **noul** — Is the tagged artifact ready to ship? true: the SHA/tag we would ship is clean of P1; false: it is not
+- `readiness` **score** — Blocked / Fragile / Ready
+
+### 12.7 Chargeback
+
+Stripe dispute $1,890, reason fraudulent, due 6 days. New account, 40-seat annual, CVV fail, no 3DS, Lagos datacenter ASN, data export 12k rows, then dispute. Policy: represent if strong fulfillment + real-org use; accept if CVV fail + new + export + no 3DS; block if scrape/fraud pattern.
+
+- `action` **choice** — `accept` / `represent` / `block`
+- `fraud_likely` **noul** — Is this likely fraud rather than a confused customer? true: fraud pattern; false: could be a real dispute
+- `evidence_strength` **score** — Thin / Mixed / Strong
+
+### 12.8 Vendor risk
+
+Northwind Observability, $86k year 1, auto-renew. Liability cap 3 months fees. They want unlimited indemnity from us on customer content. SOC 2 Type II expired 4 months, no bridge letter. Training-on-customer-data unless an unattached exhibit. PROC-9: no unlimited outbound indemnity; no expired SOC 2 without a bridge; training opt-out required in the DPA. Walk if two of three fail and spend >$50k.
+
+- `action` **choice** — `sign` / `redline` / `walk`
+- `policy_clear` **noul** — Can we sign this paper as-is under PROC-9? true: clear to sign; false: not clear
+- `risk` **score** — Acceptable / Elevated / Deal-breaker
+
+### 12.9 Moderate
+
+Trust & Safety PUB-90331. Pro creator, 2 prior strikes (medical-misinfo + spam). 42s video: peptide stack “cured my cousin’s tumor,” sales link, stock-photo watermark. Policy P-4 Health: no unproven cancer-treatment claims; no sales links on health claims; first cancer-claim strike = kill + 7-day feature ban. SLA 15 minutes. Would run next to a hospital advertiser.
+
+- `action` **choice** — `go_live` / `edit` / `kill`
+- `policy_violation` **noul** — Does this violate P-4 Health as posted? true: violation; false: can stand
+- `harm` **score** — Low / Medium / Severe
+
+### 12.10 Jacket? (the one weather case)
+
+15–20 minute outdoor errand (coffee / walk). Judge jacket vs no jacket from the weather block plus this outing. Not a packing essay. Situation includes the Open-Meteo placeholder; live weather is optional via **Load weather**.
+
+- `wear_jacket` **noul** — Should they wear a jacket for this outing given the weather? true: jacket is warranted; false: comfortable without one
 - `layer` **choice** — `tee` / `light_layer` / `insulated` / `rain_shell`
 
-### 12.2 Run go/no-go
-
-Situation: planned outdoor run (~45 min). Safety and comfort, not a coaching essay.
-
-- `go_outside` **noul** — Is it reasonable to run outdoors now?
-- `plan` **choice** — `outdoor_run` / `treadmill` / `wait_for_break` / `skip`
-- `conditions` **score** — Great / OK / Poor / Unsafe
-
-### 12.3 Rain delay
-
-Situation: youth rec / school outdoor game this afternoon. Field call.
-
-- `delay_game` **noul** — Should the game be delayed or called for weather?
-- `call` **choice** — `play` / `delay` / `move_indoors` / `cancel`
-- `field` **score** — Dry / Damp / Unsafe
-
-### 12.4 Patio dinner
-
-Situation: dinner plans with friends; patio is the preference.
-
-- `worth_going_out` **noul** — Worth leaving the house for dinner given the weather?
-- `venue` **choice** — `outdoor_patio` / `indoor_table` / `takeout` / `stay_in`
-
-### 12.5 Water the garden
-
-Situation: backyard vegetables, evening watering habit.
-
-- `water_today` **noul** — Should they water the garden today?
-- `timing` **choice** — `water_now` / `water_evening` / `skip_rain_coming` / `skip_already_wet`
-
-### 12.6 Bike vs bus
-
-Situation: 3-mile commute, bike is the default in decent weather.
-
-- `bike_ok` **noul** — Is biking this commute reasonable in this weather?
-- `mode` **choice** — `bike` / `bus` / `drive` / `wfh`
-
-### 12.7 Grill tonight?
-
-Situation: weeknight dinner, charcoal/gas grill on a deck.
-
-- `grill` **noul** — Should they grill outdoors tonight?
-- `plan` **choice** — `grill_now` / `grill_later` / `indoor_cook` / `takeout`
-
-### 12.8 Storm prep
-
-Situation: house with open windows and porch cushions; a system is in the forecast.
-
-- `close_windows` **noul** — Should they close windows and bring loose things in now?
-- `prep` **choice** — `none` / `close_and_stow` / `full_storm_prep`
-- `urgency` **score** — Calm / Watch / Act now
-
-### 12.9 Harvest festival (fun)
-
-Situation: TypeSafe-games / Jev NPC energy. A town crier asks whether to hold the harvest festival in the square this afternoon. Jev is the town’s snap-judgment engine, not a novelist.
-
-- `hold_festival` **noul** — Should the town hold the harvest festival in the square this afternoon?
-- `venue` **choice** — `town_square` / `guild_hall` / `postpone_dawn` / `cancel_season`
-- `omen` **score** — Fair winds / Uneasy sky / Ill omen
-
-### 12.10 Travel day
-
-Situation: morning departure, could fly, drive, or wait a day. Judge disruption from weather, not airline politics.
-
-- `leave_today` **noul** — Should they leave today given the weather?
-- `mode` **choice** — `fly` / `drive` / `delay_until_clear` / `cancel`
-- `disruption` **score** — Smooth / Bumps / Severe
-
-Each situation file in `src/samples.ts` must match this contract (ids, types, option keys). Copy may be slightly warmer than this SPEC outline; question **ids** and **types** must not drift.
+Each situation in `src/samples.ts` must match this contract (ids, types, option keys). Copy may be slightly warmer than this SPEC outline; question **ids** and **types** must not drift. Business situations must read like tickets/memos (enough state for Jev) and must **not** require live weather.
 
 Use Cases (`/use-cases`) renders the same ten as cards. Workshop chips and Use Cases cards share this module.
+
 
 ---
 
@@ -587,16 +597,16 @@ Before calling Workshop done:
 21. On Jacket: **Load weather** (default Columbus, OH) fills the Case ticket weather block; status line shows place + now; no OpenRouter key required
 22. Pick at least two **business** chips plus Jacket: Case + Jev questions swap; Ask Jev returns typed answers
 23. On Jacket: changing the location field and loading again replaces the weather block without wiping the Situation
-23. `/docs` overlay still works after the Workshop weather work
-24. First visit (or clear `talk-to-jev:tutorial-done`): coach overlay appears on Workshop; card fully on-screen and opaque
-25. Next walks at least 3 steps; Back returns; missing targets (Use Cases / Settings / weather if not landed) are skipped, not crashed
-26. Skip dismisses; refresh does not reopen the overlay
-27. Chrome **Tour** restarts the overlay; Docs eyeball/code step still keeps that view overlay fully visible
-28. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
-29. Saving an empty unused key (e.g. OpenAI) does not echo a full key in the UI or JSON
-30. `GET /api/settings` has `present` / `last4` only — no full key
-31. Chrome key pill (checking / ready / missing / error) is a real button with `cursor: pointer`; click and keyboard go to `/settings`; `title` mentions Settings on every state (missing: paste in Settings); visible label stays the key status, not the word Settings
-32. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
+24. `/docs` overlay still works after the Workshop weather work
+25. First visit (or clear `talk-to-jev:tutorial-done`): coach overlay appears on Workshop; card fully on-screen and opaque
+26. Next walks at least 3 steps; Back returns; missing targets (Use Cases / Settings / weather if hidden on a business preset) are skipped, not crashed
+27. Skip dismisses; refresh does not reopen the overlay
+28. Chrome **Tour** restarts the overlay; Docs eyeball/code step still keeps that view overlay fully visible
+29. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
+30. Saving an empty unused key (e.g. OpenAI) does not echo a full key in the UI or JSON
+31. `GET /api/settings` has `present` / `last4` only — no full key
+32. Chrome key pill (checking / ready / missing / error) is a real button with `cursor: pointer`; click and keyboard go to `/settings`; `title` mentions Settings on every state (missing: paste in Settings); visible label stays the key status, not the word Settings
+33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 
 ---
 
