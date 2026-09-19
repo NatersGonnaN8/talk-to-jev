@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   askJev,
+  fetchWeather,
   getHealth,
   listDocs,
   readDoc,
@@ -16,11 +17,36 @@ import type {
 } from "./types";
 import { toNiceHtml } from "./markdown";
 import { DEFAULT_QUESTIONS, DEFAULT_STATE } from "./types";
+import { SAMPLE_CASES, cloneSample, type SampleId } from "./samples";
+import { DEFAULT_LOCATION_QUERY, mergeWeatherIntoCase } from "./weather";
+import { UseCasesPage } from "./UseCases";
+import { HistoryPanel } from "./HistoryPanel";
+import {
+  activeThread,
+  deleteChat,
+  emptySnapshot,
+  loadStore,
+  persistStore,
+  renameChat,
+  selectChat,
+  startNewChat,
+  upsertActive,
+  type ChatStore,
+  type WorkshopSnapshot,
+} from "./history";
 
-type Page = "workshop" | "docs";
+type Page = "workshop" | "docs" | "use-cases";
 
 function pageFromPath(): Page {
-  return window.location.pathname.startsWith("/docs") ? "docs" : "workshop";
+  const p = window.location.pathname;
+  if (p.startsWith("/docs")) return "docs";
+  if (p.startsWith("/use-cases") || p.startsWith("/cases")) return "use-cases";
+  return "workshop";
+}
+
+function caseFromSearch(): string | null {
+  const id = new URLSearchParams(window.location.search).get("case");
+  return id?.trim() || null;
 }
 
 function newId(prefix: string) {
@@ -129,12 +155,18 @@ function emptyQuestion(type: QuestionType): JevQuestion {
 
 export function App() {
   const [page, setPage] = useState<Page>(pageFromPath);
+  const [caseId, setCaseId] = useState<string | null>(caseFromSearch);
+  const [presetNonce, setPresetNonce] = useState(0);
   const [health, setHealth] = useState<Health | null>(null);
   const [toast, setToast] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
-    const onPop = () => setPage(pageFromPath());
+    const onPop = () => {
+      setPage(pageFromPath());
+      setCaseId(caseFromSearch());
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -145,10 +177,23 @@ export function App() {
       .catch(() => setHealth(null));
   }, []);
 
-  const go = (next: Page) => {
-    const path = next === "docs" ? "/docs" : "/";
-    window.history.pushState({}, "", path);
+  const go = (next: Page, sampleId?: SampleId) => {
+    if (next === "docs") {
+      window.history.pushState({}, "", "/docs");
+      setCaseId(null);
+    } else if (next === "use-cases") {
+      window.history.pushState({}, "", "/use-cases");
+      setCaseId(null);
+    } else if (sampleId) {
+      window.history.pushState({}, "", `/?case=${encodeURIComponent(sampleId)}`);
+      setCaseId(sampleId);
+      setPresetNonce((n) => n + 1);
+    } else {
+      window.history.pushState({}, "", "/");
+      setCaseId(null);
+    }
     setPage(next);
+    if (next !== "workshop") setHistoryOpen(false);
   };
 
   const onUpdateDocs = async () => {
@@ -189,6 +234,13 @@ export function App() {
             Workshop
           </button>
           <button
+            className={page === "use-cases" ? "nav-btn on" : "nav-btn"}
+            type="button"
+            onClick={() => go("use-cases")}
+          >
+            Use Cases
+          </button>
+          <button
             className={page === "docs" ? "nav-btn on" : "nav-btn"}
             type="button"
             onClick={() => go("docs")}
@@ -197,6 +249,17 @@ export function App() {
           </button>
         </nav>
         <div className="chrome-right">
+          {page === "workshop" ? (
+            <button
+              className={historyOpen ? "btn ghost on" : "btn ghost"}
+              type="button"
+              aria-expanded={historyOpen}
+              aria-controls="workshop-history"
+              onClick={() => setHistoryOpen((open) => !open)}
+            >
+              History
+            </button>
+          ) : null}
           <span
             className={
               health == null ? "pill" : health.hasKey ? "pill ready" : "pill missing"
@@ -231,14 +294,22 @@ export function App() {
           </button>
         </div>
       ) : null}
-      {page === "docs" ? (
-        <DocsPage />
-      ) : (
+      {page === "docs" ? <DocsPage /> : null}
+      {page === "use-cases" ? (
+        <UseCasesPage onOpen={(id) => go("workshop", id)} />
+      ) : null}
+      <div hidden={page !== "workshop"}>
         <Workshop
           health={health}
           onToast={setToast}
+          historyOpen={historyOpen}
+          onHistoryOpenChange={setHistoryOpen}
+          presetId={caseId}
+          presetNonce={presetNonce}
+          onOpenSample={(id: SampleId) => go("workshop", id)}
+          onBlankWorkshop={() => go("workshop")}
         />
-      )}
+      </div>
     </div>
   );
 }
@@ -246,26 +317,158 @@ export function App() {
 function Workshop({
   health,
   onToast,
+  historyOpen,
+  onHistoryOpenChange,
+  presetId,
+  presetNonce,
+  onOpenSample,
+  onBlankWorkshop,
 }: {
   health: Health | null;
   onToast: (s: string) => void;
+  historyOpen: boolean;
+  onHistoryOpenChange: (open: boolean) => void;
+  presetId: string | null;
+  presetNonce: number;
+  onOpenSample: (id: SampleId) => void;
+  onBlankWorkshop: () => void;
 }) {
-  const [state, setState] = useState(DEFAULT_STATE);
-  const [includeChat, setIncludeChat] = useState(true);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [store, setStore] = useState<ChatStore>(() => loadStore());
+  const boot = activeThread(store);
+  const [state, setState] = useState(() => boot?.state ?? DEFAULT_STATE);
+  const [includeChat, setIncludeChat] = useState(() => boot?.includeChat ?? true);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    () => boot?.messages ?? [],
+  );
   const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState<"llm" | "jev" | "propose" | null>(null);
+  const [busy, setBusy] = useState<"llm" | "jev" | "propose" | "weather" | null>(
+    null,
+  );
   const [split, setSplit] = useState(50);
-  const [questions, setQuestions] =
-    useState<Record<string, JevQuestion>>(DEFAULT_QUESTIONS);
-  const [answers, setAnswers] = useState<Record<string, JevAnswer> | null>(null);
-  const [jevMeta, setJevMeta] = useState("");
+  const [questions, setQuestions] = useState<Record<string, JevQuestion>>(
+    () => boot?.questions ?? DEFAULT_QUESTIONS,
+  );
+  const [answers, setAnswers] = useState<Record<string, JevAnswer> | null>(
+    () => boot?.answers ?? null,
+  );
+  const [jevMeta, setJevMeta] = useState(() => boot?.jevMeta ?? "");
+  const [samplePresetId, setSamplePresetId] = useState<string | null>(
+    () => boot?.samplePresetId ?? null,
+  );
+  const [locationQuery, setLocationQuery] = useState(DEFAULT_LOCATION_QUERY);
+  const [weatherLine, setWeatherLine] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
+  const snapRef = useRef<WorkshopSnapshot>(emptySnapshot());
+  const storeRef = useRef(store);
+  storeRef.current = store;
+
+  const skipMatchingBoot = useRef(
+    Boolean(presetId && boot?.samplePresetId === presetId),
+  );
+
+  const snapshot: WorkshopSnapshot = {
+    messages,
+    state,
+    includeChat,
+    questions,
+    answers,
+    jevMeta,
+    samplePresetId,
+  };
+  snapRef.current = snapshot;
+
+  const applySnapshot = (snap: WorkshopSnapshot) => {
+    setState(snap.state);
+    setIncludeChat(snap.includeChat);
+    setMessages(snap.messages);
+    setQuestions(snap.questions);
+    setAnswers(snap.answers);
+    setJevMeta(snap.jevMeta);
+    setSamplePresetId(snap.samplePresetId);
+    setDraft("");
+    setWeatherLine("");
+    setLocationQuery(DEFAULT_LOCATION_QUERY);
+  };
 
   useEffect(() => {
     const el = threadRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setStore((s) => upsertActive(s, snapRef.current));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [messages, state, includeChat, questions, answers, jevMeta, samplePresetId]);
+
+  useEffect(() => {
+    const flush = () => {
+      persistStore(upsertActive(storeRef.current, snapRef.current));
+    };
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!presetId) return;
+    if (skipMatchingBoot.current) {
+      skipMatchingBoot.current = false;
+      return;
+    }
+    const preset = cloneSample(presetId);
+    if (!preset) return;
+    setStore(startNewChat(storeRef.current, snapRef.current));
+    setSamplePresetId(preset.id);
+    setState(preset.state);
+    setQuestions(preset.questions);
+    setAnswers(null);
+    setJevMeta("");
+    setMessages([]);
+    setDraft("");
+    setWeatherLine("");
+    onToast(
+      `Loaded “${preset.label}”. Click Load weather for live Open-Meteo.`,
+    );
+  }, [presetId, presetNonce, onToast]);
+
+  const onNewChat = () => {
+    setStore(startNewChat(storeRef.current, snapRef.current));
+    applySnapshot(emptySnapshot());
+    onBlankWorkshop();
+    onHistoryOpenChange(false);
+  };
+
+  const onClearCurrent = () => {
+    setMessages([]);
+    setAnswers(null);
+    setJevMeta("");
+    setDraft("");
+  };
+
+  const onSelectChat = (id: string) => {
+    const chat = storeRef.current.chats.find((c) => c.id === id);
+    if (!chat) return;
+    persistStore(upsertActive(storeRef.current, snapRef.current));
+    const next = selectChat(loadStore(), id);
+    setStore(next);
+    applySnapshot(chat);
+    onHistoryOpenChange(false);
+  };
+
+  const onRenameChat = (id: string, title: string) => {
+    setStore(renameChat(storeRef.current, id, title));
+  };
+
+  const onDeleteChat = (id: string) => {
+    const wasActive = storeRef.current.activeId === id;
+    const next = deleteChat(storeRef.current, id);
+    setStore(next);
+    if (wasActive) applySnapshot(emptySnapshot());
+  };
 
   const locked = health?.hasKey === false || busy !== null;
 
@@ -357,6 +560,20 @@ function Workshop({
     onToast("Fed Jev’s answers into the LLM thread.");
   };
 
+  const onLoadWeather = async () => {
+    setBusy("weather");
+    try {
+      const data = await fetchWeather(locationQuery);
+      setState((s) => mergeWeatherIntoCase(s, data.text ?? ""));
+      setWeatherLine(data.summary ?? data.place?.label ?? "");
+      onToast(`Loaded weather for ${data.place?.label ?? "this place"}.`);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "Weather failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const onSplitPointer = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const rail = e.currentTarget.parentElement;
     if (!rail) return;
@@ -376,6 +593,16 @@ function Workshop({
 
   return (
     <main className="workshop">
+      <HistoryPanel
+        open={historyOpen}
+        onClose={() => onHistoryOpenChange(false)}
+        store={store}
+        onNew={onNewChat}
+        onClear={onClearCurrent}
+        onSelect={onSelectChat}
+        onRename={onRenameChat}
+        onDelete={onDeleteChat}
+      />
       <section className="ticket">
         <div className="ticket-head">
           <span className="eyebrow">Case</span>
@@ -388,14 +615,53 @@ function Workshop({
             Include LLM chat in Jev state
           </label>
         </div>
+        <div className="samples" role="list" aria-label="Sample cases">
+          {SAMPLE_CASES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={samplePresetId === s.id ? "sample-chip on" : "sample-chip"}
+              disabled={busy !== null}
+              onClick={() => onOpenSample(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="weather-row">
+          <input
+            value={locationQuery}
+            onChange={(e) => setLocationQuery(e.target.value)}
+            placeholder="City or lat, lon"
+            aria-label="Weather location"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void onLoadWeather();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn solid"
+            disabled={busy !== null}
+            onClick={() => void onLoadWeather()}
+          >
+            {busy === "weather" ? "Loading…" : "Load weather"}
+          </button>
+        </div>
+        {weatherLine ? <p className="weather-status">{weatherLine}</p> : null}
         <textarea
           className="case"
           value={state}
           onChange={(e) => setState(e.target.value)}
           placeholder="What Jev should judge"
-          rows={3}
+          rows={8}
         />
-        <p className="hint">Jev judges this. The LLM can draft it.</p>
+        <p className="hint">
+          Jev judges this. The LLM can draft it. Weather is Open-Meteo input, not a
+          model.
+        </p>
       </section>
 
       <section className="board">

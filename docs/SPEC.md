@@ -1,10 +1,10 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.3 — 2026-09-19  
+**Status:** v0.4 — 2026-09-19  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
-**GitHub:** private `talk-to-jev`  
-**Local:** Vite UI + API on `http://127.0.0.1:5182` (`strictPort`)
+**GitHub:** `talk-to-jev` (public only after the §14 security checklist)  
+**Local:** Vite UI + API on `http://127.0.0.1:5182` (`strictPort`, bind `127.0.0.1` only)
 
 This file is the contract. Code trails these decisions.
 
@@ -33,25 +33,39 @@ The LLM is the cheap prose half. Jev is the cheap decision half. The app is the 
 - No images/audio/video into Jev (Jev is text/JSON only).
 - No accounts, no server-side history, no sending threads to a new backend.
 - Workshop history is **this browser’s localStorage only** (this machine, this origin). Refresh restores it.
-- Never persist `OPENROUTER_API_KEY` or any secret in localStorage / history JSON.
+- Never persist `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`, `BRAVE_API_KEY`, or any other secret in localStorage / history JSON. Chat history is local; keys are not.
+- OpenAI / Anthropic / Tavily / Brave may be **saved** in Settings (BYOK). They are **not called** in MVP. OpenRouter still powers the LLM and Jev.
 - No multi-user, no deploy, no billing UI.
 - Do not call Jev via chat completions (that 400s). Do not ask Jev to write poems or code.
 - No second weather API key, no paid weather wrapper. Weather is Open-Meteo (free, no key), server-side only.
 - Do not send weather to a third model. Open-Meteo → Case ticket → Jev / LLM.
-- No second weather API key. Weather (when wired) is Open-Meteo, keyless.
 
 ---
 
 ## 3. Auth and models
 
-- **One secret:** `OPENROUTER_API_KEY` in gitignored `.env.local`.
-- `.env.local` **wins** over a Windows user-level `OPENROUTER_API_KEY` (that env var can be stale and 401).
-- Key stays on the **server** (Vite middleware). The browser never sees it.
+**Bring your own keys (BYOK).** Keys live on the **server** in gitignored `.env.local`. Never commit that file. The browser never sees raw keys (not in HTML, JS bundles, localStorage, or API JSON). Paste in **Settings** (`/settings`) — that POSTs `/api/settings` and writes `.env.local`. Contributors may copy `env.local.template` (empty values, comments only). Do **not** use `.env.example` as a paste target.
+
+Env names (standard):
+
+| Slot | Env | MVP |
+|---|---|---|
+| OpenRouter | `OPENROUTER_API_KEY` | **Required** for LLM + Jev |
+| OpenAI | `OPENAI_API_KEY` | Saved only; unused until direct models land |
+| Anthropic | `ANTHROPIC_API_KEY` | Saved only; unused until direct models land |
+| Tavily | `TAVILY_API_KEY` | Saved only; unused until search lands |
+| Brave | `BRAVE_API_KEY` | Saved only; unused until search lands |
+
+- Never prefix these with `VITE_` (Vite would ship them to the browser).
+- `.env.local` **wins** over a Windows user-level `OPENROUTER_API_KEY` (that env var can be stale and 401). Unused slots stay as empty `KEY=` lines.
+- `/api/health` returns booleans only (`hasKey` = OpenRouter present; `keys.openrouter|openai|anthropic|tavily|brave`) — never the secret, never a prefix, never last-4.
+- `GET /api/settings` returns present/absent plus **last-4** when present. Never the full key.
+- `POST /api/settings` writes one slot. Never log the body. Empty `value` clears that slot (writes empty).
 - Optional overrides in `.env.local`:
   - `JEV_MODEL` default `typesafe/jev-1.13` (pin; do not silently follow `~typesafe/jev-latest` in MVP)
   - `LLM_MODEL` default `deepseek/deepseek-v4-flash`
-- If the key is missing, the UI says so and both Ask buttons stay disabled with a reason. Never log the key.
-- **Load weather** and sample presets do **not** need the OpenRouter key.
+- If OpenRouter is missing, the UI says so and both Ask buttons stay disabled with a reason. Never log any key.
+- **Load weather** and sample presets do **not** need any API key.
 
 Referer headers on outbound OpenRouter calls:
 
@@ -99,7 +113,7 @@ Shared **case** (the Jev `state`) sits in a ticket strip at the top. Both models
 | **Propose questions** | LLM is asked to return a JSON `questions` map for this case. Valid maps replace (or merge into) the Jev editor. Invalid JSON stays in chat as prose. |
 | **Feed Jev → LLM** | Inject a user-visible note into the LLM thread summarizing typed answers (choice / noul / score / confidence). Next LLM turn sees it. |
 | **Load weather** | Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on the Case ticket. Does not call Jev or the LLM. |
-| **Sample case** | One click loads a preset: Case situation (weather placeholder), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
+| **Sample case** | One click (Workshop chip **or** Use Cases card) loads the same `src/samples.ts` preset: Case situation (weather placeholder), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
 
 Code owns routing. The UI shows probabilities; it does not pretend a typed answer is “correct.”
 
@@ -114,12 +128,13 @@ Default demo case and questions (official-shaped):
 
 ## 6. Pages
 
-Global chrome (both pages):
+Global chrome (all pages):
 
-- Left: product name **Talk to Jev** (links home)
-- Nav: **Workshop** | **Docs**
-- Right: **History** (Workshop only — opens the local thread drawer), key pill (`Key ready` / `Need OpenRouter key`), **Update Jev docs**
+- Left: product name **Talk to Jev** (links home Workshop)
+- Nav: **Workshop** | **Use Cases** | **Docs** (and **Settings** only if that page exists)
+- Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), key pill (`Key ready` / `Need OpenRouter key`), **Update Jev docs**
 - No native textarea resize grips. Pane widths use a custom vertical splitter.
+- No native `<dialog>` / iframe for the coach. See §6.4.
 
 ### 6.1 Workshop — `/`
 
@@ -221,26 +236,48 @@ Layout:
 [ 10 case cards ]
 ```
 
-Each card: **label**, one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads that sample’s **case + questions** into Workshop. Stale Jev answers clear. Default billing-ticket demo stays the Workshop empty state when no `?case=` is set.
+Each card: **label** (same as the Workshop chip), one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads **the same preset** as the Workshop chip: situation + questions, clear answers + LLM thread, mark that sample active. Default billing-ticket demo stays the Workshop empty state when no `?case=` is set.
 
-The ten (ids stable; labels may tighten, not fork):
-
-| id | Label | Pitch (spirit) | Types |
-|---|---|---|---|
-| `jacket` | Jacket or no jacket | Walk out with the right layer | noul, choice |
-| `run` | Outdoor run | Go, shorten, or take it inside | choice, noul, score |
-| `rain-delay` | Rec sports rain delay | Play, delay, or call it | choice, noul |
-| `patio` | Patio dinner | Out, under cover, or inside | choice, score |
-| `garden` | Water the garden | Water now, wait on rain, or skip | choice, noul |
-| `commute` | Bike or bus | Pedal, bus, or stay home | choice, noul, score |
-| `grill` | Grill tonight? | Fire it, cook inside, or order | noul, choice |
-| `storm` | Storm prep | Close up, full prep, or ride it | noul, choice, score |
-| `harvest-festival` | Harvest festival | Hold the town festival this weekend? | noul, choice, score |
-| `travel-day` | Travel day | Fly, drive, or delay | choice, noul, score |
+The ten ids, labels, and question maps **are §12**. This page is the gallery; Workshop chips are the compact picker. One module: `src/samples.ts`.
 
 Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usable. Tips (type-chip explanations) are **opaque**, stay fully on-screen, and **flip** (below if there is room; above if the card is low — never under sticky chrome). No native resize on this page.
 
-Weather (Open-Meteo) may later fill live conditions into Case; the sample **questions** stay this list either way.
+### 6.4 Coach overlay (first-run / Tour)
+
+**Job:** walk a new visitor around the Workshop. Custom product overlay — not a native dialog, not an iframe.
+
+**When it opens**
+
+- First visit on this origin: if `localStorage["talk-to-jev:tutorial-done"]` is unset, open after paint on Workshop.
+- Chrome **Tour** restarts from the first available step even after done. Refresh must not nag once Skip or Done has fired.
+- Escape matches **Skip**.
+
+**Look and placement**
+
+- `position: fixed`, z-index **above** chrome (20) and History (30) — use **80+**.
+- Spotlight / hole around the real control when a target exists (Case, Ask Jev, etc.).
+- Coach **card** is fully opaque (manila `#F3E7D3` or blueprint `#C9DCE8`, pine ink, mill floor). No translucent fill.
+- Chrome is sticky at the top, so prefer **below** the target or **center** of the remaining viewport. Flip above only if the card would clip the bottom. Clamp every edge on-screen.
+- No native resize grips. Slick: sage mill / manila / blueprint, usable, no garnish.
+
+**Controls:** **Back** / **Next** / **Skip** / **Done** (Done replaces Next on the last available step). Skip and Done both write `talk-to-jev:tutorial-done` = `1`. Never store `OPENROUTER_API_KEY` (or any secret) in this key.
+
+**Steps** (each is independent). If the target is missing because a sibling page/control has not landed, **skip that step** — do not block the tour.
+
+1. **Welcome** — two AIs, one OpenRouter key. The LLM talks. Jev does not write.
+2. **Case ticket** — this slip is Jev `state`.
+3. **LLM pane** — prose / draft / chat.
+4. **Jev pane** — typed `choice` / `noul` / `score` + **Ask Jev**.
+5. **Propose Jev questions** / **Feed Jev to LLM** if those buttons exist.
+6. **Use Cases** tab if it exists.
+7. **Docs** — eyeball (nice Markdown) vs code (raw snapshot). May navigate to `/docs`.
+8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
+9. **History** if the chrome control exists.
+10. **Load weather** if that control exists (Open-Meteo input, not a third model).
+
+**Code:** `src/tutorial.ts` (step list + storage helpers) and `src/TutorialOverlay.tsx`. Hook live controls with `data-tutorial` attributes. Overlay may switch Workshop ↔ Docs for those steps, then continue.
+
+**Do not:** use `<dialog>`, an iframe, `resize:` other than `none`, or a translucent card.
 
 ---
 
@@ -250,7 +287,9 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/health` | `{ ok, hasKey, jevModel, llmModel, docs: { files, fetchedAt } }` |
+| GET | `/api/health` | `{ ok, hasKey, keys: { openrouter, openai, anthropic, tavily, brave }, jevModel, llmModel, docs: { files, fetchedAt } }`. All key fields are booleans. `hasKey` === `keys.openrouter`. Never last-4, never the secret. |
+| GET | `/api/settings` | `{ ok, keys: [{ id, env, label, why, required, present, last4 }] }`. `last4` is four characters or `null`. Never the full key. May append empty unused slots to `.env.local` (does not change existing values). |
+| POST | `/api/settings` | Body `{ id, value }`. `id` is `openrouter` \| `openai` \| `anthropic` \| `tavily` \| `brave`. Writes `.env.local`. Empty `value` clears that key. Response same shape as GET. **Never log the body.** Never echo `value`. |
 | POST | `/api/llm` | Body: `{ messages, state, jevAnswers?, mode?: "chat" \| "propose-questions" }`. Streams OpenRouter SSE (`text/event-stream`). |
 | POST | `/api/jev` | Body: `{ state, questions, transcript? }`. JSON Decisions response (or `{ ok:false, message }`). |
 | GET | `/api/docs` | Index of snapshot files |
@@ -259,7 +298,7 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 | GET | `/api/weather` | Open-Meteo proxy. Query `q` (city or `lat,lon`) or `latitude`+`longitude`. Default `q=Columbus, OH`. Returns `{ ok, place, current, daily, hourly, text, json }`. `text` is the Case weather block. No OpenRouter key. |
 | GET | `/api/geo` | Open-Meteo geocoding helper. Query `q`. Returns `{ ok, results: [{ name, admin1, country, latitude, longitude }] }`. Optional; **Load weather** may geocode internally. |
 
-Errors: 501 missing key, 400 bad body, 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter.
+Errors: 501 missing key, 400 bad body, 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter. `POST /api/jev` and `POST /api/llm` return 501 when the key is missing. Error strings that look like keys (`Bearer`, `sk-or-`, `OPENROUTER_API_KEY`) are replaced with a generic failure. Jev success JSON is `ok`, `model`, `answers`, `usage` — do not spread the raw upstream object.
 
 ---
 
@@ -300,6 +339,9 @@ The LLM is told, every request:
 **Key:** `talk-to-jev:chats`  
 **Shape:** v1 JSON in `localStorage`. Browser only. No accounts, no server DB, no new API.
 
+**Key:** `talk-to-jev:tutorial-done`  
+**Shape:** `"1"` after Skip or Done on the coach overlay. Absent = first-run. Restart via chrome **Tour**. Never stores keys.
+
 ```
 {
   v: 1,
@@ -321,55 +363,11 @@ ChatThread:
 Rules:
 
 - Cap **50** threads (keep the active thread; drop the oldest `updatedAt` first).
-- Do **not** write `OPENROUTER_API_KEY`, env, or health into this key.
+- Do **not** write `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`, `BRAVE_API_KEY`, env, health, or Settings payloads into this key.
 - Corrupt or unknown `v` → start empty (do not throw).
 - Quota errors: drop oldest inactive threads and retry; never crash the Workshop.
 - Composer draft and pane split are not required to persist.
 - Empty untouched defaults are **not** stored as ghost threads. A thread is written once it has messages, a renamed title, a non-default case, non-default questions, Jev answers, or a sample preset.
-
----
-
-## 11. Verification
-
-Before calling Workshop done:
-
-1. Health pill shows key state accurately
-2. Send an LLM message; streamed reply appears
-3. Ask Jev on the default case; three answers render (choice / noul / score)
-4. Propose questions replaces or fills the editor
-5. Feed Jev → LLM injects a visible note
-6. Docs page lists snapshot files; open one
-7. Update Jev docs button completes and the list refreshes
-8. Splitter drags; textareas have no native corner grip
-9. `/docs` deep link works after refresh
-10. Docs overlay: eyeball shows rendered Markdown; code icon shows raw source; tips stay fully visible
-11. `/use-cases` shows **10** cards; `/cases` is the same page
-12. Click a card: Workshop loads that case + questions (`?case=` in the URL)
-13. `/api/health` JSON has `hasKey` boolean only — no key material in the body
-14. Tips on Use Cases cards stay fully visible (flip, opaque)
-
----
-
-## 11. Open-source gate (2026-09-19)
-
-Nater wants this public soon (Jev wave). Flip GitHub to **public** only if all are true:
-
-1. `.env.local` is gitignored and was never committed
-2. `git log` / history has no API keys
-3. The browser never sees `OPENROUTER_API_KEY` (not in HTML, JS bundles, or API JSON)
-4. README says paste the key in `.env.local` only; key stays on the server; Jev is not a chatbot
-5. No secrets in client bundles (`dist/` / network)
-
-If any fail: **keep private**, fix what we can, report. LICENSE is MIT, copyright Nathan Utley, 2026.
-11. Send an LLM message, refresh: the thread is still in History and the transcript restores
-12. Click a past thread to restore case + questions + last Jev answers
-13. New chat starts a blank workshop; the previous thread remains in the list
-14. Delete one thread; it is gone after refresh
-15. `localStorage["talk-to-jev:chats"]` has no API key
-11. **Load weather** (default Columbus, OH) fills the Case ticket weather block; status line shows place + now; no OpenRouter key required
-12. Pick at least two sample chips: Case + Jev questions swap; Ask Jev returns typed answers
-13. Changing the location field and loading again replaces the weather block without wiping the Situation
-14. `/docs` overlay still works after the Workshop weather work
 
 ---
 
@@ -418,7 +416,7 @@ Unknown place → 404 `{ ok:false, message }` (no OpenRouter mention). Upstream 
 
 ## 12. Ten sample cases (Workshop presets)
 
-One-click chips on the Case ticket. Each preset is a product contract: **id**, **short label**, **situation** (case text with a weather placeholder), **Jev questions**. All ten are weather-shaped. Clicking one:
+One-click chips on the Case ticket **and** cards on **Use Cases**. Same ten. Each preset is a product contract: **id**, **short label**, **pitch**, **situation** (case text with a weather placeholder), **Jev questions**. All ten are weather-shaped. Clicking a chip or a Use Cases card:
 
 - Writes the situation into the Case textarea (placeholder weather block included)
 - Replaces the Jev question editor
@@ -519,3 +517,55 @@ Situation: morning departure, could fly, drive, or wait a day. Judge disruption 
 - `disruption` **score** — Smooth / Bumps / Severe
 
 Each situation file in `src/samples.ts` must match this contract (ids, types, option keys). Copy may be slightly warmer than this SPEC outline; question **ids** and **types** must not drift.
+
+Use Cases (`/use-cases`) renders the same ten as cards. Workshop chips and Use Cases cards share this module.
+
+---
+
+## 13. Verification
+
+Before calling Workshop done:
+
+1. Health pill shows key state accurately
+2. Send an LLM message; streamed reply appears
+3. Ask Jev on the default case; three answers render (choice / noul / score)
+4. Propose questions replaces or fills the editor
+5. Feed Jev → LLM injects a visible note
+6. Docs page lists snapshot files; open one
+7. Update Jev docs button completes and the list refreshes
+8. Splitter drags; textareas have no native corner grip
+9. `/docs` deep link works after refresh
+10. Docs overlay: eyeball shows rendered Markdown; code icon shows raw source; tips stay fully visible
+11. `/use-cases` shows **10** cards; `/cases` is the same page
+12. Click a card: Workshop loads that case + questions (`?case=` in the URL)
+13. `/api/health` JSON has `hasKey` / `keys.*` booleans only — no key material in the body
+14. Tips on Use Cases cards stay fully visible (flip, opaque)
+15. Send an LLM message, refresh: the thread is still in History and the transcript restores
+16. Click a past thread to restore case + questions + last Jev answers
+17. New chat starts a blank workshop; the previous thread remains in the list
+18. Delete one thread; it is gone after refresh
+19. `localStorage["talk-to-jev:chats"]` has no API key
+20. **Load weather** (default Columbus, OH) fills the Case ticket weather block; status line shows place + now; no OpenRouter key required
+21. Pick at least two sample chips: Case + Jev questions swap; Ask Jev returns typed answers
+22. Changing the location field and loading again replaces the weather block without wiping the Situation
+23. `/docs` overlay still works after the Workshop weather work
+24. First visit (or clear `talk-to-jev:tutorial-done`): coach overlay appears on Workshop; card fully on-screen and opaque
+25. Next walks at least 3 steps; Back returns; missing targets (Use Cases / Settings / weather if not landed) are skipped, not crashed
+26. Skip dismisses; refresh does not reopen the overlay
+27. Chrome **Tour** restarts the overlay; Docs eyeball/code step still keeps that view overlay fully visible
+
+---
+
+## 14. Open-source gate (2026-09-19)
+
+Nater wants this public soon (Jev wave). Flip GitHub to **public** only if all are true:
+
+1. `.env.local` is gitignored (`.env` / `.env*`) and was never committed
+2. `git log` / history has no API key **values** (env **names** in docs/code are fine)
+3. The browser never sees raw keys (not in HTML, JS bundles, health JSON, or settings JSON beyond last-4)
+4. README / Settings: paste in `/settings` (or `.env.local`); keys stay on the server; Jev is not a chatbot
+5. No secrets in client bundles (`dist/` / network)
+6. History JSON in `localStorage` has no API key
+7. `env.local.template` (if present) has **empty** values only — never real secrets
+
+If any fail: **keep private**, fix what we can, report. LICENSE is MIT, copyright Nathan Utley, 2026.
