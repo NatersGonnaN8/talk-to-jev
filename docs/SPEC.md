@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.27 — 2026-09-20  
+**Status:** v0.28 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -170,7 +170,7 @@ Global chrome (all pages):
 - Right: **Tour** (Help — restarts the first-run coach overlay), **Update Jev docs** (after success: refresh the Docs catalog and the open reader — §6.2)
 - **History is not in chrome-right.** It lives on the **Jev’s State** row only (Workshop). Same local-thread drawer. Tour / Update Jev docs stay in the header. **Inspector** lives on the LLM pane (§6.7), not in chrome.
 - **No chrome key-status pill** (no Key ready / Need key / Checking…). Keys live in **Settings** (nav tab + `/settings`). `/api/health` still runs so Ask buttons can lock when OpenRouter is missing. Never show the full key.
-- No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch).
+- No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch). Jev’s State vs the board uses a custom **horizontal** splitter on the shared edge (same mill/pine seam, `row-resize`).
 - No native `<dialog>` / iframe for the coach. See §6.4.
 
 ### 6.1 Workshop — `/`
@@ -188,10 +188,12 @@ Layout (desktop):
   [ Add .md + attached-file chips ]
   [ shared state textarea ]
   [ drop .md into Jev’s State; convert formats go to the Convert tab ]
-  [ LLM pane | splitter | Jev’s Questions pane ]
+[ horizontal splitter — drag grows/shrinks Jev’s State ]
+[ LLM pane | vertical splitter | Jev’s Questions pane ]
 ```
 
 - **Viewport panes (2026-09-20).** Nater selected `article.pane.llm` (measured ~2086px tall vs vh 1243, `overflow: visible`, `maxHeight: none`; window/page grew with the thread). Chrome stays. **Jev’s State** ticket stays **above**. `.board` fills the **remaining viewport** (`100dvh` minus chrome minus ticket) — **not** document-tall. Each pane is a column: **pane-head stays put**. LLM **thread** is the scroller (`overflow-y: auto`). Jev **q-list + answers** share one inner scroller (`.jev-scroll`, `overflow-y: auto`). Window `scrollY` stays ~0 while those lists scroll. Custom panes — no native `resize` grips. Same pattern as Docs `.doc-list`.
+- **Ticket / board split (2026-09-20).** Nater drew the shared edge between **Jev’s State** (`section.ticket`) and the board (`section.board` = LLM + Jev’s Questions) and asked for a **drag bar** there. Custom **horizontal** pane-side resizer on that edge — pointer-drag, `role="separator"` `aria-orientation="horizontal"`. Never CSS `resize`, never a native corner grip. Dragging **grows/shrinks Jev’s State height**; the board **fills the leftover workshop column**. LLM and Jev’s Questions stay a **side-by-side row** and both inherit that leftover height. Do **not** grow `document` / window scroll. Existing viewport clip + `.thread` / `.jev-scroll` mill overlay scrollbars stay. Persist integer px in `localStorage["talk-to-jev:ticket-height"]` (this origin). Reload restores it. Corrupt / missing → **314** (the natural ticket height before the bar). Ticket min **220px** (header + tools + some textarea). Board min **240px** (pane-heads + some thread / questions). When the column is too short for both mins, **board min wins** and the ticket may go below 220. Window resize reclamps the **display** height; it does **not** overwrite the stored desired height. Keyboard on the focused separator: ArrowUp / ArrowLeft shrink the ticket **16px**; ArrowDown / ArrowRight grow it **16px**; Shift multiplies to **64px**; Home / End jump to the current min / max. `aria-valuenow` / `min` / `max` track the ticket height. Visual: same quiet mill/pine seam as the LLM \| Jev splitter — 8px hit target, 1px `--line` rest, mill-floor gutter, `cursor: row-resize`; hover / drag / `:active` widens the seam to pine. No visible label (no ALL CAPS, no Bricolage). Hidden **not** on mobile — only the **vertical** LLM \| Jev splitter hides when panes stack.
 
 **Jev’s State** (the state ticket — **not** Example Uses cards)
 
@@ -260,7 +262,12 @@ Layout (desktop):
 - Usage line: input tokens + cost when OpenRouter returns them
 - Empty answers: “Define questions, then ask Jev.”
 
-**Splitter:** drag the shared vertical edge between LLM and Jev. Not a native resize handle. Nater (2026-09-19): the old style looked like “a sick candy cane” — dashed orange hatch on cream with a pine stripe. **Visual:** a thin, quiet mill/pine divider (hit target stays wide enough to grab). Rest: 1px `--line` seam, mill-floor gutter, `cursor: col-resize`. Hover / while dragging: the seam widens slightly to pine so it reads as a handle — no dashed circus stripe, no orange/blue hatch, no garnish. Hidden on mobile; panes stack full width. `resize: none` on textareas; never CSS `resize` for layout. Convert is **not** a third Workshop pane — it is its own tab (§6.6). That page may use the same quiet splitter between its file list and preview.
+**Splitters:** custom pane-side resizers — never native handles, never CSS `resize` for layout. `resize: none` stays on textareas.
+
+- **Horizontal (ticket / board).** Shared edge between **Jev’s State** and the LLM + Jev’s Questions board. See **Ticket / board split** above. `cursor: row-resize`. Stays on mobile.
+- **Vertical (LLM \| Jev).** Drag the shared vertical edge between LLM and Jev. Nater (2026-09-19): the old style looked like “a sick candy cane” — dashed orange hatch on cream with a pine stripe. **Visual:** a thin, quiet mill/pine divider (hit target stays wide enough to grab). Rest: 1px `--line` seam, mill-floor gutter, `cursor: col-resize`. Hover / while dragging: the seam widens slightly to pine so it reads as a handle — no dashed circus stripe, no orange/blue hatch, no garnish. Hidden on mobile; panes stack full width.
+
+Convert is **not** a third Workshop pane — it is its own tab (§6.6). That page may use the same quiet **vertical** splitter between its file list and preview.
 
 **History** (local threads, overlay drawer — not a permanent sidebar):
 
@@ -275,7 +282,7 @@ Layout (desktop):
 - Survives refresh. Reload hydrates the last `activeId` **before** any persist write: Jev’s State, LLM transcript, questions, answers, jevMeta, include-chat. Do **not** mint a new empty thread on boot. Do **not** let a leftover `?case=` replace that restored thread — only an in-session **Preset States** / Example Uses pick (session nonce) loads a preset. New State parks the open thread if it is worth keeping and starts blank **without** destroying other saved chats. Nater (2026-09-20): history for Jev’s State, LLM, and Jev’s questions wasn’t being saved / restored.
 - Does not sync across browsers or machines.
 
-**Mobile:** stack State → LLM → Jev. Splitter hidden; panes full width. History drawer uses most of the viewport width.
+**Mobile:** stack State → LLM → Jev. Vertical LLM \| Jev splitter hidden; panes full width. Horizontal ticket / board splitter stays. History drawer uses most of the viewport width.
 
 ### 6.2 Docs — `/docs`
 
@@ -622,6 +629,9 @@ Choice `criteria` in this example may use semantic keys (`pay` / `hold` / `rejec
 **Key:** `talk-to-jev:dev-logs`  
 **Shape:** `{ v: 1, calls: DevCall[] }` — always-on scrubbed `/api/llm` and `/api/jev` request/response log (cap 40). Browser only. Open/closed is **not** in this key (inspector starts hidden). Height may live in `talk-to-jev:dev-inspector-height`. Never stores keys, last-4, or Settings bodies. Corrupt / missing → empty. See §6.7.
 
+**Key:** `talk-to-jev:ticket-height`  
+**Shape:** integer px for **Jev’s State** (`section.ticket`) height on Workshop. Browser only. Never stores keys. Corrupt / missing / out of 80–2000 → **314**. Display height is clamped so the board keeps **240px** when the column allows it. See §6.1.
+
 ```
 {
   v: 1,
@@ -870,7 +880,7 @@ Before calling Workshop done:
 5. **Feed Jev to LLM** is on **Jev’s Questions** pane-head, immediately **left of Ask Jev** (not the LLM mill). With live Jev answers: click sends immediately — You bubble appears, `/api/llm` returns 200 SSE, mill thinking, then a streamed assistant reply (not a canned one-liner). Composer may stay empty; Send stays disabled until they type. With no Jev answers, the button stays disabled (FlipTip **Ask Jev first — nothing to feed.**). LLM mill row is **Random state · Agentic loop · Propose Jev questions · Inspector**.
 6. Docs page lists snapshot files; open one. Type chips appear (from snapshot paths). Toggle A→Z / Z→A; click a type (e.g. `cloudflare`) and `cloudflare/jev.md` stays selectable. Search still AND-filters. Reload keeps sort + tags + rail collapsed (`talk-to-jev:docs-rail`). Filtering out the open page keeps the reader, hides that row. The rail is viewport-tall; the file list scrolls **inside** the aside; window `scrollY` stays ~0. Chevron swipe-out hides the rail (reader full remaining width); swipe-in restores it.
 7. Update Jev docs button completes and the list refreshes; if a page was open, that page’s markdown reloads (same path) or the empty picker if the path is gone. Tour overlay still reloads the doc behind it.
-8. Splitter drags; textareas have no native corner grip. Splitter reads as a thin quiet seam (not a dashed orange candy-cane stripe); hover/drag shows a slightly wider pine handle
+8. Splitters drag; textareas have no native corner grip. Both the **horizontal** Jev’s State / board bar and the **vertical** LLM \| Jev bar read as thin quiet mill/pine seams (not a dashed orange candy-cane stripe); hover/drag shows a slightly wider pine handle. Dragging the horizontal bar grows/shrinks Jev’s State; the board fills the leftover column (LLM and Jev stay a row). Refresh restores `talk-to-jev:ticket-height`. Focus the bar and Arrow keys nudge. Window `scrollY` stays ~0.
 9. `/docs` deep link works after refresh
 10. Docs overlay: Nice view shows rendered Markdown; Code view shows raw snapshot; boxed-i Iframe loads the live https source **only when that page can embed**. Primer / INDEX / README / manifest / TypeSafe DENY: Iframe button is **gone** (not disabled); Nice (or Code) is the view — not “This page won’t embed.” Tips stay fully visible. Reload keeps the last mode (`talk-to-jev:docs-view`) and embed blocks (`talk-to-jev:docs-embed-block`).
 11. `/use-cases` shows **10** cards (9 business + Jacket, not ten weather titles); `/cases` is the same page
