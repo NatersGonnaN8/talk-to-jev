@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.15 — 2026-09-20  
+**Status:** v0.16 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -236,13 +236,16 @@ Layout (desktop):
 Layout:
 
 ```
-[ chrome ]
-[ search + sort + type chips + file list | document ]
+[ chrome ]                                          ← stays
+[ search + sort + type chips (pinned in rail)
+  file list scrolls inside the rail  |  [fold] |  reader ]
 ```
 
 - Left: filterable list from `GET /api/docs` (path, title, source, fetched_at)
 - Right: the selected file (`GET /api/docs/file?path=`)
 - First paint may flash empty until `GET /api/docs` returns. Empty snapshot (after that fetch): explain **Update Jev docs** / `npm run update-jev-docs`.
+- **Viewport rail (2026-09-20).** Nater selected `aside.doc-rail` (measured height ~6131): the rail grew with every snapshot page instead of staying in the viewport. Chrome stays. `main.docs` is a row under chrome filling the **remaining viewport** — **not** document-tall. `aside.doc-rail` is a viewport-height column. Search + sort + type chips stay pinned at the **top of the rail**. The file list (`.doc-list`) is the scroller (`overflow-y: auto`). The reader (Nice / Code / Iframe) fills the remaining column and also stays in the viewport. Custom pane — no native resize grips. If a tip is added on chips/sort: fully on-screen, opaque (FlipTip).
+- **Master–detail swipe (2026-09-20).** Classic side master–detail for `aside.doc-rail` vs the reader. A mill chevron on the **shared edge** (custom pane control — **not** a native `resize` grip, **not** `col-resize`): **open** = rail in; **closed** = rail slides out and the reader takes the remaining width. Animate `transform` / width — not a hard jump. `prefers-reduced-motion: reduce` → no motion, still toggles. Persist collapsed in `talk-to-jev:docs-rail`. Accessible: real `<button>`, `aria-expanded`, `aria-controls` the rail, keyboard (Enter/Space). When closed, the rail is `inert` / not tabbable; focus returns to the chevron. Tip on the chevron is opaque and fully on-screen (FlipTip). Default **open**.
 
 **Rail sort + type tags (2026-09-20).** Nater: the Docs rail needs ascending/descending **and** filter tags per doc type — not only Search snapshot plus a flat list.
 
@@ -256,17 +259,17 @@ Layout:
   - Any path segment `sdk`, or basename `sdk.md` → `sdk`
   - Otherwise the **first path segment** (`cloudflare`, `openrouter`, `typesafe`, `jevai`, `pydantic`, `typesafe-site`, …)
 - **Selected page vs filter:** if the open page still matches search+tags, it stays selected and listed. If the operator filters it out, **keep it in the reader** (do not unload) but **do not list it in the rail** — the list is the filter, not a ghost selected row. Clearing search/tags restores the row, still selected. Clicking another listed page replaces the selection as usual.
-- **Persist** this browser: `localStorage["talk-to-jev:docs-rail"]` = `{ v: 1, sort: "asc"|"desc", tags: string[] }`. Reload keeps sort + active tags. Never store keys. Corrupt JSON → A→Z and no tags. Do not prune persisted tags against an empty first-paint catalog (wait until `GET /api/docs` has files).
-- Keep `.doc-link` rows in `aside.doc-rail`. No native textarea/pane resize on this page. If a tip is added on the rail, it must be opaque and fully on-screen (FlipTip); prefer labeled controls over tips that would clip inside the scrolling rail.
-- **View overlay** (sticky, top-right of the document pane — not a second chrome bar): segmented **three** icon buttons. Keep the name **Nice view** (Nater 2026-09-20: calling it Nice view is cute — do not rename).
+- **Persist** this browser: `localStorage["talk-to-jev:docs-rail"]` = `{ v: 1, sort: "asc"|"desc", tags: string[], collapsed: boolean }`. Reload keeps sort + active tags + rail open/closed. Never store keys. Corrupt JSON → A→Z, no tags, rail **open**. Do not prune persisted tags against an empty first-paint catalog (wait until `GET /api/docs` has files).
+- Keep `.doc-link` rows in `aside.doc-rail` inside `.doc-list` (the inner scroller). Search / sort / chips are **not** inside that scroller. No native textarea/pane resize on this page. If a tip is added on the rail, it must be opaque and fully on-screen (FlipTip); prefer labeled controls over tips that would clip inside the scrolling rail.
+- **View overlay** (sticky, top-right of the document pane — not a second chrome bar): segmented icon buttons. Keep the name **Nice view** (Nater 2026-09-20: calling it Nice view is cute — do not rename).
   1. **Eyeball — Nice view** — rendered Markdown (strip YAML frontmatter; GFM tables/code). **Default.**
   2. **Code view** — snapshot source: raw file in `Fragment Mono` (these pages are markdown).
-  3. **Boxed i — Iframe** — the **live source page** in an iframe. Icon is a literal **i in a box** (not a globe / browser chrome cliché).
+  3. **Boxed i — Iframe** — the **live source page** in an iframe. Icon is a literal **i in a box** (not a globe / browser chrome cliché). **Only render this control when the page can actually embed.**
 - **Iframe src** is the snapshot page’s `source` (catalog `GET /api/docs` and/or the file header). **https only.** If the catalog URL path ends in `.md`, load the same URL **without** `.md` so Mintlify / HTML docs render the live page (the `.md` form is the snapshot fetch). Never put keys in the iframe URL (reject key-shaped query/path). `http:`, `javascript:`, `data:`, and non-URLs do not embed.
-- **Iframe only when there is a real https source.** Local-only pages — root `primer.md`, `INDEX.md`, `README*`, `manifest.json`, empty source, or a source that is not https — keep Nice / Code working; the **Iframe control is disabled** with a short reason in the tip (e.g. “Local primer — no live page”). Do **not** show a blank frame.
+- **Hide Iframe when it will not embed (2026-09-20).** Nater: “really slick” — **do not show a dead Iframe control.** Hide the boxed-i button entirely when that page cannot embed: no https source (primer / INDEX / README / manifest / empty); known `X-Frame-Options: DENY` / `SAMEORIGIN` / CSP `frame-ancestors` block from `/api/docs/embed`; or after a **failed embed** for that origin or page. Persist blocks in `localStorage["talk-to-jev:docs-embed-block"]` so we do not keep offering it. Probe on select (before offering the button) — do not flash a control that then vanishes. If the operator is already on Iframe when it fails, **snap back to Nice view** and hide the button. Keep Nice + Code. Do **not** leave the mill “This page won’t embed.” card as the reader (no cream-on-cream empty state, no dead-end default). If a page *can* embed, keep the button.
 - **Embed sandbox.** Prefer an **unsandboxed** third-party iframe (separate origin, so it is not an XSS gadget against this origin). Do **not** set `sandbox` so tight it blanks a willing page. Do **not** combine `allow-same-origin` + `allow-scripts` (that would make a sandboxed frame scriptable against our origin).
-- If the remote site blocks embedding (`X-Frame-Options` / CSP `frame-ancestors`), the iframe may be empty. Same-pane **opaque mill/pine card** (manila fill, pine border, dark `#142018` ink, centered on the mill floor — not cream-on-cream whisper text): “This page won’t embed.” + an obvious pine-pill **Open source** control (new tab, `rel="noopener noreferrer"`). No second window as the only path. The app may **HEAD** (GET if HEAD 405s) that same https catalog URL — **no cookies, no keys** — to read those headers and show the fallback instead of a blank frame. Only probe URLs that already appear as a snapshot `source` (or its live `.md`-stripped form). Private/loopback hosts are refused.
-- **Persist** last view in this browser: `localStorage["talk-to-jev:docs-view"]` = `"nice"` \| `"code"` \| `"iframe"`. Default **nice**. Never store keys. Corrupt / missing → nice. If the last mode is iframe and this page cannot embed, show **Nice** (not a blank frame) and leave the stored mode as iframe so the next https page still opens live.
+- The app may **HEAD** (GET if HEAD 405s) that same https catalog URL — **no cookies, no keys** — to read X-Frame-Options / CSP and hide Iframe instead of showing a blank frame. Only probe URLs that already appear as a snapshot `source` (or its live `.md`-stripped form). Private/loopback hosts are refused.
+- **Persist** last view in this browser: `localStorage["talk-to-jev:docs-view"]` = `"nice"` \| `"code"` \| `"iframe"`. Default **nice**. Never store keys. Corrupt / missing → nice. If the last mode is iframe and this page cannot embed, **show Nice** (not a blank frame, not the mill dead-end) and leave the stored mode as iframe so the next page that *can* embed still opens live.
 - Overlay tips are opaque (`#142018` fill), sit **below** the icons (overlay is at the top; flip would clip under chrome), and stay fully on-screen
 - JSON files still get Nice + Code; nice view pretty-prints JSON. Iframe follows the same source rules as markdown pages.
 - **Sanitizer (2026-09-20).** Nice-view HTML is `marked` then **DOMPurify** (`src/markdown.ts` `toNiceHtml`). The `docs/jev/` snapshot is untrusted third-party input: XSS on this origin can POST `/api/settings` same-origin (the CSRF gate does not stop same-origin). Use a real sanitizer — never a hand-rolled tag strip list. HTML profile only (no SVG/MathML). Forbid `style`, `form`, `svg`, `base`, `template`; drop `srcdoc` and `data:` URLs. Keep the `toNiceHtml(raw, path)` API so the Docs overlay does not grow a second sanitizer.
@@ -322,7 +325,7 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 4. **Jev’s Questions** pane — typed `choice` / `noul` / `score` + **Ask Jev**.
 5. **Propose Jev questions** (tools fill the q-cards) / **Feed Jev to LLM** if those buttons exist.
 6. **Use Cases** — nine operator snaps plus one weather case (Jacket), same list as Workshop **Preset Cases**.
-7. **Docs** — Nice view (rendered Markdown), Code view (raw snapshot), boxed-i Iframe (live https source when the page has one). May navigate to `/docs`.
+7. **Docs** — Nice view (rendered Markdown), Code view (raw snapshot), boxed-i Iframe **only when the live page will embed**. May navigate to `/docs`.
 8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
 9. **Convert** — chrome **Convert** tab (`/convert`). Drop txt / html / docx / pdf here, or onto Jev’s case (that still opens this tab). Files stay in the browser.
 10. **History** if the Jev’s case row control exists (not chrome-right).
@@ -494,10 +497,13 @@ OpenAI-style tools on the chat-completions call. The server executes them, then 
 **Shape:** `"1"` after Skip or Done on the coach overlay. Absent = first-run. Restart via chrome **Tour**. Never stores keys.
 
 **Key:** `talk-to-jev:docs-rail`  
-**Shape:** `{ v: 1, sort: "asc"|"desc", tags: string[] }` for the Docs page rail (title sort + type chips). Browser only. Never stores keys. Corrupt / missing → `sort: "asc"`, `tags: []`.
+**Shape:** `{ v: 1, sort: "asc"|"desc", tags: string[], collapsed: boolean }` for the Docs page rail (title sort + type chips + master–detail open/closed). Browser only. Never stores keys. Corrupt / missing → `sort: "asc"`, `tags: []`, `collapsed: false`.
 
 **Key:** `talk-to-jev:docs-view`  
-**Shape:** `"nice"` \| `"code"` \| `"iframe"` for the Docs reader overlay. Browser only. Never stores keys. Corrupt / missing → `"nice"`.
+**Shape:** `"nice"` \| `"code"` \| `"iframe"` for the Docs reader overlay. Browser only. Never stores keys. Corrupt / missing → `"nice"`. If the open page cannot embed, the UI shows Nice (or Code) even when this key is `"iframe"`.
+
+**Key:** `talk-to-jev:docs-embed-block`  
+**Shape:** `{ v: 1, urls: string[], origins: string[] }` — live https sources / origins that will not embed (DENY, frame-ancestors, or a failed iframe). Browser only. Never stores keys. Used to hide the boxed-i control so we do not keep offering a dead Iframe.
 
 ```
 {
@@ -745,11 +751,11 @@ Before calling Workshop done:
 3. Pick **Invoice exception** from **Preset Cases**; Ask Jev; three answers render (choice / noul / score)
 4. **Propose Jev questions** (and chat that asks to send to case / propose) uses **tools**: Jev’s case and/or q-cards update immediately; the LLM thread is a short confirmation, **not** a JSON dump
 5. Feed Jev → LLM injects a visible note
-6. Docs page lists snapshot files; open one. Type chips appear (from snapshot paths). Toggle A→Z / Z→A; click a type (e.g. `cloudflare`) and `cloudflare/jev.md` stays selectable. Search still AND-filters. Reload keeps sort + tags (`talk-to-jev:docs-rail`). Filtering out the open page keeps the reader, hides that row.
+6. Docs page lists snapshot files; open one. Type chips appear (from snapshot paths). Toggle A→Z / Z→A; click a type (e.g. `cloudflare`) and `cloudflare/jev.md` stays selectable. Search still AND-filters. Reload keeps sort + tags + rail collapsed (`talk-to-jev:docs-rail`). Filtering out the open page keeps the reader, hides that row. The rail is viewport-tall; the file list scrolls **inside** the aside; window `scrollY` stays ~0. Chevron swipe-out hides the rail (reader full remaining width); swipe-in restores it.
 7. Update Jev docs button completes and the list refreshes; if a page was open, that page’s markdown reloads (same path) or the empty picker if the path is gone. Tour overlay still reloads the doc behind it.
 8. Splitter drags; textareas have no native corner grip. Splitter reads as a thin quiet seam (not a dashed orange candy-cane stripe); hover/drag shows a slightly wider pine handle
 9. `/docs` deep link works after refresh
-10. Docs overlay: Nice view shows rendered Markdown; Code view shows raw snapshot; boxed-i Iframe loads the live https source (or the blocked-embed fallback with **Open source**). Primer / INDEX / README / manifest: Iframe is disabled with a short reason, not a blank frame. Tips stay fully visible. Reload keeps the last mode (`talk-to-jev:docs-view`).
+10. Docs overlay: Nice view shows rendered Markdown; Code view shows raw snapshot; boxed-i Iframe loads the live https source **only when that page can embed**. Primer / INDEX / README / manifest / TypeSafe DENY: Iframe button is **gone** (not disabled); Nice (or Code) is the view — not “This page won’t embed.” Tips stay fully visible. Reload keeps the last mode (`talk-to-jev:docs-view`) and embed blocks (`talk-to-jev:docs-embed-block`).
 11. `/use-cases` shows **10** cards (9 business + Jacket, not ten weather titles); `/cases` is the same page
 12. Click a card: Workshop loads that case + questions (`?case=` in the URL)
 13. `/api/health` JSON has `hasKey` / `keys.*` booleans only — no key material in the body
@@ -791,7 +797,7 @@ Before calling Workshop done:
 49. Jev pane heading reads **Jev’s Questions**; the model id is the subtitle/meta; **Ask Jev** remains.
 50. **Add option** on a choice card that already has `option_a` and `option_b` inserts `option_c` (not `opt_<random>`). Next unused letter on that question; after `option_z`, `option_aa`. Clearing a key field by hand is still allowed. Typing several characters into an option key keeps focus; sequential `option_*` strings are labels, not React keys.
 51. Send a short prompt that should tool-call into Jev’s case (or **Propose Jev questions**): mill thinking shows while `/api/llm` is in flight; if OpenRouter streams reasoning, the Thoughts block is open and fills; `set_jev_case` / `set_jev_questions` appear as tool cards (Running then Done) and the ticket/q-cards update; the bubble’s prose is a short confirmation, not a markdown table of questions. Refresh restores thoughts + tool cards on that assistant turn. If the floor model has no reasoning channel, thinking still runs and Thoughts stays hidden.
-52. Docs Iframe: open a TypeSafe page with an https `source`, click the boxed-i control, see the live docs site **or** “This page won’t embed.” + **Open source**. Open `primer.md`: Iframe is disabled (reason in the tip), Nice still reads. No keys in the iframe URL. No native resize grips.
+52. Docs Iframe: open Introduction (TypeSafe, `X-Frame-Options: DENY`): boxed-i is **hidden**; Nice (or Code) is the view; no mill “won’t embed” dead end. Open `primer.md`: Iframe is hidden (no source). A page that *can* embed still shows boxed-i and loads the live site. No keys in the iframe URL. No native resize grips. Rail chevron collapses/expands with animation; refresh keeps collapsed.
 
 ---
 

@@ -8,6 +8,7 @@ export type DocsRailPrefs = {
   v: 1;
   sort: DocsSort;
   tags: string[];
+  collapsed: boolean;
 };
 
 export type DocListItem = {
@@ -70,7 +71,7 @@ export function docMatchesTags(type: string, tags: string[]): boolean {
 }
 
 export function loadDocsRailPrefs(): DocsRailPrefs {
-  const fallback: DocsRailPrefs = { v: 1, sort: "asc", tags: [] };
+  const fallback: DocsRailPrefs = { v: 1, sort: "asc", tags: [], collapsed: false };
   try {
     const raw = localStorage.getItem(DOCS_RAIL_KEY);
     if (!raw) return fallback;
@@ -81,7 +82,7 @@ export function loadDocsRailPrefs(): DocsRailPrefs {
           parsed.tags.filter((t): t is string => typeof t === "string" && t.length > 0),
         )
       : [];
-    return { v: 1, sort, tags };
+    return { v: 1, sort, tags, collapsed: parsed.collapsed === true };
   } catch {
     return fallback;
   }
@@ -91,7 +92,12 @@ export function saveDocsRailPrefs(prefs: DocsRailPrefs): void {
   try {
     localStorage.setItem(
       DOCS_RAIL_KEY,
-      JSON.stringify({ v: 1, sort: prefs.sort, tags: uniqueTags(prefs.tags) }),
+      JSON.stringify({
+        v: 1,
+        sort: prefs.sort,
+        tags: uniqueTags(prefs.tags),
+        collapsed: prefs.collapsed === true,
+      }),
     );
   } catch {
     /* quota — rail still works this session */
