@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.12 — 2026-09-20  
+**Status:** v0.13 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -175,12 +175,19 @@ Layout (desktop):
 **LLM pane** (manila / prose)
 
 - Eyebrow: `LLM` + model id
-- Scrollable transcript (user / assistant)
+- Scrollable transcript (user / assistant). Assistant turns are **agentic**, not a single JSON dump in the bubble.
 - Composer: textarea (`resize: none`) + **Send**
 - Secondary: **Propose Jev questions**
 - After Jev has answered: **Feed Jev to LLM**
 - Empty: “Draft the case, or ask how to phrase a Jev question.”
-- **Send** streams `/api/llm` SSE into the open assistant turn. Apply `{ type: "delta", text }` (accumulate `text` — this is **not** OpenAI `choices[0].delta.content`). Apply `{ type: "tool", name, ok, ... }` immediately (`set_jev_case` / `set_jev_questions` / `ask_jev`). `{ type: "error", message }` stays **in that assistant bubble**. `{ type: "done" }` ends the stream. Keep the user + assistant pair on screen. History persist / preset reload must not wipe an in-flight or just-finished turn.
+- **Send** streams `/api/llm` SSE into the open assistant turn. Keep the user + assistant pair on screen. History persist / preset reload must not wipe an in-flight or just-finished turn.
+  - `{ type: "thought", text }` — incremental **actual** reasoning from OpenRouter (`reasoning`, `reasoning_content`, or `reasoning_details` text/summary). Accumulate `text`. Never invent thoughts. Encrypted / `[REDACTED]` chunks are not thoughts.
+  - `{ type: "delta", text }` — incremental assistant prose. Accumulate `text` (this is **not** OpenAI `choices[0].delta.content`).
+  - `{ type: "tool", id, name, status: "running"|"done", ok?, argsSummary, resultSummary?, ... }` — apply immediately. On `done` + `ok`, `set_jev_case` / `set_jev_questions` / `ask_jev` still update the ticket, q-cards, or Jev answers. The **transcript** shows a tool card, not the JSON.
+  - `{ type: "error", message }` stays **in that assistant bubble**. `{ type: "done" }` ends the stream.
+- **Thinking chrome.** While `/api/llm` is in flight, the open assistant turn shows a slick mill **thinking** state (telegraph stamps + a pine nib on a manila track — custom CSS, not a stock spinner-only afterthought). Show it before the first prose token and while thoughts are streaming. Hide it once assistant prose is on screen (tool cards may already be visible). `prefers-reduced-motion: reduce` → static pine bar, no motion. Nater (2026-09-20): “add a nice thinking animation to LLM, stream the actual thoughts if possible in a nice collapsible agentic UI, and add nice tool calls as well.”
+- **Thoughts block.** If any thought text arrived, show a collapsible mill aside (pine left rule, manila fill, Fragment Mono **Thoughts**). **Open while streaming**; the operator can collapse. If the floor model (`deepseek/deepseek-v4-flash` by default) has no reasoning channel, keep thinking chrome and **hide** an empty thoughts block — do not fake copy.
+- **Tool cards.** Each call is a collapsible mill card: tool name (plus a short human label), stamp Running / Done / Failed, short args summary, short result. Not a questions-map table in the bubble. Propose / “send it to case” must look like `set_jev_*` tool use. Cards persist on the message in History.
 
 **Jev pane** (blueprint / typed) — header `article.pane.jev > header.pane-head`
 
@@ -288,7 +295,7 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 
 1. **Welcome** — two AIs, one OpenRouter key. The LLM talks. Jev does not write.
 2. **Jev’s case** — this slip is Jev `state`. Drop `.md` here; other files open the **Convert** tab.
-3. **LLM pane** — prose / draft / chat.
+3. **LLM pane** — prose / draft / chat. Thinking chrome while it works; real thoughts if the model streams them; tool cards for Workshop mutations.
 4. **Jev’s Questions** pane — typed `choice` / `noul` / `score` + **Ask Jev**.
 5. **Propose Jev questions** (tools fill the q-cards) / **Feed Jev to LLM** if those buttons exist.
 6. **Use Cases** — nine operator snaps plus one weather case (Jacket), same list as Workshop **Preset Cases**.
@@ -363,7 +370,7 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 | GET | `/api/health` | `{ ok, hasKey, keys: { openrouter, openai, anthropic, tavily, brave }, jevModel, llmModel, docs: { files, fetchedAt } }`. All key fields are booleans. `hasKey` === `keys.openrouter`. Never last-4, never the secret. |
 | GET | `/api/settings` | `{ ok, keys: [{ id, env, label, why, required, present, last4 }] }`. `last4` is four characters or `null`. Never the full key. May append empty unused slots to `.env.local` (does not change existing values). |
 | POST | `/api/settings` | Body `{ id, value }`. `id` is `openrouter` \| `openai` \| `anthropic` \| `tavily` \| `brave`. Writes `.env.local`. Empty `value` clears that key. Response same shape as GET. **Never log the body.** Never echo `value`. |
-| POST | `/api/llm` | Body: `{ messages, state, questions?, jevAnswers?, includeTranscript?, mode?: "chat" \| "propose-questions" }`. Streams `text/event-stream`. Server runs an OpenRouter **tool loop** (key stays server-side). Each SSE `data` line is JSON: `{ type: "delta", text }`, `{ type: "tool", name, ok, ... }`, `{ type: "error", message }`, `{ type: "done" }`. Tool names: `set_jev_case`, `set_jev_questions`, `ask_jev`. `ask_jev` reuses the Decisions call. Never echo the key. Never dump a questions map as the chat product. |
+| POST | `/api/llm` | Body: `{ messages, state, questions?, jevAnswers?, includeTranscript?, mode?: "chat" \| "propose-questions" }`. Streams `text/event-stream`. Server runs an OpenRouter **tool loop** (key stays server-side). OpenRouter chat is requested with `stream: true` so thoughts and tokens can paint mid-round. Send `include_reasoning: true` (legacy; same as `reasoning: {}`) so models that expose reasoning will; if that 400s, retry the round without it. Do **not** send a high `reasoning.effort` on the cheap floor model. Each SSE `data` line is JSON: `{ type: "thought", text }` (omit if the model streams none — never fake), `{ type: "delta", text }`, `{ type: "tool", id, name, status: "running"\|"done", ok?, argsSummary, resultSummary?, state?, questions?, answers?, model?, usage?, message? }`, `{ type: "error", message }`, `{ type: "done" }`. Emit `status: "running"` when a tool’s arguments are ready, then `status: "done"` after execute (same `id`). Tool names: `set_jev_case`, `set_jev_questions`, `ask_jev`. `ask_jev` reuses the Decisions call. `argsSummary` / `resultSummary` are short (ids, char counts) — not a questions JSON dump. Never echo the key. Never dump a questions map as the chat product. |
 | POST | `/api/jev` | Body: `{ state, questions, transcript? }`. JSON Decisions response (or `{ ok:false, message }`). Same path the `ask_jev` tool uses. |
 | GET | `/api/docs` | Index of snapshot files |
 | GET | `/api/docs/file` | Query `path` relative to `docs/jev`. Reject `..` |
@@ -471,7 +478,9 @@ OpenAI-style tools on the chat-completions call. The server executes them, then 
 
 ChatThread:
   id, title, titleLocked, createdAt, updatedAt
-  messages            // LLM thread: { role: "user"|"assistant", content }[]
+  messages            // LLM thread: { role: "user"|"assistant", content, thoughts?: string, tools?: ChatToolCall[] }[]
+                      // ChatToolCall: { id, name, status: "running"|"done", ok?, argsSummary, resultSummary? }
+                      // User turns are content-only. Assistant turns may keep thoughts + tool cards across refresh.
   state               // Jev’s case text
   includeChat         // Include LLM chat in Jev state
   questions           // Jev question editor
@@ -702,7 +711,7 @@ Use Cases (`/use-cases`) renders the same ten as cards. Workshop **Preset Cases*
 Before calling Workshop done:
 
 1. Chrome has **no** key-status pill. `/settings` OpenRouter row shows **Key ready** / missing (last-4 only when present — never the full key). `/api/health` still returns booleans.
-2. Send an LLM message; streamed reply appears
+2. Send an LLM message; thinking chrome shows, then streamed reply appears. Thoughts block only if the model streamed real reasoning. Tool calls (if any) are cards, not a JSON dump in the bubble.
 3. Pick **Invoice exception** from **Preset Cases**; Ask Jev; three answers render (choice / noul / score)
 4. **Propose Jev questions** (and chat that asks to send to case / propose) uses **tools**: Jev’s case and/or q-cards update immediately; the LLM thread is a short confirmation, **not** a JSON dump
 5. Feed Jev → LLM injects a visible note
@@ -751,6 +760,7 @@ Before calling Workshop done:
 48. **New Case** clears case text, strips attach chips, resets Jev questions to one blank-id card, clears Jev answers, empties the LLM thread, hides weather chrome, strips `?case=`, and leaves **Preset Cases** with none selected — it must **not** load Invoice exception. Opening **Preset Cases** lists all ten snaps; picking one loads like today. **History** on that row still opens the localStorage drawer.
 49. Jev pane heading reads **Jev’s Questions**; the model id is the subtitle/meta; **Ask Jev** remains.
 50. **Add option** on a choice card that already has `option_a` and `option_b` inserts `option_c` (not `opt_<random>`). Next unused letter on that question; after `option_z`, `option_aa`. Clearing a key field by hand is still allowed.
+51. Send a short prompt that should tool-call into Jev’s case (or **Propose Jev questions**): mill thinking shows while `/api/llm` is in flight; if OpenRouter streams reasoning, the Thoughts block is open and fills; `set_jev_case` / `set_jev_questions` appear as tool cards (Running then Done) and the ticket/q-cards update; the bubble’s prose is a short confirmation, not a markdown table of questions. Refresh restores thoughts + tool cards on that assistant turn. If the floor model has no reasoning channel, thinking still runs and Thoughts stays hidden.
 
 ---
 

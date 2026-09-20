@@ -55,7 +55,7 @@ This slip is Jev state. New Case starts a blank workshop — not a preset. Prese
 - **hooks:** `llm`
 - **selectors:** `.pane.llm`
 
-Manila side: draft the case, ask how to phrase a question, or chat. This is the prose half. Jev never writes in this thread.
+Manila side: draft the case, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s case or questions — not a JSON dump. Jev never writes in this thread.
 
 ### 4. Jev’s Questions
 

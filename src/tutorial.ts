@@ -58,7 +58,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "llm",
     title: "The LLM pane talks",
-    body: "Manila side: draft the case, ask how to phrase a question, or chat. This is the prose half. Jev never writes in this thread.",
+    body: "Manila side: draft the case, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s case or questions — not a JSON dump. Jev never writes in this thread.",
     page: "workshop",
     hooks: ["llm"],
     selectors: [".pane.llm"],
