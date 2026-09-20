@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  AGENTIC_LOOP_MIN_TURNS,
+  AGENTIC_LOOP_DEFAULT_TURNS,
   AGENTIC_LOOP_NEED_MILL,
   agenticLoopTurnOptions,
 } from "./agenticLoop";
@@ -24,7 +24,7 @@ export function AgenticLoopMenu({
   const panel = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [turns, setTurns] = useState(AGENTIC_LOOP_MIN_TURNS);
+  const [turns, setTurns] = useState(AGENTIC_LOOP_DEFAULT_TURNS);
   const [style, setStyle] = useState<React.CSSProperties>({
     position: "fixed",
     visibility: "hidden",
@@ -36,7 +36,7 @@ export function AgenticLoopMenu({
 
   const close = () => {
     setOpen(false);
-    setTurns(AGENTIC_LOOP_MIN_TURNS);
+    setTurns(AGENTIC_LOOP_DEFAULT_TURNS);
     btn.current?.focus();
   };
 
