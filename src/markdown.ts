@@ -1,26 +1,38 @@
+import DOMPurify from "dompurify";
+import type { Config } from "dompurify";
 import { marked } from "marked";
 
 marked.setOptions({ gfm: true, breaks: false });
 
-export function stripFrontmatter(text: string): string {
-  return text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+const PURIFY_CONFIG: Config = {
+  USE_PROFILES: { html: true },
+  FORBID_TAGS: ["style", "form", "svg", "base", "template"],
+  FORBID_ATTR: ["srcdoc"],
+  ADD_FORBID_CONTENTS: ["form"],
+  ALLOW_UNKNOWN_PROTOCOLS: false,
+};
+
+function dropDataUriAttrs(
+  _node: Element,
+  event: { attrValue: string; keepAttr: boolean },
+): void {
+  if (/^\s*data:/i.test(event.attrValue)) {
+    event.keepAttr = false;
+  }
 }
 
+let dataUriHookBound = false;
+
 function sanitize(html: string): string {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  doc.querySelectorAll("script,iframe,object,embed,link,meta").forEach((n) => n.remove());
-  for (const el of doc.body.querySelectorAll("*")) {
-    for (const attr of [...el.attributes]) {
-      const href = attr.name === "href" || attr.name === "src";
-      if (
-        attr.name.startsWith("on") ||
-        (href && /^\s*javascript:/i.test(attr.value))
-      ) {
-        el.removeAttribute(attr.name);
-      }
-    }
+  if (!dataUriHookBound) {
+    DOMPurify.addHook("uponSanitizeAttribute", dropDataUriAttrs);
+    dataUriHookBound = true;
   }
-  return doc.body.innerHTML;
+  return DOMPurify.sanitize(html, PURIFY_CONFIG);
+}
+
+export function stripFrontmatter(text: string): string {
+  return text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
 }
 
 export function toNiceHtml(raw: string, path: string): string {

@@ -10,6 +10,7 @@
     "update-jev-docs": "node scripts/update-jev-docs.mjs"
   },
   "dependencies": {
+    "dompurify": "^3.4.15",
     "mammoth": "^1.12.3",
     "marked": "^18.0.13",
     "pdfjs-dist": "^6.3.289",

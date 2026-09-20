@@ -237,6 +237,7 @@ Layout:
   - **Code** — source view: raw file in `Fragment Mono`
 - Overlay tips are opaque, sit **below** the icons (overlay is at the top; flip would clip under chrome), and stay fully on-screen
 - JSON files still get both modes; nice view pretty-prints JSON
+- **Sanitizer (2026-09-20).** Nice-view HTML is `marked` then **DOMPurify** (`src/markdown.ts` `toNiceHtml`). The `docs/jev/` snapshot is untrusted third-party input: XSS on this origin can POST `/api/settings` same-origin (the CSRF gate does not stop same-origin). Use a real sanitizer — never a hand-rolled tag strip list. HTML profile only (no SVG/MathML). Forbid `style`, `form`, `svg`, `base`, `template`; drop `srcdoc` and `data:` URLs. Keep the `toNiceHtml(raw, path)` API so the Docs overlay does not grow a second sanitizer.
 - Empty pane (no file yet): no overlay; “Pick a page from the snapshot.”
 - **Update Jev docs** in chrome (same as Workshop). After a **successful** update: refetch `GET /api/docs` **and**, if a page is selected, refetch `GET /api/docs/file?path=` for that same path with cache-bust so the reader is not leftover bytes. Stay on that page if it still exists. If the path vanished, clear to the empty picker. If the Tour overlay is open, still reload the doc behind it.
 - Empty snapshot: explain the button / `npm run update-jev-docs`
