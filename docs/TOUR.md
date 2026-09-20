@@ -57,14 +57,14 @@ This slip is Jev state. New Case starts a blank workshop — not a preset. Prese
 
 Manila side: draft the case, ask how to phrase a question, or chat. This is the prose half. Jev never writes in this thread.
 
-### 4. Ask Jev typed questions
+### 4. Jev’s Questions
 
 - **id:** `jev`
 - **page:** workshop
 - **hooks:** `jev`, `ask-jev`
 - **selectors:** `.pane.jev`
 
-Blueprint side: choice, noul, or score — not essays. Add questions, then Ask Jev. You get probabilities, not a paragraph.
+Jev’s Questions: choice, noul, or score — not essays. Add questions, then Ask Jev. You get probabilities, not a paragraph.
 
 ### 5. Pass work across the wire
 
@@ -73,7 +73,7 @@ Blueprint side: choice, noul, or score — not essays. Add questions, then Ask J
 - **hooks:** `wire`
 - **selectors:** `.pane.llm .row-actions`
 
-Propose Jev questions asks the LLM for a JSON question map. After Jev answers, Feed Jev to LLM drops those typed results into the chat.
+Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). After Jev answers, Feed Jev to LLM drops those typed results into the chat.
 
 ### 6. Use Cases
 

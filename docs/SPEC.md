@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.11 — 2026-09-20  
+**Status:** v0.12 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -16,7 +16,7 @@ An MVP workshop that **wires two different AIs** through **one OpenRouter key**:
 
 | Side | Model (default) | OpenRouter route | Job |
 |---|---|---|---|
-| **LLM** | `deepseek/deepseek-v4-flash` | `POST /api/v1/chat/completions` | Talk. Draft. Propose Jev questions. Explain answers. |
+| **LLM** | `deepseek/deepseek-v4-flash` | `POST /api/v1/chat/completions` | Talk. Draft. **Tools** write Jev’s case and Jev’s Questions. Explain answers. Never a JSON dump as the product. |
 | **Jev** | `typesafe/jev-1.13` | `POST /api/alpha/decisions` | Typed snap decisions: **choice**, **noul**, **score**. Never prose. |
 
 Jev is TypeSafe’s first **System One** model. It is **not** a chatbot. You send `state` + typed `questions`; it returns `answers` with probabilities. Named after Jevons. Official docs live in this repo under `docs/jev/` and can be refreshed in one click.
@@ -109,10 +109,10 @@ Shared **Jev’s case** (the Jev `state`) sits in a ticket strip at the top. Bot
 
 | Action | What happens |
 |---|---|
-| **Ask the LLM** | Chat completions. System prompt includes `primer.md` so the LLM knows Jev’s contract (state + questions, not chat). Optional: last Jev answers. Jev’s case text (including any weather block and any **attach** blocks from local files) is the current state. |
-| **Ask Jev** | Decisions API. `state` = Jev’s case text (same string: situation, weather block, attached blocks), plus optional `{ transcript }` of the LLM thread. `questions` = the editor on the Jev pane. If any question **id is blank**, show a clear **inline** error on that card and **do not** call Jev. Never silently invent an id (`q_*`, random suffixes, or similar). |
-| **Propose questions** | LLM is asked to return a JSON `questions` map for this case. Valid maps replace (or merge into) the Jev editor. Invalid JSON stays in chat as prose. Skip entries with a blank id — do not mint a placeholder id for them. If the user then **Ask Jev** with a still-blank id, same inline error as above. |
-| **Feed Jev → LLM** | Inject a user-visible note into the LLM thread summarizing typed answers (choice / noul / score / confidence). Next LLM turn sees it. |
+| **Ask the LLM** | Chat completions **with tools** (`POST /api/v1/chat/completions`). System prompt includes `primer.md` so the LLM knows Jev’s contract (state + questions, not chat). Optional: last Jev answers. Jev’s case text (including any weather block and any **attach** blocks from local files) is the current state. The cheap LLM **must use tools** to mutate the Workshop — it does **not** paste a questions/case JSON blob into the chat as the product. Short confirmation in the thread. |
+| **Ask Jev** | Decisions API. `state` = Jev’s case text (same string: situation, weather block, attached blocks), plus optional `{ transcript }` of the LLM thread. `questions` = the editor on **Jev’s Questions**. If any question **id is blank**, show a clear **inline** error on that card and **do not** call Jev. Never silently invent an id (`q_*`, random suffixes, or similar). The LLM may call the same path via the `ask_jev` tool when the editor is **clean**. |
+| **Propose questions** | Button **Propose Jev questions** (and chat like “send it to case and propose Jev questions”). The LLM **must** call tools: `set_jev_questions` always for this intent; `set_jev_case` when the user asked to write the ticket. Valid maps **replace** the question cards immediately. Chat shows a **short confirmation**, not the JSON. Skip entries with a blank id — do not mint a placeholder. Do **not** call `ask_jev` from this button — leave **Ask Jev** as the click. If the user then **Ask Jev** with a still-blank id, same inline error as above. |
+| **Feed Jev → LLM** | Reverse wire. Inject a user-visible note into the LLM thread summarizing typed answers (choice / noul / score / confidence). Next LLM turn sees it. Does **not** go through LLM tools. |
 | **Load weather** | **Jacket preset only.** Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on Jev’s case. Does not call Jev or the LLM. Hidden on business presets. |
 | **Sample case** | One pick (**Preset Cases** menu **or** Use Cases card) loads the same `src/samples.ts` preset: Jev’s case situation (weather placeholder **only** on Jacket), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
 | **New Case** | Full Workshop reset to an **empty** Workshop. Saves the open thread if it is worth keeping, then loads **no** Preset Cases item (not `invoice`, not Jacket, not any other sample id). Clears Jev’s case text, attached `.md` chips, Jev questions (one blank-id noul card), Jev answers, the LLM thread, and weather chrome. Strips `?case=` from the URL. **Preset Cases** shows none selected. Not History **Clear current**. |
@@ -151,7 +151,7 @@ Layout (desktop):
   [ Add .md + attached-file chips ]
   [ shared state textarea ]
   [ drop .md into Jev’s case; convert formats go to the Convert tab ]
-[ LLM pane | splitter | JEV pane ]
+  [ LLM pane | splitter | Jev’s Questions pane ]
 ```
 
 **Jev’s case** (the state ticket — **not** Use Cases cards)
@@ -181,9 +181,11 @@ Layout (desktop):
 - After Jev has answered: **Feed Jev to LLM**
 - Empty: “Draft the case, or ask how to phrase a Jev question.”
 
-**Jev pane** (blueprint / typed)
+**Jev pane** (blueprint / typed) — header `article.pane.jev > header.pane-head`
 
-- Eyebrow: `JEV` + model id
+- Heading: **Jev’s Questions** (not all-caps `JEV`)
+- Subtitle / meta: model id (`typesafe/jev-1.13` by default). Keep it as meta, not a second heading.
+- Keep **Ask Jev**
 - Question editor: add / remove questions
   - Fields: id, type (`choice` | `noul` | `score`), instructions
   - **Add question** inserts a new card with an **empty id**. The user types the id. Do **not** auto-generate `q_*` / random suffixes. Only **user-added** cards start blank — presets keep their real ids (`wear_jacket`, business ids, and the rest in `src/samples.ts`).
@@ -284,8 +286,8 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 1. **Welcome** — two AIs, one OpenRouter key. The LLM talks. Jev does not write.
 2. **Jev’s case** — this slip is Jev `state`. Drop `.md` here; other files open the **Convert** tab.
 3. **LLM pane** — prose / draft / chat.
-4. **Jev pane** — typed `choice` / `noul` / `score` + **Ask Jev**.
-5. **Propose Jev questions** / **Feed Jev to LLM** if those buttons exist.
+4. **Jev’s Questions** pane — typed `choice` / `noul` / `score` + **Ask Jev**.
+5. **Propose Jev questions** (tools fill the q-cards) / **Feed Jev to LLM** if those buttons exist.
 6. **Use Cases** — nine operator snaps plus one weather case (Jacket), same list as Workshop **Preset Cases**.
 7. **Docs** — eyeball (nice Markdown) vs code (raw snapshot). May navigate to `/docs`.
 8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
@@ -358,15 +360,15 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 | GET | `/api/health` | `{ ok, hasKey, keys: { openrouter, openai, anthropic, tavily, brave }, jevModel, llmModel, docs: { files, fetchedAt } }`. All key fields are booleans. `hasKey` === `keys.openrouter`. Never last-4, never the secret. |
 | GET | `/api/settings` | `{ ok, keys: [{ id, env, label, why, required, present, last4 }] }`. `last4` is four characters or `null`. Never the full key. May append empty unused slots to `.env.local` (does not change existing values). |
 | POST | `/api/settings` | Body `{ id, value }`. `id` is `openrouter` \| `openai` \| `anthropic` \| `tavily` \| `brave`. Writes `.env.local`. Empty `value` clears that key. Response same shape as GET. **Never log the body.** Never echo `value`. |
-| POST | `/api/llm` | Body: `{ messages, state, jevAnswers?, mode?: "chat" \| "propose-questions" }`. Streams OpenRouter SSE (`text/event-stream`). |
-| POST | `/api/jev` | Body: `{ state, questions, transcript? }`. JSON Decisions response (or `{ ok:false, message }`). |
+| POST | `/api/llm` | Body: `{ messages, state, questions?, jevAnswers?, includeTranscript?, mode?: "chat" \| "propose-questions" }`. Streams `text/event-stream`. Server runs an OpenRouter **tool loop** (key stays server-side). Each SSE `data` line is JSON: `{ type: "delta", text }`, `{ type: "tool", name, ok, ... }`, `{ type: "error", message }`, `{ type: "done" }`. Tool names: `set_jev_case`, `set_jev_questions`, `ask_jev`. `ask_jev` reuses the Decisions call. Never echo the key. Never dump a questions map as the chat product. |
+| POST | `/api/jev` | Body: `{ state, questions, transcript? }`. JSON Decisions response (or `{ ok:false, message }`). Same path the `ask_jev` tool uses. |
 | GET | `/api/docs` | Index of snapshot files |
 | GET | `/api/docs/file` | Query `path` relative to `docs/jev`. Reject `..` |
 | POST | `/api/docs/update` | Run the snapshotter; return `{ ok, fetched, failed, files }` |
 | GET | `/api/weather` | Open-Meteo proxy. Query `q` (city or `lat,lon`) or `latitude`+`longitude`. Default `q=Columbus, OH`. Returns `{ ok, place, current, daily, hourly, text, json }`. `text` is the Jev’s case weather block. No OpenRouter key. |
 | GET | `/api/geo` | Open-Meteo geocoding helper. Query `q`. Returns `{ ok, results: [{ name, admin1, country, latitude, longitude }] }`. Optional; **Load weather** may geocode internally. |
 
-Errors: 403 cross-site, 415 non-JSON body, 501 missing key, 400 bad body, 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter. `POST /api/jev` and `POST /api/llm` return 501 when the key is missing. Error strings that look like keys (`Bearer`, `sk-or-`, `OPENROUTER_API_KEY`) are replaced with a generic failure. Jev success JSON is `ok`, `model`, `answers`, `usage` — do not spread the raw upstream object.
+Errors: 403 cross-site, 413 body over **2 MiB**, 415 non-JSON body, 501 missing key, 400 bad body, 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter. `POST /api/jev` and `POST /api/llm` return 501 when the key is missing. Error strings that look like keys (`Bearer`, `sk-or-`, `OPENROUTER_API_KEY`) are replaced with a generic failure. Jev success JSON is `ok`, `model`, `answers`, `usage` — do not spread the raw upstream object.
 
 ---
 
@@ -390,16 +392,62 @@ Slick = sharp, usable, no garnish. Tooltips (if any) stay fully on-screen, opaqu
 
 ## 9. LLM system contract
 
+The LLM is the **draft** half. Tools mutate the Workshop. Jev is System One (probabilities). Do not fake Jev answers in chat unless `ask_jev` ran.
+
 The LLM is told, every request:
 
 - It is the prose half of Talk to Jev, not Jev.
 - Jev does not chat. Propose **atomic** questions (one snap judgment each).
 - Prefer many small questions in one Jev call.
-- Question ids are for code; put the full question in `instructions`.
-- When `mode` is `propose-questions`, reply with **only** a JSON object of questions (`type`, `instructions`, `criteria`).
+- Question ids are for code; put the full question in `instructions`. Never empty ids (`q_*` placeholders, `__blank__:`, or blank keys). Skip those entries — do not invent an id.
+- It has **tools**. Use them. Do **not** paste case JSON or a questions map into the chat as the product.
+  1. **`set_jev_case`** — write Jev’s case (the ticket / `state` string).
+  2. **`set_jev_questions`** — replace typed questions. Shape matches `src/types.ts` / the editor: `choice` (option key → description), `noul` (optional true/false criteria), `score` (ordered legend strings). Real ids. Instructions on every kept question.
+  3. **`ask_jev`** — only if case + questions are **clean** (at least one real-id question, no blank ids in the payload). Calls existing `/api/jev` (OpenRouter Decisions). If not clean: tools 1–2 only, and tell the operator to click **Ask Jev**.
+- After tools: a **short confirmation**. The UI already shows the ticket and q-cards.
+- Never invent Jev probabilities. Only mention typed answers if `ask_jev` just returned them or Latest Jev answers are in this prompt.
+- When `mode` is `propose-questions`, **must** call `set_jev_questions`. Do not call `ask_jev` from that button. Do not reply with JSON only.
+- Chat like “send it to case and propose Jev questions” must call `set_jev_case` and `set_jev_questions` (same apply path).
+- **Feed Jev to LLM** is the reverse wire — a user note in the thread, not a tool.
 - Primer from `docs/jev/primer.md` is attached (truncated if huge).
 - A `## Weather` block in the case is observational Open-Meteo input. Do not invent a weather API call. Do not pretend to be Jev.
 - `<!-- attach:start … -->` blocks are **user-provided** markdown the operator dropped into Jev’s case (or added from Convert to Markdown). Treat them as part of `state`. Do not fetch files. Do not invent a docs-snapshot dump.
+
+### 9.1 Tool arguments (server validates)
+
+OpenAI-style tools on the chat-completions call. The server executes them, then SSE-emits so the UI applies immediately.
+
+**`set_jev_case`**
+
+```
+{ "state": "<full Jev case text>" }
+```
+
+**`set_jev_questions`** — replace the editor. Map of id → question (array of `{ id, type, … }` is also accepted). Skip blank ids.
+
+```
+{
+  "questions": {
+    "action": {
+      "type": "choice",
+      "instructions": "full question text",
+      "criteria": { "pay": "…", "hold": "…", "reject": "…" }
+    },
+    "within_policy": {
+      "type": "noul",
+      "instructions": "full question text",
+      "criteria": { "true": "…", "false": "…" }
+    },
+    "exception_risk": {
+      "type": "score",
+      "instructions": "full question text",
+      "criteria": ["Routine", "Watch", "Material"]
+    }
+  }
+}
+```
+
+**`ask_jev`** — `{}`. Uses the working case + working questions from this request (after any `set_*` in the same loop). If not clean: `{ ok: false }` to the model; do not call Decisions; the operator clicks **Ask Jev**.
 
 ---
 
@@ -650,7 +698,7 @@ Before calling Workshop done:
 1. Chrome has **no** key-status pill. `/settings` OpenRouter row shows **Key ready** / missing (last-4 only when present — never the full key). `/api/health` still returns booleans.
 2. Send an LLM message; streamed reply appears
 3. Pick **Invoice exception** from **Preset Cases**; Ask Jev; three answers render (choice / noul / score)
-4. Propose questions replaces or fills the editor
+4. **Propose Jev questions** (and chat that asks to send to case / propose) uses **tools**: Jev’s case and/or q-cards update immediately; the LLM thread is a short confirmation, **not** a JSON dump
 5. Feed Jev → LLM injects a visible note
 6. Docs page lists snapshot files; open one
 7. Update Jev docs button completes and the list refreshes
@@ -695,6 +743,7 @@ Before calling Workshop done:
 46. Jev’s case toolbar has **Add .md** only — no Convert to Markdown chrome button in that row. `.md` drop stays on Workshop (attach chips).
 47. Jev’s case tools are **New Case**, **Preset Cases**, **History** — not a row of ten sample chips. Chrome-right has no History button.
 48. **New Case** clears case text, strips attach chips, resets Jev questions to one blank-id card, clears Jev answers, empties the LLM thread, hides weather chrome, strips `?case=`, and leaves **Preset Cases** with none selected — it must **not** load Invoice exception. Opening **Preset Cases** lists all ten snaps; picking one loads like today. **History** on that row still opens the localStorage drawer.
+49. Jev pane heading reads **Jev’s Questions**; the model id is the subtitle/meta; **Ask Jev** remains.
 
 ---
 
