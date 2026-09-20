@@ -39,7 +39,7 @@ LLM pane buttons sit after the LLM pane step, left to right: Random state, Agent
 - **page:** workshop
 - **target:** none (centered welcome — no spotlight)
 
-Talk to Jev wires an LLM that chats to Jev which decides using a single OpenRouter key.
+Talk to Jev wires an LLM that chats to Jev which decides using a single OpenRouter key. This Workshop is a quick at-a-glance of what Jev is — inspiration, not the last mill.
 
 ### 2. Jev’s State
 

@@ -2,6 +2,7 @@
 
 **Status:** v0.45 — 2026-09-20  
 **Product:** Talk to Jev  
+**Position:** OSS Workshop — a very quick at-a-glance of **what Jev is**; labeled **prototype** / **inspiration**; not the last mill  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
 **Local:** Vite UI + API on `http://127.0.0.1:5182` (`strictPort`, bind `127.0.0.1` only)
@@ -11,6 +12,8 @@ This file is the contract. Code trails these decisions.
 ---
 
 ## 1. What it is
+
+Talk to Jev is an **OSS Workshop** for a **very quick and easy at-a-glance** of **what Jev is**. It is a labeled **prototype** and **inspiration** — not the last mill, not a claim to beat every higher-level player. People will play this stack at higher levels; this repo does not have the AI bandwidth to keep up with all of them. Nater (2026-09-20, presenting): not the definitive app; inspiration; not the final answer by any means.
 
 An MVP workshop that **wires two different AIs** through **one OpenRouter key**:
 
@@ -1148,9 +1151,11 @@ Rough estimate: `ceil(chars / 4)`. Show estimated tokens on the Convert page for
 
 ## Remaining (prototype)
 
-Not a new product contract — known leftover work as of **2026-09-20**. Core loop, ten snaps, Docs, Convert, and basic Settings are in. **Do not** treat DeepSeek empty pane prose / answers-in-Thoughts as an app bug.
+Not a new product contract — known leftover work as of **2026-09-20**. Core loop, ten snaps, Docs, Convert, and basic Settings are in. **Do not** treat DeepSeek empty pane prose / answers-in-Thoughts as an app bug. Leftover mill here is still that **prototype**: at-a-glance **inspiration** of what Jev is, not a roadmap to the last mill, not a claim to beat higher-level play.
 
 ### Blocker for a public showcase tweet
+
+A public showcase, when it happens, is that at-a-glance — **what Jev is**, as inspiration. Do **not** pitch Talk to Jev as the definitive mill or as beating every higher-level player.
 
 - **Mill-bar hover** — signed off (2026-09-20). Stay/pin is the **14px `.mill-bar` strip** only. Click-in-**pane** (LLM / Jev / Inspector body) does not pin; moving off the strip starts hold+fade. User-facing board name is **pane**, not mill/module.
 - **Nater walks the Tour** — agent-owned copy is in `src/tutorial.ts` + `docs/TOUR.md`. He will personally click through. Do not call the Tour “done” without him.
