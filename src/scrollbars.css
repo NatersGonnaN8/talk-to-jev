@@ -45,7 +45,8 @@ body,
   box-sizing: border-box;
   display: none;
   /* Always the hover host when this axis is needed (display:flex), even at
-     opacity 0. Clicks beside the strip still pass through mill-scroll-root. */
+     opacity 0. Hit box is this 14px strip only — clicks in the pane pass
+     through mill-scroll-root. Stay/pin is not the pane, thread, or Inspector. */
   pointer-events: auto;
   opacity: 0;
   user-select: none;

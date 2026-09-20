@@ -259,11 +259,34 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
 
   function pointerOnStrip(bar: AxisEls): boolean {
     if (!barIsShown(bar)) return false;
-    if (Number.isFinite(lastPtrX) && Number.isFinite(lastPtrY)) {
-      const top = document.elementFromPoint(lastPtrX, lastPtrY);
-      return nodeOnBar(bar, top);
+    if (!Number.isFinite(lastPtrX) || !Number.isFinite(lastPtrY)) return false;
+    const top = document.elementFromPoint(lastPtrX, lastPtrY);
+    return nodeOnBar(bar, top);
+  }
+
+  function leaveStrip(ctl: HostCtl, axis: Axis): void {
+    const bar = ctl[axis];
+    if (!bar.hover) return;
+    bar.hover = false;
+    if (ctl.dragging?.axis === axis || ctl.pressAxis === axis) return;
+    scheduleHide(ctl, axis);
+  }
+
+  function syncHoverFromPointer(x: number, y: number): void {
+    lastPtrX = x;
+    lastPtrY = y;
+    const top = document.elementFromPoint(x, y);
+    for (const ctl of hosts.values()) {
+      for (const axis of ["y", "x"] as const) {
+        const inside = barIsShown(ctl[axis]) && nodeOnBar(ctl[axis], top);
+        if (inside) {
+          ctl[axis].hover = true;
+          reveal(ctl, axis);
+        } else {
+          leaveStrip(ctl, axis);
+        }
+      }
     }
-    return bar.hover;
   }
 
   function axisBusy(ctl: HostCtl, axis: Axis): boolean {
@@ -309,8 +332,6 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
   function flashFromScroll(ctl: HostCtl): void {
     for (const axis of ["y", "x"] as const) {
       if (!barIsShown(ctl[axis])) continue;
-      const bar = ctl[axis];
-      bar.hover = pointerOnStrip(bar);
       reveal(ctl, axis);
       if (!axisBusy(ctl, axis)) scheduleHide(ctl, axis);
     }
@@ -331,10 +352,11 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     const xW = yNeed ? r.width - BAR : r.width;
 
     if (yNeed && yH >= BAR * 2) {
-      ctl.y.root.style.display = "flex";
+      ctl.y.root.style.width = `${BAR}px`;
       ctl.y.root.style.top = `${r.top}px`;
       ctl.y.root.style.left = `${r.right - BAR}px`;
       ctl.y.root.style.height = `${yH}px`;
+      ctl.y.root.style.display = "flex";
       const trackH = ctl.y.track.clientHeight;
       const max = host.scrollHeight - host.clientHeight;
       const thumbH = Math.min(
@@ -350,10 +372,11 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     }
 
     if (xNeed && xW >= BAR * 2) {
-      ctl.x.root.style.display = "flex";
+      ctl.x.root.style.height = `${BAR}px`;
       ctl.x.root.style.left = `${r.left}px`;
       ctl.x.root.style.top = `${r.bottom - BAR}px`;
       ctl.x.root.style.width = `${xW}px`;
+      ctl.x.root.style.display = "flex";
       const trackW = ctl.x.track.clientWidth;
       const max = host.scrollWidth - host.clientWidth;
       const thumbW = Math.min(
@@ -383,16 +406,18 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
 
   function bindAxis(ctl: HostCtl, axis: Axis, els: AxisEls): void {
     const host = ctl.host;
-    const onBarEnter = (): void => {
+    const onBarEnter = (e: PointerEvent): void => {
+      lastPtrX = e.clientX;
+      lastPtrY = e.clientY;
       els.hover = true;
       reveal(ctl, axis);
     };
     const onBarLeave = (e: PointerEvent): void => {
       if (stillInsideBar(els.root, e.relatedTarget)) return;
-      els.hover = false;
-      scheduleHide(ctl, axis);
+      leaveStrip(ctl, axis);
     };
-    // Hover host is this 14px strip only — never the overflow pane / Inspector body.
+    // Stay host is this 14px strip only — never the overflow pane / Inspector body.
+    // pointermove / pointerdown also reconcile so a lost leave cannot pin is-on.
     els.root.addEventListener("pointerenter", onBarEnter);
     els.root.addEventListener("pointerleave", onBarLeave);
     els.root.addEventListener(
@@ -554,9 +579,13 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     requestLayout();
   };
 
+  const onPointerDownDoc = (e: PointerEvent): void => {
+    // Click in the pane must not pin. Live hit-test the 14px strip only.
+    syncHoverFromPointer(e.clientX, e.clientY);
+  };
+
   const onPointerMove = (e: PointerEvent): void => {
-    lastPtrX = e.clientX;
-    lastPtrY = e.clientY;
+    syncHoverFromPointer(e.clientX, e.clientY);
     if (!dragging?.dragging) return;
     const d = dragging.dragging;
     const delta =
@@ -598,9 +627,11 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
 
   window.addEventListener("scroll", onWinScroll, true);
   window.addEventListener("resize", requestLayout);
+  window.addEventListener("pointerdown", onPointerDownDoc, true);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
   window.addEventListener("pointercancel", onPointerUp);
+  window.addEventListener("lostpointercapture", onPointerUp);
   window.visualViewport?.addEventListener("resize", requestLayout);
   window.visualViewport?.addEventListener("scroll", requestLayout);
 
@@ -610,9 +641,11 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     mo.disconnect();
     window.removeEventListener("scroll", onWinScroll, true);
     window.removeEventListener("resize", requestLayout);
+    window.removeEventListener("pointerdown", onPointerDownDoc, true);
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
     window.removeEventListener("pointercancel", onPointerUp);
+    window.removeEventListener("lostpointercapture", onPointerUp);
     window.visualViewport?.removeEventListener("resize", requestLayout);
     window.visualViewport?.removeEventListener("scroll", requestLayout);
     if (scanTok) window.cancelAnimationFrame(scanTok);
