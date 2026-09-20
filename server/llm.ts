@@ -57,14 +57,14 @@ export const LLM_TOOLS = [
     function: {
       name: "set_jev_questions",
       description:
-        "Replace typed Jev questions in Jev’s Questions. Real ids only (never empty, never q_* placeholders). Types: choice (option descriptions in visual order; semantic keys like refund/deny are rewritten to 1-based numbers), noul (optional true/false criteria), score (ordered legend strings). Do not paste this JSON into chat. Do not mint option_a.",
+        "Replace typed Jev questions in Jev’s Questions. Real snake_case ids only (never empty, never q_* placeholders). Types: choice (option descriptions are free human text with spaces; visual order; semantic keys like refund/deny are rewritten to 1-based numbers), noul (optional true/false criteria), score (ordered legend strings). Do not snake_case option descriptions. Do not paste this JSON into chat. Do not mint option_a.",
       parameters: {
         type: "object",
         properties: {
           questions: {
             type: "object",
             description:
-              "Map of question id → { type, instructions, criteria }. choice criteria is option descriptions (keys may be semantic; they become \"1\",\"2\",… on the card and for Jev); score criteria is an array of level labels; noul criteria is { true, false }.",
+              "Map of snake_case question id → { type, instructions, criteria }. choice criteria is option descriptions (free human text, spaces OK; keys may be semantic; they become \"1\",\"2\",… on the card and for Jev); score criteria is an array of level labels; noul criteria is { true, false }.",
             additionalProperties: {
               type: "object",
               properties: {
@@ -135,7 +135,7 @@ function modeBlock(mode: LlmMode) {
     return `\n\nMode: propose-questions. Call read_jev_workshop first (empty is the check), then you MUST call set_jev_questions with a complete valid map (typically 2–4 atomic questions). Do NOT call ask_jev. Do NOT reply with JSON only. After the tools, one short confirmation.`;
   }
   if (mode === "random-case") {
-    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Call read_jev_workshop first (empty or leftover is the check). (2) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_state. (3) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. Do NOT call ask_jev. Asking Jev is the mill Ask Jev button. Do NOT invent probabilities. Do NOT reply with JSON only. After tools, one short confirmation, then stop. This is not the N-turn agentic loop.`;
+    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Call read_jev_workshop first (empty or leftover is the check). (2) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_state. (3) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (free human text with spaces — do not snake_case them; keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. Do NOT call ask_jev. Asking Jev is the mill Ask Jev button. Do NOT invent probabilities. Do NOT reply with JSON only. After tools, one short confirmation, then stop. This is not the N-turn agentic loop.`;
   }
   if (mode === "agentic-loop") {
     return `\n\nMode: agentic-loop. Use the CURRENT Jev’s State and current questions. Call read_jev_workshop before set_jev_state or set_jev_questions. Do NOT invent a new random scenario. Do NOT call set_jev_state to replace the ticket with fiction after a read. If questions are clean, you MUST call ask_jev. You may call set_jev_questions only if ids are dirty or you need a new option, then ask_jev. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation.`;
@@ -262,7 +262,7 @@ You have tools that mutate the Workshop. USE THEM. Do not paste state JSON or a 
 Tools:
 1. read_jev_workshop — no args. Returns the current Jev’s State text + current questions map as the panes have them. Call this BEFORE set_jev_state or set_jev_questions in this turn (empty New State invent: still call it; empty is the check). Does not call Jev. Does not mutate panes.
 2. set_jev_state — write the TypeSafe state (Jev’s State mill ticket). Not a case. Do not overwrite a current Agentic-loop ticket with fiction after a read.
-3. set_jev_questions — replace typed questions. Real ids. Types choice / noul / score. instructions hold the full question. choice criteria = option descriptions in visual order (semantic keys like refund/deny are rewritten to "1","2",… on the card and when calling Jev; never mint option_a). score criteria = ordered level strings. noul criteria = optional {true, false}. Skip blank ids; never invent q_* or empty ids.
+3. set_jev_questions — replace typed questions. Real snake_case ids. Types choice / noul / score. instructions hold the full question. choice criteria = option descriptions in visual order (free human text with spaces — do not snake_case descriptions; semantic keys like refund/deny are rewritten to "1","2",… on the card and when calling Jev; never mint option_a). score criteria = ordered level strings. noul criteria = optional {true, false}. Skip blank ids; never invent q_* or empty ids.
 4. ask_jev — call Jev only if the state + questions are clean. Do not invent probabilities. If not clean: write tools (in agentic-loop, keep going until ask_jev works). In random-case: do not call ask_jev.
 
 Never fake Jev answers in chat unless ask_jev just ran or Latest Jev answers are in this prompt. Jev cannot invent answers that were not given. Choice = listed options only. Noul = P(true) in [0,1]. Score = one of the legend levels. A new option requires set_jev_questions then ask_jev again.

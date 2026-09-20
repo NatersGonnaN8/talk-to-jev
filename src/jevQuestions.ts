@@ -11,7 +11,7 @@ export function questionIdValue(storageKey: string) {
   return isBlankQuestionId(storageKey) ? "" : storageKey;
 }
 
-/** ASCII space → `_` for snake_case typing (question ids, choice option descriptions). */
+/** ASCII space → `_` for snake_case typing on **question ids only**. */
 export function spacesToSnake(value: string) {
   return value.replaceAll(" ", "_");
 }

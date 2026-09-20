@@ -1763,7 +1763,7 @@ function QuestionCard({
                       ...q,
                       criteria: {
                         ...q.criteria,
-                        [k]: spacesToSnake(e.target.value),
+                        [k]: e.target.value,
                       },
                     })
                   }
