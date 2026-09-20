@@ -31,7 +31,7 @@ Storage: `localStorage["talk-to-jev:tutorial-done"]` = `"1"` after Skip or Done.
 
 Each step is independent. **page** is where the overlay navigates. **hooks** are `data-tutorial` ids (first match wins). **selectors** / **texts** are fallbacks.
 
-LLM mill buttons sit after the LLM pane step, left to right: Random state, Agentic loop, Propose Jev questions, Inspector. Spotlight those buttons — not `.row-actions` (`data-tutorial="wire"` stays on the row; it is not a Tour step).
+LLM pane buttons sit after the LLM pane step, left to right: Random state, Agentic loop, Propose Jev questions, Inspector. Spotlight those buttons — not `.row-actions` (`data-tutorial="wire"` stays on the row; it is not a Tour step).
 
 ### 1. Two AIs, one key
 
@@ -66,7 +66,7 @@ Classic LLM with 3 tools to interact with Jev: set_jev_state (writes Jev's state
 - **hooks:** `random-state`
 - **texts:** Random state
 
-This invents a short fake ticket so you can try the mill without writing one. It does not call Jev — Ask Jev still does that.
+This invents a short fake ticket so you can try the pane without writing one. It does not call Jev — Ask Jev still does that.
 
 ### 5. Agentic loop
 
@@ -75,7 +75,7 @@ This invents a short fake ticket so you can try the mill without writing one. It
 - **hooks:** `agentic-loop`
 - **texts:** Agentic loop
 
-A few LLM turns on this ticket — questions, then Jev, then talk from the numbers. You pick how many (1–10, default 3); empty mill disables it.
+A few LLM turns on this ticket — questions, then Jev, then talk from the numbers. You pick how many (1–10, default 3); empty pane disables it.
 
 ### 6. Propose Jev questions
 

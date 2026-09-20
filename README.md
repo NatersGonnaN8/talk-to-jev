@@ -87,7 +87,7 @@ A first-run **Tour** walks the Workshop. Skip once and it stays dismissed. Chrom
 
 | Page | Path | What |
 |---|---|---|
-| **Workshop** | `/` | Jev’s State + LLM + Jev’s Questions. **New State** is empty (not Invoice). **Preset States**, **History** on that row. **Ask Jev** / **Send answers to LLM**. LLM mill: **Random state**, **Agentic loop**, **Propose Jev questions**, **Inspector**. Drop `.md` into Jev’s State; other files open Convert. |
+| **Workshop** | `/` | Jev’s State + LLM + Jev’s Questions. **New State** is empty (not Invoice). **Preset States**, **History** on that row. **Ask Jev** / **Send answers to LLM**. LLM pane: **Random state**, **Agentic loop**, **Propose Jev questions**, **Inspector**. Drop `.md` into Jev’s State; other files open Convert. |
 | **Example Uses** | `/use-cases` | Same ten snaps as Preset States. |
 | **Docs** | `/docs` | In-repo Jev snapshot. Eyeball = Nice Markdown; code icon = raw. **Update Jev docs** is on this page (not the header). CLI: `npm run update-jev-docs`. |
 | **Settings** | `/settings` | BYOK + standing **LLM instructions** (browser only, not a key). |
@@ -105,7 +105,7 @@ Contract: [`docs/SPEC.md`](docs/SPEC.md).
 
 **Isn’t:** production SaaS, accounts, billing, search, direct OpenAI/Anthropic calls, OCR, a second weather API, or “Jev the chatbot.” Jev 1.13 is pinned; this app does not silently follow `jev-latest`.
 
-Some floor models put reasoning in a **Thoughts** channel and leave the mill body thin. That is the model, not an app bug.
+Some floor models put reasoning in a **Thoughts** channel and leave the pane body thin. That is the model, not an app bug.
 
 ---
 

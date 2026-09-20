@@ -91,7 +91,7 @@ function ToolCard({ tool }: { tool: ChatToolCall }) {
               {tool.resultSummary}
             </p>
           ) : running ? (
-            <p className="llm-tool-wait">Working the mill…</p>
+            <p className="llm-tool-wait">Working the pane…</p>
           ) : null}
         </div>
       ) : null}

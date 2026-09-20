@@ -66,7 +66,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "random-state",
     title: "Random state",
-    body: "This invents a short fake ticket so you can try the mill without writing one. It does not call Jev — Ask Jev still does that.",
+    body: "This invents a short fake ticket so you can try the pane without writing one. It does not call Jev — Ask Jev still does that.",
     page: "workshop",
     hooks: ["random-state"],
     texts: ["Random state"],
@@ -74,7 +74,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "agentic-loop",
     title: "Agentic loop",
-    body: "A few LLM turns on this ticket — questions, then Jev, then talk from the numbers. You pick how many (1–10, default 3); empty mill disables it.",
+    body: "A few LLM turns on this ticket — questions, then Jev, then talk from the numbers. You pick how many (1–10, default 3); empty pane disables it.",
     page: "workshop",
     hooks: ["agentic-loop"],
     texts: ["Agentic loop"],
