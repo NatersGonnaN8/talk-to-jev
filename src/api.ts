@@ -7,6 +7,8 @@ import { readLlmInstructions } from "./llmInstructions";
 import type { Health, JevAnswer, JevQuestion, SettingsResponse } from "./types";
 import type { WeatherResponse } from "./weather";
 
+export const BLOCKED_VIOLENCE_CODE = "blocked-violence";
+
 export async function getHealth(): Promise<Health> {
   const res = await fetch("/api/health");
   return (await res.json()) as Health;
@@ -120,7 +122,9 @@ export async function askJev(payload: {
       const message = body.message || "Jev request failed";
       finishDevCall(logId, body, message);
       finished = true;
-      throw new Error(message);
+      const err = new Error(message) as Error & { code?: string };
+      if (typeof body.code === "string" && body.code) err.code = body.code;
+      throw err;
     }
     finishDevCall(logId, {
       ok: body.ok,

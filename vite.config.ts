@@ -18,6 +18,7 @@ import { DEFAULT_JEV, DEFAULT_LLM } from "./server/openrouter";
 import { callJev } from "./server/jev";
 import { runLlmSession } from "./server/llm";
 import { checkCatalogEmbed } from "./server/embedCheck";
+import { workshopPayloadBlocked } from "./server/violenceGate";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docsRoot = resolve(here, "docs", "jev");
@@ -272,13 +273,6 @@ function workshopApi(): Plugin {
           }
 
           if (req.method === "POST" && url === "/api/jev") {
-            if (!present(env.OPENROUTER_API_KEY)) {
-              return send(res, 501, {
-                ok: false,
-                code: "missing-openrouter",
-                message: "Need OPENROUTER_API_KEY in .env.local.",
-              });
-            }
             const body = await jsonBody(req);
             const questions = body.questions;
             if (!questions || typeof questions !== "object") {
@@ -287,6 +281,21 @@ function workshopApi(): Plugin {
             const includeTranscript = Boolean(body.includeTranscript);
             const transcript = Array.isArray(body.transcript) ? body.transcript : [];
             const caseText = String(body.state ?? "");
+            const gate = workshopPayloadBlocked(caseText, questions);
+            if (gate.blocked) {
+              return send(res, 400, {
+                ok: false,
+                code: gate.code,
+                message: gate.message,
+              });
+            }
+            if (!present(env.OPENROUTER_API_KEY)) {
+              return send(res, 501, {
+                ok: false,
+                code: "missing-openrouter",
+                message: "Need OPENROUTER_API_KEY in .env.local.",
+              });
+            }
             const state =
               includeTranscript && transcript.length
                 ? { case: caseText, transcript }
@@ -299,6 +308,13 @@ function workshopApi(): Plugin {
               questions: questions as Record<string, unknown>,
             });
             if (!result.ok) {
+              if (result.code) {
+                return send(res, result.status === 400 ? 400 : 502, {
+                  ok: false,
+                  code: result.code,
+                  message: result.message,
+                });
+              }
               return send(res, 502, {
                 ok: false,
                 message: result.message,

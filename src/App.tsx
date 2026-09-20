@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   askJev,
+  BLOCKED_VIOLENCE_CODE,
   fetchWeather,
   getHealth,
   isAbortError,
@@ -529,6 +530,7 @@ function Workshop({
   );
   const [jevMeta, setJevMeta] = useState(() => boot?.jevMeta ?? "");
   const [blankIdError, setBlankIdError] = useState(false);
+  const [jevBlockedError, setJevBlockedError] = useState("");
   const [samplePresetId, setSamplePresetId] = useState<string | null>(
     () => boot?.samplePresetId ?? null,
   );
@@ -604,6 +606,7 @@ function Workshop({
     setAnswers(copy.answers);
     setJevMeta(copy.jevMeta);
     setBlankIdError(false);
+    setJevBlockedError("");
     setSamplePresetId(copy.samplePresetId);
     setDraft("");
     setWeatherLine("");
@@ -852,6 +855,7 @@ function Workshop({
           if (ev.type === "set_jev_state") {
             stateRef.current = ev.state;
             setState(ev.state);
+            setJevBlockedError("");
             onToast("Updated Jev’s State.");
             return;
           }
@@ -861,6 +865,7 @@ function Workshop({
             questionsRef.current = workingQuestions;
             setQuestions(workingQuestions);
             setBlankIdError(false);
+            setJevBlockedError("");
             answersRef.current = null;
             setAnswers(null);
             onToast(`Loaded ${appliedQs} proposed questions into Jev.`);
@@ -997,6 +1002,7 @@ function Workshop({
     }
     const ready = questionsForJev(questions);
     setBlankIdError(false);
+    setJevBlockedError("");
     setBusy("jev");
     try {
       const payload = await askJev({
@@ -1005,6 +1011,7 @@ function Workshop({
         includeTranscript: includeChat,
         transcript: includeChat ? messages : [],
       });
+      setJevBlockedError("");
       setAnswers(
         attachChoiceLegends(
           (payload.answers ?? {}) as Record<string, JevAnswer>,
@@ -1021,7 +1028,16 @@ function Workshop({
       ].filter(Boolean);
       setJevMeta(bits.join(" · "));
     } catch (err) {
-      onToast(err instanceof Error ? err.message : "Jev failed");
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code?: string }).code || "")
+          : "";
+      const message = err instanceof Error ? err.message : "Jev failed";
+      if (code === BLOCKED_VIOLENCE_CODE) {
+        setJevBlockedError(message);
+      } else {
+        onToast(message);
+      }
     } finally {
       setBusy(null);
     }
@@ -1479,6 +1495,10 @@ function Workshop({
           <p className="inline-error" role="alert">
             {BLANK_QUESTION_ID_ERROR}
           </p>
+        ) : jevBlockedError ? (
+          <p className="inline-error" role="alert">
+            {jevBlockedError}
+          </p>
         ) : null}
         <div className="jev-scroll">
           <QuestionEditor
@@ -1487,6 +1507,7 @@ function Workshop({
             onChange={(next) => {
               setQuestions(withPositionalChoiceKeys(next));
               if (!blankQuestionKeys(next).length) setBlankIdError(false);
+              setJevBlockedError("");
             }}
           />
           <div className="answers">
@@ -1602,7 +1623,13 @@ function Workshop({
         {isWeatherSample(samplePresetId) && weatherLine ? (
           <p className="weather-status">{weatherLine}</p>
         ) : null}
-        <StateEditor value={state} onChange={setState} />
+        <StateEditor
+          value={state}
+          onChange={(next) => {
+            setState(next);
+            setJevBlockedError("");
+          }}
+        />
         <AttachBar
           names={attachedNames}
           error={attachError}

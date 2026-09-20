@@ -21,6 +21,10 @@ import {
   type JevQuestion,
 } from "./questions";
 import { sanitizePublicError } from "./settings";
+import {
+  VIOLENCE_GATE_TOOL_MESSAGE,
+  workshopPayloadBlocked,
+} from "./violenceGate";
 
 const MAX_ROUNDS = 8;
 const MAX_STATE_CHARS = 400_000;
@@ -267,6 +271,8 @@ Tools:
 4. ask_jev — call Jev only if the state + questions are clean. Do not invent probabilities. If not clean: write tools (in agentic-loop, keep going until ask_jev works). In random-case: do not call ask_jev.
 
 Never fake Jev answers in chat unless ask_jev just ran or Latest Jev answers are in this prompt. Jev cannot invent answers that were not given. Choice = listed options only. Noul = P(true) in [0,1]. Score = one of the legend levels. A new option requires set_jev_questions then ask_jev again.
+
+Write operator-appropriate questions. Do not list violence as options. Do not put sexual violence, rape, sexual exploitation of minors, or graphic violent harm in state or questions.
 
 Rules from the stored docs:
 - One snap judgment per question. Decompose; compose in code.
@@ -544,6 +550,12 @@ async function executeTool(
       emit(res, { type: "tool", ...base, ...payload, resultSummary: payload.message });
       return JSON.stringify(payload);
     }
+    const gate = workshopPayloadBlocked(state, undefined, VIOLENCE_GATE_TOOL_MESSAGE);
+    if (gate.blocked) {
+      const payload = { ok: false, code: gate.code, message: gate.message };
+      emit(res, { type: "tool", ...base, ...payload, resultSummary: gate.message });
+      return JSON.stringify(payload);
+    }
     work.state = state.slice(0, MAX_STATE_CHARS);
     work.appliedCase = true;
     emit(res, {
@@ -561,6 +573,12 @@ async function executeTool(
     if (!parsed.ok) {
       const payload = { ok: false, message: parsed.message, skipped: parsed.skipped };
       emit(res, { type: "tool", ...base, ...payload, resultSummary: parsed.message });
+      return JSON.stringify(payload);
+    }
+    const gate = workshopPayloadBlocked(undefined, parsed.questions, VIOLENCE_GATE_TOOL_MESSAGE);
+    if (gate.blocked) {
+      const payload = { ok: false, code: gate.code, message: gate.message };
+      emit(res, { type: "tool", ...base, ...payload, resultSummary: gate.message });
       return JSON.stringify(payload);
     }
     work.questions = parsed.questions;
@@ -601,6 +619,12 @@ async function executeTool(
             : "Questions are not clean (need real ids). Use set_jev_questions, then the operator clicks Ask Jev.",
       };
       emit(res, { type: "tool", ...base, ...payload, resultSummary: payload.message });
+      return JSON.stringify(payload);
+    }
+    const gate = workshopPayloadBlocked(work.state, clean, VIOLENCE_GATE_TOOL_MESSAGE);
+    if (gate.blocked) {
+      const payload = { ok: false, code: gate.code, message: gate.message };
+      emit(res, { type: "tool", ...base, ...payload, resultSummary: gate.message });
       return JSON.stringify(payload);
     }
     const state =
