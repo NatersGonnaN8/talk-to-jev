@@ -56,6 +56,12 @@ import { SettingsPage } from "./pages/Settings";
 import { HistoryPanel } from "./HistoryPanel";
 import { TutorialOverlay } from "./TutorialOverlay";
 import { LlmBubble, ThinkingMill } from "./LlmBubble";
+import { RandomCaseMenu } from "./RandomCaseMenu";
+import {
+  clampRandomCaseTurns,
+  randomCaseContinuePrompt,
+  randomCaseFirstTurnPrompt,
+} from "./randomCase";
 import { isTutorialDone, TUTORIAL_UI, type TutorialPage } from "./tutorial";
 import {
   activeThread,
@@ -506,6 +512,21 @@ function Workshop({
   const persistReady = useRef(false);
   const skipFirstPersist = useRef(true);
   const streamLockRef = useRef(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const questionsRef = useRef(questions);
+  questionsRef.current = questions;
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const includeChatRef = useRef(includeChat);
+  includeChatRef.current = includeChat;
+  const [agentRun, setAgentRun] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const agentLockRef = useRef(false);
   const onToastRef = useRef(onToast);
   onToastRef.current = onToast;
   const onBlankWorkshopRef = useRef(onBlankWorkshop);
@@ -533,6 +554,11 @@ function Workshop({
   const applySnapshot = (snap: WorkshopSnapshot) => {
     const copy = cloneSnapshot(snap);
     snapRef.current = copy;
+    stateRef.current = copy.state;
+    messagesRef.current = copy.messages;
+    questionsRef.current = withPositionalChoiceKeys(copy.questions);
+    answersRef.current = copy.answers;
+    includeChatRef.current = copy.includeChat;
     setState(copy.state);
     setIncludeChat(copy.includeChat);
     setMessages(copy.messages);
@@ -656,9 +682,16 @@ function Workshop({
 
   const locked = health?.hasKey === false || busy !== null;
 
-  const sendLlm = async (mode: "chat" | "propose-questions", extra?: string) => {
-    const content = extra ?? draft.trim();
-    if (mode === "chat" && !content) return;
+  type LlmClientMode = "chat" | "propose-questions" | "random-case";
+
+  const runLlmTurn = async (
+    mode: LlmClientMode,
+    content: string,
+    opts?: { keepBusy?: boolean; clearDraft?: boolean },
+  ): Promise<{ askedJev: boolean; failed: boolean }> => {
+    if (mode === "chat" && !content.trim()) {
+      return { askedJev: false, failed: false };
+    }
     const nextUser: ChatMessage =
       mode === "propose-questions"
         ? {
@@ -667,73 +700,102 @@ function Workshop({
               "Propose atomic Jev questions for this case. Call set_jev_questions. Do not paste JSON in the chat.",
           }
         : { role: "user", content };
-    const history = [...messages, nextUser];
+    const history = [...messagesRef.current, nextUser];
     const nextMessages: ChatMessage[] = [
       ...history,
       { role: "assistant", content: "" },
     ];
     streamLockRef.current = true;
+    messagesRef.current = nextMessages;
     setMessages(nextMessages);
-    if (!extra) setDraft("");
-    setBusy(mode === "propose-questions" ? "propose" : "llm");
+    if (opts?.clearDraft) setDraft("");
+    if (!opts?.keepBusy) {
+      setBusy(mode === "propose-questions" ? "propose" : "llm");
+    }
     commitStore(
       upsertActive(storeRef.current, {
         ...snapRef.current,
         messages: nextMessages,
       }),
     );
+    let askedJev = false;
+    let workingQuestions = questionsRef.current;
     try {
       let appliedQs = 0;
       const full = await streamLlm(
         {
           messages: history,
-          state,
-          questions,
-          jevAnswers: answers ?? undefined,
-          includeTranscript: includeChat,
+          state: stateRef.current,
+          questions: workingQuestions,
+          jevAnswers: answersRef.current ?? undefined,
+          includeTranscript: includeChatRef.current,
           mode,
         },
         (ev) => {
           if (ev.type === "delta") {
-            setMessages((m) => patchLastAssistant(m, { content: ev.text }));
+            setMessages((m) => {
+              const next = patchLastAssistant(m, { content: ev.text });
+              messagesRef.current = next;
+              return next;
+            });
             return;
           }
           if (ev.type === "thought") {
-            setMessages((m) => patchLastAssistant(m, { thoughts: ev.text }));
+            setMessages((m) => {
+              const next = patchLastAssistant(m, { thoughts: ev.text });
+              messagesRef.current = next;
+              return next;
+            });
             return;
           }
           if (ev.type === "tool") {
-            setMessages((m) =>
-              upsertLastAssistantTool(m, {
+            setMessages((m) => {
+              const next = upsertLastAssistantTool(m, {
                 id: ev.id,
                 name: ev.name,
                 status: ev.status,
                 ok: ev.ok,
                 argsSummary: ev.argsSummary,
                 resultSummary: ev.resultSummary,
-              }),
-            );
+              });
+              messagesRef.current = next;
+              return next;
+            });
             return;
           }
           if (ev.type === "error") {
-            setMessages((m) => patchLastAssistant(m, { content: ev.message }));
+            setMessages((m) => {
+              const next = patchLastAssistant(m, { content: ev.message });
+              messagesRef.current = next;
+              return next;
+            });
             return;
           }
           if (ev.type === "set_jev_case") {
+            stateRef.current = ev.state;
             setState(ev.state);
             onToast("Updated Jev’s case.");
             return;
           }
           if (ev.type === "set_jev_questions") {
-            appliedQs = Object.keys(ev.questions).length;
-            setQuestions(withPositionalChoiceKeys(ev.questions));
+            workingQuestions = withPositionalChoiceKeys(ev.questions);
+            appliedQs = Object.keys(workingQuestions).length;
+            questionsRef.current = workingQuestions;
+            setQuestions(workingQuestions);
             setBlankIdError(false);
+            answersRef.current = null;
             setAnswers(null);
             onToast(`Loaded ${appliedQs} proposed questions into Jev.`);
             return;
           }
           if (ev.type !== "ask_jev") return;
-          setAnswers(attachChoiceLegends(ev.answers, questionsForJev(questions)));
+          askedJev = true;
+          const nextAnswers = attachChoiceLegends(
+            ev.answers,
+            questionsForJev(workingQuestions),
+          );
+          answersRef.current = nextAnswers;
+          setAnswers(nextAnswers);
           const usage = ev.usage as
             | { input_tokens?: number; cost?: number }
             | undefined;
@@ -746,20 +808,71 @@ function Workshop({
           onToast("Jev answered.");
         },
       );
-      if (!full.trim() && appliedQs) {
-        setMessages((m) =>
-          patchLastAssistant(m, {
+      if (!full.trim() && appliedQs && mode === "propose-questions") {
+        setMessages((m) => {
+          const next = patchLastAssistant(m, {
             content: `Loaded ${appliedQs} questions into Jev’s Questions. Click Ask Jev when you’re ready.`,
-          }),
-        );
+          });
+          messagesRef.current = next;
+          return next;
+        });
       }
+      return { askedJev, failed: false };
     } catch (err) {
       const message = err instanceof Error ? err.message : "LLM failed";
       onToast(message);
-      setMessages((m) => patchLastAssistant(m, { content: message }));
+      setMessages((m) => {
+        const next = patchLastAssistant(m, { content: message });
+        messagesRef.current = next;
+        return next;
+      });
+      return { askedJev, failed: true };
     } finally {
       streamLockRef.current = false;
+      if (!opts?.keepBusy) setBusy(null);
+    }
+  };
+
+  const sendLlm = async (mode: "chat" | "propose-questions", extra?: string) => {
+    const content = extra ?? draft.trim();
+    if (mode === "chat" && !content) return;
+    await runLlmTurn(mode, content, { clearDraft: !extra });
+  };
+
+  const runRandomCase = async (rawTurns: number) => {
+    if (health?.hasKey === false || busy !== null || agentLockRef.current) return;
+    const total = clampRandomCaseTurns(rawTurns);
+    agentLockRef.current = true;
+    setAgentRun({ current: 1, total });
+    setBusy("llm");
+    answersRef.current = null;
+    setAnswers(null);
+    setJevMeta("");
+    try {
+      const first = await runLlmTurn(
+        "random-case",
+        randomCaseFirstTurnPrompt(total),
+        { keepBusy: true },
+      );
+      if (first.failed) return;
+      for (let t = 2; t <= total; t++) {
+        setAgentRun({ current: t, total });
+        const note = answersRef.current
+          ? summarizeAnswers(answersRef.current)
+          : "";
+        const next = await runLlmTurn(
+          "chat",
+          randomCaseContinuePrompt(t, total, note),
+          { keepBusy: true },
+        );
+        if (next.failed) return;
+      }
+      onToast(`Random case · ${total} turns done.`);
+    } finally {
+      agentLockRef.current = false;
+      streamLockRef.current = false;
       setBusy(null);
+      setAgentRun(null);
     }
   };
 
@@ -949,13 +1062,26 @@ function Workshop({
           <div>
             <h2 className="pane-title">LLM</h2>
             <code>{health?.llmModel ?? "deepseek/deepseek-v4-flash"}</code>
-            {busy === "llm" || busy === "propose" ? (
-              <ThinkingMill
-                label={busy === "propose" ? "Proposing" : "Thinking"}
-              />
-            ) : null}
           </div>
           <div className="row-actions" data-tutorial="wire">
+            <div className="llm-mill-slot">
+              {busy === "llm" || busy === "propose" ? (
+                <ThinkingMill
+                  label={
+                    agentRun
+                      ? `Turn ${agentRun.current} of ${agentRun.total}`
+                      : busy === "propose"
+                        ? "Proposing"
+                        : "Thinking"
+                  }
+                />
+              ) : (
+                <RandomCaseMenu
+                  disabled={locked}
+                  onConfirm={(n) => void runRandomCase(n)}
+                />
+              )}
+            </div>
             <button
               type="button"
               className="btn ghost"
