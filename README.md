@@ -35,6 +35,33 @@ Weather is **Open-Meteo** input (free, no key) on the **Jacket** preset only —
 
 ---
 
+## The loop
+
+The LLM never answers a Jev question itself. It has three tools that mutate the Workshop, and the server refuses to let it fake the third:
+
+| Tool | What it does |
+|---|---|
+| `set_jev_case` | Write **Jev’s State** (the `state` Jev judges). |
+| `set_jev_questions` | Replace the typed questions. Real snake_case ids; `choice` options become `"1"`, `"2"`, … with descriptions as values; `score` is an ordered legend; `noul` is optional `{ true, false }`. Blank or placeholder ids are dropped, never invented. |
+| `ask_jev` | `POST /api/alpha/decisions` with the current state + questions. Only runs when every id is real. Returns probabilities, not prose. |
+
+**Agentic loop** (LLM pane) runs *N* turns on the current state:
+
+```text
+turn 1   LLM ──set_jev_questions──▶ editor
+         LLM ──ask_jev────────────▶ Jev ──answers + probabilities──▶ LLM   (forced: tool_choice=ask_jev, then "required" until Jev has answered)
+turn 2…N  typed answers summarized into the next You bubble ──▶ LLM reasons, may re-ask Jev
+last turn LLM writes the operator analysis from Jev’s numbers — it may not invent probabilities
+```
+
+Honest shape: only **turn 1 is guaranteed** to hit Jev. Turns 2…*N* run in chat mode with the answers fed back, so the LLM re-asks only when it decides a new option or question is needed. Every request and response is visible in the **Inspector** (LLM pane, off by default) — model, mode, tools, the exact Decisions payload, and Jev’s `usage.cost`.
+
+Server side: `server/llm.ts` (tool loop, max 8 rounds per turn, SSE to the browser), `server/jev.ts` (Decisions call), `server/questions.ts` (validation and key rewriting). Client side: `src/agenticLoop.ts` and `runAgenticLoop` in `src/App.tsx`.
+
+Cost: a Jev decision is on the order of **$0.00002** (`usage.cost` from OpenRouter). The LLM half is a floor model. A 3-turn loop is fractions of a cent.
+
+---
+
 ## Pages
 
 | Page | Path | What it is |

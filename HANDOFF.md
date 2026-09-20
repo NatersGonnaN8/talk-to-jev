@@ -1,49 +1,47 @@
 # Talk to Jev — handoff
 
-**2026-09-19** — BYOK Settings live. GitHub is **public** (https://github.com/NatersGonnaN8/talk-to-jev). Local `http://127.0.0.1:5182`. Example Uses: `http://127.0.0.1:5182/use-cases`. Settings: `http://127.0.0.1:5182/settings`.
+**2026-09-20** — Public on GitHub (https://github.com/NatersGonnaN8/talk-to-jev). Local `http://127.0.0.1:5182`. Contract: `docs/SPEC.md` (read it first — it is the source of truth; this file is the short orientation).
 
 ## What it is
 
-Two AIs through **OpenRouter**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Jev’s State** ticket is Jev `state`. Ten snaps: **nine operator decisions** plus **Jacket** (Open-Meteo, the one weather snap). Workshop first-open and **New State** are an **empty** Workshop — Invoice is a Preset States pick.
+Two AIs through **one OpenRouter key**. LLM talks (`deepseek/deepseek-v4-flash`, chat/completions with tools). Jev judges (`typesafe/jev-1.13`, Decisions API — not an LLM). **Jev’s State** is Jev `state`; **Jev’s Questions** is the typed `questions` map. The LLM mutates both through tools and calls `ask_jev`; Jev returns probabilities; the answers round-trip into the next LLM turn. README “The loop” has the shape. SPEC §5 has the contract.
+
+## Pages
+
+Workshop `/` · Example Uses `/use-cases` · Docs `/docs` · Settings `/settings` · Convert `/convert`. History lives on the Jev’s State row (localStorage only). Inspector is on the LLM pane-head (off by default; logs every `/api/llm` and `/api/jev` payload, never keys).
 
 ## Keys (BYOK)
 
-Paste in **Settings** — not a template file. Keys write to gitignored `.env.local` on the **server**. Browser never stores raw keys in localStorage.
+Paste in **Settings**. Keys write to gitignored `.env.local` on the server. Browser never sees a raw key. `GET /api/health` → booleans. `GET /api/settings` → present + last-4. Never `VITE_` prefixes. Never open a template file for Nater to paste into — `.env.local` or Settings.
 
 | Env | Today |
 |---|---|
 | `OPENROUTER_API_KEY` | Required for LLM + Jev |
-| `OPENAI_API_KEY` | Saved only |
-| `ANTHROPIC_API_KEY` | Saved only |
-| `TAVILY_API_KEY` | Saved only |
-| `BRAVE_API_KEY` | Saved only |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `TAVILY_API_KEY` / `BRAVE_API_KEY` | Saved only, not called |
 
-Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Never `VITE_` prefixes.
+## Security posture (verified live 2026-09-20)
 
-`GET /api/health` → booleans only (`hasKey`, `keys.*`). `GET /api/settings` → present + last-4, never the full key.
+- CSRF gate on every `/api/*`: foreign `Origin` or cross-site `Sec-Fetch-Site` → **403**. Non-JSON POST → **415**. Body over 2 MiB → **413**. Foreign `Host` → **403** (Vite `allowedHosts`). Docs path traversal → **404**. Same-origin JSON POST → **200**; header-less GET (curl) → **200**.
+- Bind `127.0.0.1`, `strictPort 5182`, `cors: false`. Rendered docs pass through DOMPurify.
+- History scan: no key-shaped strings outside base64 blobs in mirrored docs; no `.env*` ever tracked. `npm audit` 0. Bundle has no key material.
+- Threat model and reporting: `SECURITY.md`. Full gate: SPEC §7, §14.
 
-## How to try
+Re-run those probes before any future security claim. Do not relax the gate or add `Access-Control-Allow-Origin`.
 
-1. Open `http://127.0.0.1:5182/settings`. OpenRouter should show **Key ready** (not the secret).
-2. Workshop first-open is **empty** (no Invoice). **Preset States** holds the operator snaps; **Jacket** is the weather snap (**Load weather** → **Ask Jev**). **New State** starts a blank workshop. **History** is on that row.
-3. Docs overlay still on `/docs`. History is local-only (Jev’s State row). Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
+## Working here
 
-## How to start the tour
+- SPEC first. If Nater says something the SPEC does not, update SPEC in the same change set.
+- `npm run build` (typechecks both tsconfigs + Vite build) must be green before a commit that touches code. CI runs the same on push/PR.
+- `npm run dev` is usually already running in a Cursor terminal on 5182 (`strictPort`) — check before starting another.
+- Conventional commits, why-focused. Stage only your files; other agent sessions may have `docs/SPEC.md` dirty at the same time.
+- Refresh the third-party docs snapshot with **Update Jev docs** or `npm run update-jev-docs`; commit as `chore:`. `docs/jev/` is not MIT — see `docs/jev/README.md`.
+- Pin Jev 1.13 unless Nater asks for latest. Slow models only for subagents (Grok 4.6 extra high, Fast off).
 
-- First visit (no `talk-to-jev:tutorial-done`): overlay opens on Workshop.
-- Anytime: chrome **Tour**.
-- Reset: clear that localStorage key, refresh. Skip / Done writes `"1"` so refresh does not nag.
+## Open decisions (Nater’s call)
 
-## GitHub safety (2026-09-19)
+- `docs/SPEC.md` line 5 shows the Windows folder path (`C:\Users\uttle\…`).
+- Default weather location is `Columbus, OH` (`server/weather.ts`, `src/weather.ts`, SPEC §6.1 / §11 / §13).
 
-- `.env` / `.env.local` are gitignored and **not tracked**. Not on GitHub.
-- History has env **names** in docs/code, not key **values** (`sk-or-v1-` count 0).
-- Repo flipped **public** after the §14 checklist: gitignore, history scan, health/settings JSON, README, and client bundle.
+## Not wired yet
 
-## Do next
-
-- Keep `.env.local` gitignored. Rotate the OpenRouter key if it ever leaked outside this machine.
-- Search / direct OpenAI / Anthropic / Tavily / Brave are **not** wired yet — Settings is the home.
-- Pin Jev 1.13 unless Nate asks for latest.
-
-SPEC: `docs/SPEC.md` (v0.23) §6.1 state tools, §6.7 Inspector, §12, §14.
+Search, direct OpenAI / Anthropic. Settings stores the keys; nothing calls them.
