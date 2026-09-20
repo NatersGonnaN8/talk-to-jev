@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MdProse } from "./MdProse";
 
 const PLACEHOLDER = "What Jev should judge";
@@ -45,6 +45,18 @@ export function StateEditor({
     }
   }, [editing]);
 
+  useEffect(() => {
+    if (!editing) return;
+    const leave = (event: Event) => {
+      const t = "target" in event ? event.target : null;
+      if (t instanceof Node && taRef.current?.contains(t)) return;
+      if (t instanceof Element && t.closest(".mill-bar")) return;
+      setEditing(false);
+    };
+    document.addEventListener("pointerdown", leave, true);
+    return () => document.removeEventListener("pointerdown", leave, true);
+  }, [editing]);
+
   if (editing) {
     return (
       <textarea
@@ -79,13 +91,6 @@ export function StateEditor({
       onClick={(e) => {
         if (clickIsOnChrome(e.target)) return;
         if (selectionIsInside(e.currentTarget)) return;
-        setEditing(true);
-      }}
-      onFocus={(e) => {
-        if (e.target !== e.currentTarget) return;
-        // Unmounting the textarea dumps focus here with no relatedTarget.
-        // Tabbing in from another control still enters edit.
-        if (!(e.relatedTarget instanceof Element)) return;
         setEditing(true);
       }}
       onKeyDown={(e) => {
