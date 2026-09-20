@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.22 — 2026-09-20  
+**Status:** v0.24 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -148,7 +148,7 @@ Global chrome (all pages):
 - Nav: **Workshop** | **Example Uses** | **Docs** | **Settings** | **Convert**
 - **Convert** sits **after** Settings. Visible label **Convert**; `title` and accessible name **Convert to Markdown**. Route `/convert`.
 - Right: **Tour** (Help — restarts the first-run coach overlay), **Update Jev docs** (after success: refresh the Docs catalog and the open reader — §6.2)
-- **History is not in chrome-right.** It lives on the **Jev’s State** row only (Workshop). Same local-thread drawer. Tour / Update Jev docs stay in the header. **Payloads** lives on the LLM pane (§6.7), not in chrome.
+- **History is not in chrome-right.** It lives on the **Jev’s State** row only (Workshop). Same local-thread drawer. Tour / Update Jev docs stay in the header. **Inspector** lives on the LLM pane (§6.7), not in chrome.
 - **No chrome key-status pill** (no Key ready / Need key / Checking…). Keys live in **Settings** (nav tab + `/settings`). `/api/health` still runs so Ask buttons can lock when OpenRouter is missing. Never show the full key.
 - No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch).
 - No native `<dialog>` / iframe for the coach. See §6.4.
@@ -196,7 +196,7 @@ Layout (desktop):
 - Heading: `h2.pane-title` **LLM** (acronym as written) — **same size as Jev’s Questions** (1.05rem / 16.8px, weight 650, letter-spacing 0.01em). Model id is subtitle/meta (`code`), not a second heading.
 - Scrollable transcript (user / assistant) lives in `.thread` — **that** is the pane scroller, not the window. Composer stays under the thread. Assistant turns are **agentic**, not a single JSON dump in the bubble.
 - Composer: textarea (`resize: none`) + **Send**
-- Secondary: **Random state** (mill slot, **left of** Propose) then **Propose Jev questions**, then **Feed Jev to LLM**, then **Payloads** (inspector toggle — §6.7)
+- Secondary: **Random state** (mill slot, **left of** Propose) then **Propose Jev questions**, then **Feed Jev to LLM**, then **Inspector** (§6.7)
 - After Jev has answered: **Feed Jev to LLM**. Click builds the Jev-answers user message and **immediately POSTs** `/api/llm` (same `sendLlm` / SSE path as **Send**). The composer may stay empty; **Send** stays disabled until they type. Show the You bubble, then mill thinking / streamed assistant reply. Do **not** wait for a second click. Do **not** insert a canned “Got Jev’s typed answers…” assistant line. If there are no Jev answers yet, keep the button disabled (do not fake a send). **Random state** later turns reuse this send-now path.
 - **Random state** mill popover: **How many turns do you want to do?** Options **3–10**. Confirm starts; Cancel aborts. No ALL CAPS. Opaque, flip, fully on-screen, high z-index. See §5.1.
 - Empty: “Draft the state, or ask how to phrase a Jev question.”
@@ -208,7 +208,7 @@ Layout (desktop):
 - **Thinking chrome.** While `/api/llm` is in flight, the open assistant turn shows a slick mill **thinking** state (telegraph stamps + a pine nib on a manila track — custom CSS, not a stock spinner-only afterthought). Show it before the first prose token and while thoughts are streaming. Hide it in the bubble once assistant prose is on screen (tool cards may already be visible). Also show the same mill in the LLM **pane-head mill slot** (the empty mill left of **Propose Jev questions** — idle that slot is **Random state**) for the whole in-flight window so it stays on-screen when the last bubble is below the fold. During a Random state run the mill label is **Turn k of N**. `prefers-reduced-motion: reduce` → static pine bar, no motion. Nater (2026-09-20): “add a nice thinking animation to LLM, stream the actual thoughts if possible in a nice collapsible agentic UI, and add nice tool calls as well.”
 - **Thoughts block.** If any thought text arrived, show a collapsible mill aside (pine left rule, manila fill, Public Sans **Thoughts** — same family as `.nav-btn`, not Fragment Mono). **Open while streaming / still thinking** so live thought text is visible (the operator can still collapse mid-stream). **When that thought group completes** (the mill already reads **Thoughts done** — the same moment `.llm-agent-toggle` leaves the streaming meta: assistant prose started on that bubble, or that bubble’s SSE stream ended): **auto-collapse** that mill. `button.llm-agent-toggle` is `aria-expanded=false`, chevron ▸, body hidden. Default closed once done. The operator may click to expand. Auto-collapse runs **once at the done transition** for that bubble — do **not** re-collapse on later parent re-renders if they opened it. Each assistant bubble is independent (Random state / multi-turn): a finished thought group collapses when *that* group is done, not only the latest. History restore of a finished turn starts collapsed (already done). Do **not** collapse tool cards (`Jev’s State` / `set_jev_case`, Ask Jev, and the rest) — only `.llm-thoughts`. If the floor model (`deepseek/deepseek-v4-flash` by default) has no reasoning channel, keep thinking chrome and **hide** an empty thoughts block — do not fake copy. Nater (2026-09-20): after a stream finishes, Thoughts often stayed expanded; the mill should start collapsed when done.
 - **Tool cards.** Each call is a collapsible mill card: tool name (plus a short human label), stamp Running / Done / Failed, short args summary, short result. Not a questions-map table in the bubble. Propose / “send it to state” must look like `set_jev_*` tool use. Cards persist on the message in History. `ask_jev` args summary reads **Current state + questions** (not “case”). Tool **ids** stay `set_jev_case` / `set_jev_questions` / `ask_jev` — do not rename the LLM tool contract.
-- **Payloads** toggle sits in this pane-head (after Feed Jev). Mixed case, Public Sans like `.btn.ghost` / `.nav-btn`. Not ALL CAPS. Opaque FlipTip. See §6.7. The mill payload panel mounts **in this pane** (below `.thread`, above the composer) — not a chrome dock, not Settings.
+- **Inspector** toggle sits in this pane-head (after Feed Jev). Mixed case, Public Sans like `.btn.ghost` / `.nav-btn`. Not ALL CAPS. Opaque FlipTip. See §6.7. The log panel is a **fixed bottom overlay** (not a flex sibling of `.board`, so viewport pane-scroll stays). Not chrome-right, not Settings.
 
 **Jev pane** (blueprint / typed) — header `article.pane.jev > header.pane-head`
 
@@ -347,7 +347,7 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 
 1. **Welcome** — two AIs, one OpenRouter key. The LLM talks. Jev does not write.
 2. **Jev’s State** — this slip is Jev `state`. Drop `.md` here; other files open the **Convert** tab.
-3. **LLM pane** — prose / draft / chat. Thinking chrome while it works; real thoughts if the model streams them; tool cards for Workshop mutations. **Payloads** (in this pane-head) shows logged `/api/llm` and `/api/jev` request/response JSON when toggled; recording never stops.
+3. **LLM pane** — prose / draft / chat. Thinking chrome while it works; real thoughts if the model streams them; tool cards for Workshop mutations. **Inspector** (in this pane-head) shows logged `/api/llm` and `/api/jev` request/response JSON when toggled; recording never stops.
 4. **Jev’s Questions** pane — typed `choice` / `noul` / `score` + **Ask Jev**.
 5. **Propose Jev questions** (tools fill the q-cards) / **Feed Jev to LLM** (sends typed answers to the LLM immediately) / **Random state** (mill slot, turn picker) if those buttons exist.
 6. **Example Uses** — nine operator snaps plus one weather snap (Jacket), same list as Workshop **Preset States**.
@@ -413,29 +413,29 @@ Layout:
 
 Libraries, caps, and never-list: **§16**.
 
-### 6.7 Payloads (LLM pane inspector)
+### 6.7 Inspector (LLM pane)
 
-Nater (2026-09-20): always log LLM and Jev payloads; inspector **hidden by default**; toggle to show; logs persist; never show API keys. Toggle lives on the **LLM pane** (Workshop mill) — not chrome-right, not Settings.
+Nater (2026-09-20): always log LLM and Jev payloads; inspector **hidden by default**; toggle to show; logs persist; never show API keys. Toggle lives on the **LLM pane** (Workshop mill) — not chrome-right, not Settings. Visible name is **Inspector** (not Payloads).
 
 **Toggle**
 
-- LLM pane-head, **after** Feed Jev to LLM. Label **Payloads** (mixed case, Public Sans like `.nav-btn` / `.btn.ghost` — not ALL CAPS, not a stamp, not Bricolage). `aria-pressed` tracks open. `aria-controls` the panel. Opaque FlipTip (fully on-screen, flip above/below, pine-ink fill `#142018`): “Always recording. Keys never appear here.”
+- LLM pane-head, **after** Feed Jev to LLM. Label **Inspector** (mixed case, Public Sans like `.nav-btn` / `.btn.ghost` — not ALL CAPS, not a stamp, not Bricolage). `aria-pressed` tracks open. `aria-controls` the panel. Opaque FlipTip (fully on-screen, flip above/below, pine-ink fill `#142018`): “Always recording. Keys never appear here.”
 - Default **closed**. Do **not** persist open — refresh starts hidden. The toggle itself stays visible so the operator can open it.
 - Escape closes the panel when Tour is not open.
 
 **Panel** (only in the DOM while open)
 
-- Mount **inside** `article.pane.llm`: below `.thread`, above the composer. Opaque mill card (manila / mill floor). Not a `position: fixed` chrome dock — Workshop viewport panes stay clipped; `.thread` still scrolls; window `scrollY` stays ~0.
-- Heading **Payloads** is `h2.pane-title` (same size as **LLM** / **Jev’s Questions**). Column labels **To LLM** / **To Jev** are kickers (Public Sans like `.nav-btn`, smaller than pane-title) — not a second display face.
-- Max-height ~38% of the pane; the two columns scroll inside. No native `resize` grip. No CSS `resize`.
-- Two columns: **To LLM** (manila) and **To Jev** (blueprint). Newest first. Each call: time, path (`/api/llm` or `/api/jev`), request JSON, response JSON (or error). JSON is **Fragment Mono**. Kickers / stamps / buttons are Public Sans.
+- **Fixed bottom overlay** (`position: fixed`, z-index above Workshop chrome). **Not** a flex sibling of `.board` — viewport pane-scroll (`100dvh` minus chrome minus ticket) stays. Not chrome-right, not Settings.
+- Heading **Inspector** is `h2.pane-title` (same size as **LLM** / **Jev’s Questions**). Column labels **To LLM** / **To Jev** are kickers (`.eyebrow`, Public Sans, smaller than pane-title) — not a second display face.
+- Custom **top-edge** resizer (no native `resize` grip, no CSS `resize`). Height may persist (`talk-to-jev:dev-inspector-height`). Two columns scroll inside.
+- Two columns: **To LLM** (manila) and **To Jev** (blueprint). Newest first. Each call: time, title, request JSON, response JSON (or error). JSON is **Fragment Mono**. Kickers / stamps / buttons are Public Sans.
 - **Clear** empties the persist. Empty copy: recording continues while the panel is closed.
 - `ask_jev` from the LLM tool loop appears under **To Jev** (same `/api/jev` shape as the Ask Jev button).
 
 **Always record** (even while hidden)
 
 - Every `POST /api/llm` and `POST /api/jev` from this origin. LLM SSE may also emit `{ type: "inspect", channel: "llm"|"jev", phase: "request"|"response", title?, sent?, received? }` so the viewer can see the upstream OpenRouter / Decisions shape (primer truncated, with a char count). The client log still keeps the `/api/llm` or `/api/jev` body.
-- Persist: `localStorage["talk-to-jev:payload-log"]` = `{ v: 1, calls: PayloadCall[] }`. Cap **40** calls. Drop oldest on quota. Corrupt / missing → empty list. Never store keys.
+- Persist: `localStorage["talk-to-jev:dev-logs"]` = `{ v: 1, calls: DevCall[] }`. Cap **40** calls. Drop oldest on quota. Corrupt / missing → empty list. Never store keys.
 - Scrub before persist **and** before paint: `sk-or-`, `sk-ant-`, `sk-proj-`, `tvly-`, `BSA…`, `ghp_`, `github_pat_`, `AKIA`, `Bearer` tokens, Authorization / `api_key` / `secret` fields, env assignments (`OPENROUTER_API_KEY=…`). Replace the **whole** match with `[redacted]` — do **not** keep last-4 in the log body. Do not log `POST /api/settings`. Settings last-4 stays on `/settings` only.
 - Logged vs not:
   - **Logged (redacted):** `/api/llm` request `{ messages, state, questions, jevAnswers, includeTranscript, mode }` and a useful response (reply / thoughts char count / tool summaries, plus inspect `sent`/`received` when the server emits it). `/api/jev` request `{ state, questions, transcript?, includeTranscript? }` and response `{ ok, model, answers, usage }` or `{ ok: false, message }`.
@@ -456,7 +456,7 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 | GET | `/api/health` | `{ ok, hasKey, keys: { openrouter, openai, anthropic, tavily, brave }, jevModel, llmModel, docs: { files, fetchedAt } }`. All key fields are booleans. `hasKey` === `keys.openrouter`. Never last-4, never the secret. |
 | GET | `/api/settings` | `{ ok, keys: [{ id, env, label, why, required, present, last4 }] }`. `last4` is four characters or `null`. Never the full key. May append empty unused slots to `.env.local` (does not change existing values). |
 | POST | `/api/settings` | Body `{ id, value }`. `id` is `openrouter` \| `openai` \| `anthropic` \| `tavily` \| `brave`. Writes `.env.local`. Empty `value` clears that key. Response same shape as GET. **Never log the body.** Never echo `value`. |
-| POST | `/api/llm` | Body: `{ messages, state, questions?, jevAnswers?, includeTranscript?, mode?: "chat" \| "propose-questions" \| "random-case" }`. Streams `text/event-stream`. Server runs an OpenRouter **tool loop** (key stays server-side). OpenRouter chat is requested with `stream: true` so thoughts and tokens can paint mid-round. Send `include_reasoning: true` (legacy; same as `reasoning: {}`) so models that expose reasoning will; if that 400s, retry the round without it. Do **not** send a high `reasoning.effort` on the cheap floor model. Each SSE `data` line is JSON: `{ type: "thought", text }` (omit if the model streams none — never fake), `{ type: "delta", text, replace? }` (`replace: true` replaces that turn’s accumulated prose), `{ type: "tool", id, name, status: "running"\|"done", ok?, argsSummary, resultSummary?, state?, questions?, answers?, model?, usage?, message? }`, `{ type: "inspect", channel: "llm"\|"jev", phase: "request"\|"response", title?, sent?, received? }` (redacted payload log — no keys; primer truncated), `{ type: "error", message }`, `{ type: "done" }`. Emit `status: "running"` when a tool’s arguments are ready, then `status: "done"` after execute (same `id`). Tool names: `set_jev_case`, `set_jev_questions`, `ask_jev`. `ask_jev` reuses the Decisions call (`POST /api/jev` path). Include latest `jevAnswers` on later turns so results round-trip. `argsSummary` / `resultSummary` are short (ids, char counts) — not a questions JSON dump. Never echo the key. Never dump a questions map as the chat product. The browser always records scrubbed `/api/llm` and nested `/api/jev` shapes in `talk-to-jev:payload-log` (§6.7). |
+| POST | `/api/llm` | Body: `{ messages, state, questions?, jevAnswers?, includeTranscript?, mode?: "chat" \| "propose-questions" \| "random-case" }`. Streams `text/event-stream`. Server runs an OpenRouter **tool loop** (key stays server-side). OpenRouter chat is requested with `stream: true` so thoughts and tokens can paint mid-round. Send `include_reasoning: true` (legacy; same as `reasoning: {}`) so models that expose reasoning will; if that 400s, retry the round without it. Do **not** send a high `reasoning.effort` on the cheap floor model. Each SSE `data` line is JSON: `{ type: "thought", text }` (omit if the model streams none — never fake), `{ type: "delta", text, replace? }` (`replace: true` replaces that turn’s accumulated prose), `{ type: "tool", id, name, status: "running"\|"done", ok?, argsSummary, resultSummary?, state?, questions?, answers?, model?, usage?, message? }`, `{ type: "inspect", channel: "llm"\|"jev", phase: "request"\|"response", title?, sent?, received? }` (redacted payload log — no keys; primer truncated), `{ type: "error", message }`, `{ type: "done" }`. Emit `status: "running"` when a tool’s arguments are ready, then `status: "done"` after execute (same `id`). Tool names: `set_jev_case`, `set_jev_questions`, `ask_jev`. `ask_jev` reuses the Decisions call (`POST /api/jev` path). Include latest `jevAnswers` on later turns so results round-trip. `argsSummary` / `resultSummary` are short (ids, char counts) — not a questions JSON dump. Never echo the key. Never dump a questions map as the chat product. The browser always records scrubbed `/api/llm` and nested `/api/jev` shapes in `talk-to-jev:dev-logs` (§6.7). |
 | POST | `/api/jev` | Body: `{ state, questions, transcript? }`. JSON Decisions response (or `{ ok:false, message }`). Same path the `ask_jev` tool uses. |
 | GET | `/api/docs` | Index of snapshot files |
 | GET | `/api/docs/file` | Query `path` relative to `docs/jev`. Reject `..` |
@@ -481,11 +481,32 @@ Workshop, not a generic AI dashboard.
 - Probability fill: industrial orange `#E06B2A`
 - Type (Nater 2026-09-20, size match this message):
   - **Product mark** — `a.mark` “Talk to Jev”: Public Sans, **1.25rem / 20px**, weight **700**, letter-spacing **-0.03em**, mixed case. Higher tier. Do **not** shrink it to pane-title size.
-  - **Same-tier headers** — `h2.pane-title` “Jev’s Questions” is the size reference: Public Sans, **1.05rem / 16.8px**, weight **650**, letter-spacing **0.01em**, mixed case (`text-transform: none`). Same tier = other pane titles and page/section headers: LLM pane **LLM**, ticket **Jev’s State**, LLM **Payloads** panel heading, Convert **Files** / **Markdown**, History drawer title, Tour card titles, page titles **Example Uses** / **Settings** / **Convert to Markdown**, Example Uses card titles, Settings key names. Do **not** bump body, `.nav-btn`, or buttons to this size.
-  - **Everything else** — Public Sans like `.nav-btn` (Workshop, Example Uses, Docs): LLM chat, question instructions, chrome labels, chips, kickers, Payloads column labels **To LLM** / **To Jev**. Kickers (`.eyebrow`) stay **smaller** than pane-title (mixed case, ~0.78rem, weight ~650, tracking ~0.01em).
-  - **Fragment Mono** only for **real code**: question ids, model ids, env names, JSON (including Payloads request/response), Docs Code view, markdown `code`/`pre`, convert preview. Not for product chrome labels, thoughts kickers, type chips, stamps, or Payloads chrome.
+  - **Same-tier headers** — `h2.pane-title` “Jev’s Questions” is the size reference: Public Sans, **1.05rem / 16.8px**, weight **650**, letter-spacing **0.01em**, mixed case (`text-transform: none`). Same tier = other pane titles and page/section headers: LLM pane **LLM**, ticket **Jev’s State**, LLM **Inspector** panel heading, Convert **Files** / **Markdown**, History drawer title, Tour card titles, page titles **Example Uses** / **Settings** / **Convert to Markdown**, Example Uses card titles, Settings key names. Do **not** bump body, `.nav-btn`, or buttons to this size.
+  - **Everything else** — Public Sans like `.nav-btn` (Workshop, Example Uses, Docs): LLM chat, question instructions, chrome labels, chips, kickers, Inspector column labels **To LLM** / **To Jev**. Kickers (`.eyebrow`) stay **smaller** than pane-title (mixed case, ~0.78rem, weight ~650, tracking ~0.01em).
+  - **Fragment Mono** only for **real code**: question ids, model ids, env names, JSON (including Inspector request/response), Docs Code view, markdown `code`/`pre`, convert preview. Not for product chrome labels, thoughts kickers, type chips, stamps, or Inspector chrome.
   - **Never stylistic ALL CAPS** — no `text-transform: uppercase` on UI chrome. Acronyms as written (LLM, JSON, API) are fine.
 - **Never font** (Nater 2026-09-20): **Bricolage Grotesque** is banned. So is that **whole blocky style** — quirky/wonky/naive grotesques, and all-caps + wide-tracking UI chrome. Do not load Bricolage “just for the wordmark.”
+
+### 8.1 Scrollbars (Nater 2026-09-20)
+
+Nater despises the **white Windows native track** on Jev’s State, the LLM thread, and Jev’s Questions. No Talk to Jev scroller may show that chrome.
+
+**Where:** every overflow scroller — Workshop (Jev’s State textarea, `.thread`, `.jev-scroll`, composer / question textareas, thoughts), Docs (`.doc-list`, Nice / Code `.doc-view`, `pre` in Nice view), Convert (file list + preview), Settings / Example Uses if the page scrolls, History drawer, Preset States / Random state popovers, Inspector lists + JSON, tour if it scrolls. Horizontal overflow gets the same treatment (arrows left/right). Native `resize` stays `none`.
+
+**Paint:**
+
+- **Track / gutter:** fully invisible. Transparent. No white, no grey trough, no reserved `scrollbar-gutter` that shoves layout.
+- **Thumb and arrow buttons:** mill green. Wish color is `--floor` (`#dce6d8`, the Jev’s Questions / app wash). Pure `--floor` vanishes on the Jev pane (also floor). **One token for every bar:** `--scroll-thumb: color-mix(in srgb, var(--floor) 30%, var(--pine) 70%)` — still that mill green, darkened toward `--pine` (`#2f5d4a`) just enough to grab on floor **and** manila. Never white / grey Windows chrome. Never a rainbow of thumbs.
+- Arrow glyphs (the chevron) may use `--ink` so the triangle reads on the green button. Button fill stays `--scroll-thumb`.
+
+**Visibility (required, not optional):**
+
+- Default: thumb + arrows **opacity 0** (fully gone).
+- **Mouseover the scrollbar or the scrollable region** (the region must count — an invisible bar cannot be hovered): **fully opaque** for the whole hover.
+- **mouseover false:** stay **fully opaque for 1.0s**, then **fade to opacity 0 over the next 1.0s**. No other timings.
+- **Active scrolling** (wheel / trackpad / drag / keyboard-driven `scroll` on that host): same stay-visible rules, then the same 1s hold + 1s fade after scroll and hover have both ended.
+
+**Implementation:** custom **overlay** bars (thumb + top/bottom arrows; left/right when `overflow-x` scrolls). Chromium `::-webkit-scrollbar-button` cannot do transparent track + green thumb + green arrows + 1s hold + 1s fade. Hide native bars (`scrollbar-width: none`, webkit width 0). Overlay does not reserve a white gutter. Click arrow to step, drag thumb, click track to page. Keyboard still scrolls the real overflow element. Dedicated CSS/JS (`src/scrollbars.css`, `src/scrollbars.ts`) — do not fold this into unrelated inspector styles.
 
 Signature: **Jev’s State** as a physical slip the two instruments share. Probability is a filled bar, not a pie.
 
@@ -574,8 +595,8 @@ Choice `criteria` in this example may use semantic keys (`pay` / `hold` / `rejec
 **Key:** `talk-to-jev:docs-embed-block`  
 **Shape:** `{ v: 1, urls: string[], origins: string[] }` — live https sources / origins that will not embed (DENY, frame-ancestors, or a failed iframe). Browser only. Never stores keys. Used to hide the boxed-i control so we do not keep offering a dead Iframe.
 
-**Key:** `talk-to-jev:payload-log`  
-**Shape:** `{ v: 1, calls: PayloadCall[] }` — always-on scrubbed `/api/llm` and `/api/jev` request/response log (cap 40). Browser only. Open/closed is **not** in this key (inspector starts hidden). Never stores keys, last-4, or Settings bodies. Corrupt / missing → empty. See §6.7.
+**Key:** `talk-to-jev:dev-logs`  
+**Shape:** `{ v: 1, calls: DevCall[] }` — always-on scrubbed `/api/llm` and `/api/jev` request/response log (cap 40). Browser only. Open/closed is **not** in this key (inspector starts hidden). Height may live in `talk-to-jev:dev-inspector-height`. Never stores keys, last-4, or Settings bodies. Corrupt / missing → empty. See §6.7.
 
 ```
 {
@@ -849,7 +870,7 @@ Before calling Workshop done:
 29. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
 30. Saving an empty unused key (e.g. OpenAI) does not echo a full key in the UI or JSON
 31. `GET /api/settings` has `present` / `last4` only — no full key
-32. Chrome right-side has Tour / Update Jev docs only — **no** History, **no** Inspector, **no** Payloads, **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. **History** is on the Jev’s State row. **Payloads** is on the LLM pane-head (starts off). Nav **Settings** and `/settings` remain the key home.
+32. Chrome right-side has Tour / Update Jev docs only — **no** History, **no** Inspector, **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. **History** is on the Jev’s State row. **Inspector** is on the LLM pane-head (starts off). Nav **Settings** and `/settings` remain the key home.
 33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`) and puts the caret in that id field. Typing several characters into a blank or filled id (e.g. `action`, `vendor_claim_valid`) keeps focus — the field does not deselect after one character. Space in the id field inserts `_` (`wear jacket` → `wear_jacket`). **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled. Instructions textarea still accepts spaces.
 35. Ticket heading reads **Jev’s State** (`h2.pane-title`, not **Case**, not uppercase **JEV’S STATE**). Same Public Sans **size** as **Jev’s Questions** (1.05rem / 650 / 0.01em). Product mark **Talk to Jev** stays larger (1.25rem / 700). Example Uses gallery title stays **Example Uses** at that same pane-title size. Nav **Workshop / Example Uses / Docs** stay `.nav-btn` size — not header size.
@@ -872,8 +893,9 @@ Before calling Workshop done:
 52. Docs Iframe: open Introduction (TypeSafe, `X-Frame-Options: DENY`): boxed-i is **hidden**; Nice (or Code) is the view; no mill “won’t embed” dead end. Open `primer.md`: Iframe is hidden (no source). A page that *can* embed still shows boxed-i and loads the live site. No keys in the iframe URL. No native resize grips. Rail chevron collapses/expands with animation; refresh keeps collapsed.
 53. **Random state:** **New State** (empty Workshop) → **Random state** (mill slot, left of Propose, mixed-case Public Sans) → pick **3** turns → **Confirm**. Jev’s State fills (`set_jev_case`). Q-cards show mixed types (at least one noul, one score, one choice; mill numbers; snake_case ids). `ask_jev` POSTs `/api/jev`. Answers return; a later `/api/llm` SSE streams analysis on the Feed Jev send-now path (not a canned one-liner). Turns 2–3 continue without the operator typing. Mill shows **Turn k of 3**. Each finished turn’s Thoughts mill auto-collapses when *that* group is done (not only the latest). Workshop **unlocks** when done. Popover **Cancel** does not start a run. Tip/popover stays fully on-screen, opaque, no ALL CAPS.
 54. Workshop with a long LLM thread **and** several q-cards: `article.pane.llm` and `article.pane.jev` stay inside the viewport (pane `bottom` ≤ `innerHeight`; document does **not** grow to ~2000px). Pane-heads stay put. `.thread` and `.jev-scroll` each have `overflow-y: auto` and scroll independently. Window `scrollY` stays ~0. No native `resize` grips.
-55. Load Workshop: LLM pane-head shows **Payloads** (mixed case). Panel is off (no request JSON in the pane). Toggle on: mill card **inside** the LLM pane, two columns **To LLM** / **To Jev**, Fragment Mono JSON. Tip opaque and on-screen. Toggle off. Send a short LLM message **or** Ask Jev (or a tool `ask_jev`): `localStorage["talk-to-jev:payload-log"]` grows even while closed. Refresh: toggle still off; opening it shows the last calls. No API key / last-4 / `sk-or-` in the panel or that key. Settings has no inspector. Chrome-right has no Payloads. `ask_jev` tool card args read **Current state + questions**.
+55. Load Workshop: LLM pane-head shows **Inspector** (mixed case). Panel is off (no request JSON on screen). Toggle on: bottom overlay, two columns **To LLM** / **To Jev**, Fragment Mono JSON. Tip opaque and on-screen. Toggle off. Send a short LLM message **or** Ask Jev (or a tool `ask_jev`): `localStorage["talk-to-jev:dev-logs"]` grows even while closed. Refresh: toggle still off; opening it shows the last calls. No API key / last-4 / `sk-or-` in the panel or that key. Settings has no inspector. Chrome-right has no Inspector. `ask_jev` tool card args read **Current state + questions**. Workshop panes still fill the viewport (overlay is not a flex sibling).
 56. Nav **Example Uses** (not Use Cases). Ticket **Jev’s State**, **New State**, **Preset States**. Random mill slot **Random state**. Convert **Add to Jev’s State**.
+57. Overflow scrollers (Jev’s State textarea, `.thread`, `.jev-scroll`, Docs `.doc-list` / Nice view, Convert, History, Inspector JSON, and the rest in §8.1) show **no white native track**. Hover the region: mill-green thumb + arrows fully opaque. Leave: stay opaque **1.0s**, then fade **1.0s**. Idle: opacity 0. No reserved white gutter. Native `resize` still `none`.
 
 ---
 

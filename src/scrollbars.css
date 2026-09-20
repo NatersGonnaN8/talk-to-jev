@@ -1,0 +1,149 @@
+/* Talk to Jev mill overlay scrollbars — SPEC §8.1. Do not fold into inspector CSS. */
+
+:root {
+  --scroll-size: 14px;
+  --scroll-hold: 1s;
+  --scroll-fade: 1s;
+  /* Floor on floor vanishes. One mill-green token, darkened toward pine so it grabs. */
+  --scroll-thumb: color-mix(in srgb, var(--floor) 30%, var(--pine) 70%);
+}
+
+html,
+body,
+* {
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+}
+
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.mill-scroll-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 75;
+}
+
+.mill-bar {
+  position: fixed;
+  box-sizing: border-box;
+  display: none;
+  pointer-events: none;
+  opacity: 0;
+  user-select: none;
+  touch-action: none;
+}
+
+.mill-bar.is-on {
+  opacity: 1;
+  pointer-events: auto;
+  transition: none;
+}
+
+.mill-bar.is-fade {
+  opacity: 0;
+  pointer-events: auto;
+  transition: opacity var(--scroll-fade) linear;
+}
+
+.mill-bar-y {
+  flex-direction: column;
+  width: var(--scroll-size);
+}
+
+.mill-bar-x {
+  flex-direction: row;
+  height: var(--scroll-size);
+}
+
+.mill-bar-arrow {
+  flex: 0 0 var(--scroll-size);
+  width: var(--scroll-size);
+  height: var(--scroll-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--scroll-thumb);
+  cursor: pointer;
+  position: relative;
+}
+
+.mill-bar-arrow::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border: 4px solid transparent;
+}
+
+.mill-bar-y .mill-bar-dec::before {
+  border-bottom-color: var(--ink);
+  transform: translate(-50%, -70%);
+}
+
+.mill-bar-y .mill-bar-inc::before {
+  border-top-color: var(--ink);
+  transform: translate(-50%, -30%);
+}
+
+.mill-bar-x .mill-bar-dec::before {
+  border-right-color: var(--ink);
+  transform: translate(-70%, -50%);
+}
+
+.mill-bar-x .mill-bar-inc::before {
+  border-left-color: var(--ink);
+  transform: translate(-30%, -50%);
+}
+
+.mill-bar-track {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mill-bar-thumb {
+  position: absolute;
+  background: var(--scroll-thumb);
+  border-radius: 2px;
+  cursor: grab;
+}
+
+.mill-bar-thumb:active {
+  cursor: grabbing;
+}
+
+.mill-bar-y .mill-bar-thumb {
+  left: 2px;
+  right: 2px;
+  top: 0;
+  width: auto;
+}
+
+.mill-bar-x .mill-bar-thumb {
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  height: auto;
+}
