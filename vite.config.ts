@@ -14,12 +14,13 @@ import {
   settingsPayload,
   upsertProviderValue,
 } from "./server/settings";
+import { DEFAULT_JEV, DEFAULT_LLM } from "./server/openrouter";
+import { callJev } from "./server/jev";
+import { runLlmSession } from "./server/llm";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docsRoot = resolve(here, "docs", "jev");
-
-const DEFAULT_JEV = "typesafe/jev-1.13";
-const DEFAULT_LLM = "deepseek/deepseek-v4-flash";
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 function publicError(err: unknown): string {
   const raw = err instanceof Error ? err.message : "server error";
@@ -66,9 +67,30 @@ function send(res: ServerResponse, code: number, body: unknown) {
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolveBody, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
-    req.on("end", () => resolveBody(Buffer.concat(chunks).toString("utf8")));
-    req.on("error", reject);
+    let size = 0;
+    let settled = false;
+    const ok = (value: string) => {
+      if (settled) return;
+      settled = true;
+      resolveBody(value);
+    };
+    const fail = (err: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    };
+    req.on("data", (c) => {
+      if (settled) return;
+      const buf = Buffer.isBuffer(c) ? c : Buffer.from(c);
+      size += buf.length;
+      if (size > MAX_BODY_BYTES) {
+        fail(new HttpError(413, "Body too large."));
+        return;
+      }
+      chunks.push(buf);
+    });
+    req.on("end", () => ok(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", fail);
   });
 }
 
@@ -137,47 +159,6 @@ function primerText() {
     return "Jev docs snapshot is empty. Use Update Jev docs. Jev is TypeSafe's System One model: state + typed questions (choice/noul/score) → answers with probabilities. Not a chatbot. OpenRouter POST /api/alpha/decisions, model typesafe/jev-1.13.";
   }
   return readFileSync(p, "utf8");
-}
-
-function orHeaders(env: Record<string, string>) {
-  return {
-    Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-    "Content-Type": "application/json",
-    "HTTP-Referer": "http://127.0.0.1:5182",
-    "X-OpenRouter-Title": "Talk to Jev",
-  };
-}
-
-function llmSystem(state: string, jevAnswers: unknown, mode: string) {
-  const primer = primerText();
-  const answers =
-    jevAnswers === undefined
-      ? ""
-      : `\n\n## Latest Jev answers (typed)\n\`\`\`json\n${JSON.stringify(jevAnswers, null, 2)}\n\`\`\`\n`;
-  const propose =
-    mode === "propose-questions"
-      ? `\n\nYou MUST reply with ONLY a JSON object. Keys are question ids. Each value has "type" ("choice"|"noul"|"score"), "instructions" (full question text), and "criteria" (choice: object of option→description; score: array of level strings; noul: optional {true,false}). No markdown fences. No prose.`
-      : `\n\nYou may suggest Jev questions in a fenced json block named questions. Do not pretend to be Jev or invent probabilities.`;
-  return `You are the prose half of Talk to Jev. You talk. Jev decides.
-
-Jev is TypeSafe's System One model. It is NOT an LLM. It does not write. It evaluates a state against typed questions in one parallel call and returns choice / noul / score answers with probabilities. OpenRouter route: POST https://openrouter.ai/api/alpha/decisions (never chat/completions). Pin typesafe/jev-1.13.
-
-A weather block in the case (<!-- weather:start --> or ## Weather) is observational Open-Meteo input. Do not invent weather. Do not pretend to be Jev.
-
-Rules from the stored docs:
-- One snap judgment per question. Decompose; compose in code.
-- Question ids are for code; put the whole question in instructions.
-- Prefer many questions in one Jev call (speculative fan-out).
-- Noul is P(true) in [0,1], not a separate confidence.
-- A typed answer can still be wrong. Talk in probabilities.
-
-## Current case (Jev state)
-${state || "(empty)"}
-${answers}
-
-## Jev primer from this repo
-${primer.slice(0, 40_000)}
-${propose}`;
 }
 
 function workshopApi(): Plugin {
@@ -302,27 +283,24 @@ function workshopApi(): Plugin {
                 ? { case: caseText, transcript }
                 : caseText;
             const model = env.JEV_MODEL || DEFAULT_JEV;
-            const upstream = await fetch("https://openrouter.ai/api/alpha/decisions", {
-              method: "POST",
-              headers: orHeaders(env),
-              body: JSON.stringify({ model, state, questions }),
+            const result = await callJev({
+              apiKey: env.OPENROUTER_API_KEY,
+              model,
+              state,
+              questions: questions as Record<string, unknown>,
             });
-            const payload = (await upstream.json().catch(() => ({}))) as Record<
-              string,
-              unknown
-            >;
-            if (!upstream.ok) {
+            if (!result.ok) {
               return send(res, 502, {
                 ok: false,
-                message: "Jev request failed (details omitted).",
-                status: upstream.status,
+                message: result.message,
+                status: result.status,
               });
             }
             return send(res, 200, {
               ok: true,
-              model: typeof payload.model === "string" ? payload.model : model,
-              answers: payload.answers,
-              usage: payload.usage,
+              model: result.model,
+              answers: result.answers,
+              usage: result.usage,
             });
           }
 
@@ -335,40 +313,27 @@ function workshopApi(): Plugin {
               });
             }
             const body = await jsonBody(req);
-            const messages = Array.isArray(body.messages) ? body.messages : [];
-            const mode = body.mode === "propose-questions" ? "propose-questions" : "chat";
-            const state = String(body.state ?? "");
-            const model = env.LLM_MODEL || DEFAULT_LLM;
-            const system = llmSystem(state, body.jevAnswers, mode);
-            const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-              method: "POST",
-              headers: orHeaders(env),
-              body: JSON.stringify({
-                model,
-                stream: true,
-                messages: [{ role: "system", content: system }, ...messages],
-              }),
-            });
-            if (!upstream.ok || !upstream.body) {
-              return send(res, 502, {
-                ok: false,
-                message: "LLM request failed (details omitted).",
-                status: upstream.status,
-              });
-            }
             res.statusCode = 200;
             res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
             res.setHeader("Cache-Control", "no-store");
-            const reader = upstream.body.getReader();
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                res.write(value);
-              }
-            } finally {
-              res.end();
-            }
+            res.setHeader("X-Accel-Buffering", "no");
+            res.flushHeaders?.();
+            await runLlmSession({
+              env,
+              model: env.LLM_MODEL || DEFAULT_LLM,
+              jevModel: env.JEV_MODEL || DEFAULT_JEV,
+              primer: primerText(),
+              body: {
+                messages: body.messages,
+                state: body.state,
+                questions: body.questions,
+                jevAnswers: body.jevAnswers,
+                includeTranscript: body.includeTranscript,
+                mode: body.mode,
+              },
+              res,
+            });
+            if (!res.writableEnded) res.end();
             return;
           }
 

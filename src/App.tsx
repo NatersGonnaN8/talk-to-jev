@@ -52,6 +52,7 @@ import { TutorialOverlay } from "./TutorialOverlay";
 import { isTutorialDone, TUTORIAL_UI, type TutorialPage } from "./tutorial";
 import {
   activeThread,
+  cloneSnapshot,
   deleteChat,
   emptySnapshot,
   loadStore,
@@ -94,66 +95,6 @@ function questionsForJev(questions: Record<string, JevQuestion>) {
 function pct(n: number) {
   if (!Number.isFinite(n)) return "—";
   return `${Math.round(n * 1000) / 10}%`;
-}
-
-function parseProposedQuestions(text: string): Record<string, JevQuestion> | null {
-  const trimmed = text.trim();
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const raw = fence ? fence[1] : trimmed;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    const map =
-      parsed &&
-      typeof parsed === "object" &&
-      parsed !== null &&
-      "questions" in parsed
-        ? (parsed as { questions: unknown }).questions
-        : parsed;
-    if (!map || typeof map !== "object") return null;
-    const out: Record<string, JevQuestion> = {};
-    for (const [id, q] of Object.entries(map as Record<string, unknown>)) {
-      const qid = id.trim();
-      if (!qid || isBlankQuestionId(qid)) continue;
-      if (!q || typeof q !== "object") continue;
-      const rec = q as Record<string, unknown>;
-      const type = rec.type;
-      const instructions = String(rec.instructions ?? "");
-      if (type === "choice" && rec.criteria && typeof rec.criteria === "object") {
-        out[qid] = {
-          type: "choice",
-          instructions,
-          criteria: Object.fromEntries(
-            Object.entries(rec.criteria as Record<string, unknown>).map(([k, v]) => [
-              k,
-              v == null ? "" : String(v),
-            ]),
-          ),
-        };
-      } else if (type === "score" && Array.isArray(rec.criteria)) {
-        out[qid] = {
-          type: "score",
-          instructions,
-          criteria: rec.criteria.map((v) => String(v)),
-        };
-      } else if (type === "noul") {
-        const c = rec.criteria;
-        out[qid] = {
-          type: "noul",
-          instructions,
-          criteria:
-            c && typeof c === "object"
-              ? {
-                  true: String((c as { true?: string }).true ?? ""),
-                  false: String((c as { false?: string }).false ?? ""),
-                }
-              : undefined,
-        };
-      }
-    }
-    return Object.keys(out).length ? out : null;
-  } catch {
-    return null;
-  }
 }
 
 function summarizeAnswers(answers: Record<string, JevAnswer>) {
@@ -250,6 +191,11 @@ export function App() {
 
   const consumeConvertBatch = useCallback(() => {
     setConvertBatch(null);
+  }, []);
+
+  const onBlankWorkshop = useCallback(() => {
+    window.history.pushState({}, "", "/");
+    setCaseId(null);
   }, []);
 
   const queueConvertFiles = (files: File[]) => {
@@ -403,10 +349,7 @@ export function App() {
           presetId={caseId}
           presetNonce={presetNonce}
           onOpenSample={(id: SampleId) => go("workshop", id)}
-          onBlankWorkshop={() => {
-            window.history.pushState({}, "", "/");
-            setCaseId(null);
-          }}
+          onBlankWorkshop={onBlankWorkshop}
           onQueueConvert={queueConvertFiles}
           onCaseText={setConvertCaseText}
           convertAddToCase={convertAddToCase}
@@ -472,19 +415,19 @@ function Workshop({
   const boot = activeThread(store);
   const [state, setState] = useState(() => boot?.state ?? "");
   const [includeChat, setIncludeChat] = useState(() => boot?.includeChat ?? true);
-  const [messages, setMessages] = useState<ChatMessage[]>(
-    () => boot?.messages ?? [],
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    (boot?.messages ?? []).map((m) => ({ role: m.role, content: m.content })),
   );
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState<"llm" | "jev" | "propose" | "weather" | null>(
     null,
   );
   const [split, setSplit] = useState(50);
-  const [questions, setQuestions] = useState<Record<string, JevQuestion>>(
-    () => boot?.questions ?? emptySnapshot().questions,
+  const [questions, setQuestions] = useState<Record<string, JevQuestion>>(() =>
+    boot ? structuredClone(boot.questions) : emptySnapshot().questions,
   );
-  const [answers, setAnswers] = useState<Record<string, JevAnswer> | null>(
-    () => boot?.answers ?? null,
+  const [answers, setAnswers] = useState<Record<string, JevAnswer> | null>(() =>
+    boot?.answers ? structuredClone(boot.answers) : null,
   );
   const [jevMeta, setJevMeta] = useState(() => boot?.jevMeta ?? "");
   const [blankIdError, setBlankIdError] = useState(false);
@@ -497,13 +440,15 @@ function Workshop({
   const [dropOn, setDropOn] = useState(false);
   const dragDepth = useRef(0);
   const threadRef = useRef<HTMLDivElement>(null);
-  const snapRef = useRef<WorkshopSnapshot>(emptySnapshot());
+  const snapRef = useRef<WorkshopSnapshot>(
+    boot ? cloneSnapshot(boot) : emptySnapshot(),
+  );
   const storeRef = useRef(store);
   storeRef.current = store;
-
-  const skipMatchingBoot = useRef(
-    Boolean(presetId && boot?.samplePresetId === presetId),
-  );
+  const persistReady = useRef(false);
+  const skipFirstPersist = useRef(true);
+  // History restore wins over a leftover `?case=` from last session.
+  const skipStaleUrlPreset = useRef(Boolean(boot && presetId));
 
   const snapshot: WorkshopSnapshot = {
     messages,
@@ -516,15 +461,23 @@ function Workshop({
   };
   snapRef.current = snapshot;
 
+  const commitStore = (next: ChatStore) => {
+    storeRef.current = next;
+    setStore(next);
+    return next;
+  };
+
   const applySnapshot = (snap: WorkshopSnapshot) => {
-    setState(snap.state);
-    setIncludeChat(snap.includeChat);
-    setMessages(snap.messages);
-    setQuestions(snap.questions);
-    setAnswers(snap.answers);
-    setJevMeta(snap.jevMeta);
+    const copy = cloneSnapshot(snap);
+    snapRef.current = copy;
+    setState(copy.state);
+    setIncludeChat(copy.includeChat);
+    setMessages(copy.messages);
+    setQuestions(copy.questions);
+    setAnswers(copy.answers);
+    setJevMeta(copy.jevMeta);
     setBlankIdError(false);
-    setSamplePresetId(snap.samplePresetId);
+    setSamplePresetId(copy.samplePresetId);
     setDraft("");
     setWeatherLine("");
     setLocationQuery(DEFAULT_LOCATION_QUERY);
@@ -539,42 +492,24 @@ function Workshop({
   }, [messages, busy]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setStore((s) => upsertActive(s, snapRef.current));
-    }, 350);
-    return () => window.clearTimeout(timer);
-  }, [messages, state, includeChat, questions, answers, jevMeta, samplePresetId]);
-
-  useEffect(() => {
-    const flush = () => {
-      persistStore(upsertActive(storeRef.current, snapRef.current));
-    };
-    window.addEventListener("beforeunload", flush);
-    return () => {
-      window.removeEventListener("beforeunload", flush);
-      flush();
-    };
-  }, []);
-
-  useEffect(() => {
     if (!presetId) return;
-    if (skipMatchingBoot.current) {
-      skipMatchingBoot.current = false;
+    if (skipStaleUrlPreset.current) {
+      skipStaleUrlPreset.current = false;
+      onBlankWorkshop();
       return;
     }
     const preset = cloneSample(presetId);
     if (!preset) return;
-    setStore(startNewChat(storeRef.current, snapRef.current));
-    setSamplePresetId(preset.id);
-    setState(preset.state);
-    setQuestions(preset.questions);
-    setBlankIdError(false);
-    setAnswers(null);
-    setJevMeta("");
-    setMessages([]);
-    setDraft("");
-    setWeatherLine("");
-    setAttachError("");
+    commitStore(startNewChat(storeRef.current, snapRef.current));
+    applySnapshot({
+      messages: [],
+      state: preset.state,
+      includeChat: true,
+      questions: structuredClone(preset.questions),
+      answers: null,
+      jevMeta: "",
+      samplePresetId: preset.id,
+    });
     onToast(
       preset.kind === "weather"
         ? `Loaded “${preset.label}”. Click Load weather for live Open-Meteo.`
@@ -582,8 +517,39 @@ function Workshop({
     );
   }, [presetId, presetNonce, onToast]);
 
+  useEffect(() => {
+    const latest = loadStore();
+    commitStore(latest);
+    const thread = activeThread(latest);
+    if (thread) applySnapshot(thread);
+    persistReady.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (skipFirstPersist.current) {
+      skipFirstPersist.current = false;
+      return;
+    }
+    if (!persistReady.current) return;
+    const timer = window.setTimeout(() => {
+      commitStore(upsertActive(storeRef.current, snapRef.current));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [messages, state, includeChat, questions, answers, jevMeta, samplePresetId]);
+
+  useEffect(() => {
+    const flush = () => {
+      if (!persistReady.current) return;
+      persistStore(upsertActive(storeRef.current, snapRef.current));
+    };
+    window.addEventListener("beforeunload", flush);
+    // Do not flush on unmount — React Strict Mode remounts would mint a new
+    // thread or overwrite the restored one with an empty snapshot.
+    return () => window.removeEventListener("beforeunload", flush);
+  }, []);
+
   const onNewCase = () => {
-    setStore(startNewChat(storeRef.current, snapRef.current));
+    commitStore(startNewChat(storeRef.current, snapRef.current));
     applySnapshot(emptySnapshot());
     onBlankWorkshop();
     onHistoryOpenChange(false);
@@ -598,23 +564,25 @@ function Workshop({
   };
 
   const onSelectChat = (id: string) => {
-    const chat = storeRef.current.chats.find((c) => c.id === id);
-    if (!chat) return;
-    persistStore(upsertActive(storeRef.current, snapRef.current));
+    const current = storeRef.current;
+    if (current.activeId && current.activeId !== id) {
+      commitStore(upsertActive(current, snapRef.current));
+    }
     const next = selectChat(loadStore(), id);
-    setStore(next);
+    const chat = next.chats.find((c) => c.id === id);
+    if (!chat) return;
+    commitStore(next);
     applySnapshot(chat);
     onHistoryOpenChange(false);
   };
 
   const onRenameChat = (id: string, title: string) => {
-    setStore(renameChat(storeRef.current, id, title));
+    commitStore(renameChat(storeRef.current, id, title));
   };
 
   const onDeleteChat = (id: string) => {
     const wasActive = storeRef.current.activeId === id;
-    const next = deleteChat(storeRef.current, id);
-    setStore(next);
+    commitStore(deleteChat(storeRef.current, id));
     if (wasActive) applySnapshot(emptySnapshot());
   };
 
@@ -628,7 +596,7 @@ function Workshop({
         ? {
             role: "user",
             content:
-              "Propose atomic Jev questions for this case. Return JSON only.",
+              "Propose atomic Jev questions for this case. Call set_jev_questions. Do not paste JSON in the chat.",
           }
         : { role: "user", content };
     const history = [...messages, nextUser];
@@ -636,30 +604,60 @@ function Workshop({
     if (!extra) setDraft("");
     setBusy(mode === "propose-questions" ? "propose" : "llm");
     try {
+      let appliedQs = 0;
       const full = await streamLlm(
         {
           messages: history,
           state,
+          questions,
           jevAnswers: answers ?? undefined,
+          includeTranscript: includeChat,
           mode,
         },
-        (text) => {
-          setMessages((m) => {
-            const copy = [...m];
-            copy[copy.length - 1] = { role: "assistant", content: text };
-            return copy;
-          });
+        (ev) => {
+          if (ev.type === "delta") {
+            setMessages((m) => {
+              const copy = [...m];
+              copy[copy.length - 1] = { role: "assistant", content: ev.text };
+              return copy;
+            });
+            return;
+          }
+          if (ev.type === "set_jev_case") {
+            setState(ev.state);
+            onToast("Updated Jev’s case.");
+            return;
+          }
+          if (ev.type === "set_jev_questions") {
+            appliedQs = Object.keys(ev.questions).length;
+            setQuestions(ev.questions);
+            setBlankIdError(false);
+            setAnswers(null);
+            onToast(`Loaded ${appliedQs} proposed questions into Jev.`);
+            return;
+          }
+          setAnswers(ev.answers);
+          const usage = ev.usage as
+            | { input_tokens?: number; cost?: number }
+            | undefined;
+          const bits = [
+            ev.model ? String(ev.model) : "",
+            usage?.input_tokens != null ? `${usage.input_tokens} in` : "",
+            usage?.cost != null ? `$${Number(usage.cost).toFixed(6)}` : "",
+          ].filter(Boolean);
+          setJevMeta(bits.join(" · "));
+          onToast("Jev answered.");
         },
       );
-      if (mode === "propose-questions") {
-        const parsed = parseProposedQuestions(full);
-        if (parsed) {
-          setQuestions(parsed);
-          setBlankIdError(false);
-          onToast(`Loaded ${Object.keys(parsed).length} proposed questions into Jev.`);
-        } else {
-          onToast("LLM replied, but it was not valid questions JSON.");
-        }
+      if (!full.trim() && appliedQs) {
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: `Loaded ${appliedQs} questions into Jev’s Questions. Click Ask Jev when you’re ready.`,
+          };
+          return copy;
+        });
       }
     } catch (err) {
       onToast(err instanceof Error ? err.message : "LLM failed");
@@ -920,7 +918,7 @@ function Workshop({
       <article className="pane jev" data-tutorial="jev" style={{ flex: `${100 - split} 1 0` }}>
         <header className="pane-head">
           <div>
-            <span className="eyebrow">Jev</span>
+            <h2 className="pane-title">Jev’s Questions</h2>
             <code>{health?.jevModel ?? "typesafe/jev-1.13"}</code>
           </div>
           <button

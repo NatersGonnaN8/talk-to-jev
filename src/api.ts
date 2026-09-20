@@ -1,4 +1,4 @@
-import type { Health, SettingsResponse } from "./types";
+import type { Health, JevAnswer, JevQuestion, SettingsResponse } from "./types";
 import type { WeatherResponse } from "./weather";
 
 export async function getHealth(): Promise<Health> {
@@ -87,39 +87,99 @@ export async function askJev(payload: {
   return body;
 }
 
-function parseSseDelta(chunk: string): string {
-  let out = "";
-  for (const block of chunk.split("\n\n")) {
-    const line = block
-      .split("\n")
-      .filter((l) => l.startsWith("data:"))
-      .map((l) => l.slice(5).trim())
-      .join("");
-    if (!line || line === "[DONE]") continue;
-    try {
-      const json = JSON.parse(line) as {
-        choices?: Array<{ delta?: { content?: string } }>;
-      };
-      out += json.choices?.[0]?.delta?.content ?? "";
-    } catch {
-      /* ignore partial */
-    }
+export type LlmStreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "error"; message: string }
+  | { type: "set_jev_case"; state: string }
+  | { type: "set_jev_questions"; questions: Record<string, JevQuestion> }
+  | {
+      type: "ask_jev";
+      answers: Record<string, JevAnswer>;
+      model?: string;
+      usage?: unknown;
+    };
+
+type SsePayload = {
+  type?: string;
+  name?: string;
+  ok?: boolean;
+  text?: string;
+  state?: string;
+  questions?: Record<string, JevQuestion>;
+  answers?: Record<string, JevAnswer>;
+  model?: string;
+  usage?: unknown;
+  message?: string;
+  choices?: Array<{ delta?: { content?: string } }>;
+};
+
+/** Complete SSE frames; leftover (possibly mid-event) stays in `rest`. */
+export function takeSseFrames(buffer: string): { frames: string[]; rest: string } {
+  const text = buffer.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const parts = text.split("\n\n");
+  const rest = parts.pop() ?? "";
+  return { frames: parts.filter((part) => part.trim()), rest };
+}
+
+export function parseSseFrame(frame: string): SsePayload | null {
+  const data = frame
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).replace(/^\s/, ""))
+    .join("\n");
+  if (!data || data === "[DONE]") return null;
+  try {
+    return JSON.parse(data) as SsePayload;
+  } catch {
+    return null;
   }
-  return out;
+}
+
+export function eventFromPayload(
+  json: SsePayload,
+): LlmStreamEvent | null {
+  if (json.type === "error") {
+    return { type: "error", message: json.message || "LLM request failed" };
+  }
+  if (json.type === "done") return null;
+  if (json.type === "delta" && typeof json.text === "string") {
+    return { type: "delta", text: json.text };
+  }
+  const toolName = json.type === "tool" || json.type === "tool_call" ? json.name : json.type;
+  if (json.ok && toolName === "set_jev_case" && typeof json.state === "string") {
+    return { type: "set_jev_case", state: json.state };
+  }
+  if (json.ok && toolName === "set_jev_questions" && json.questions) {
+    return { type: "set_jev_questions", questions: json.questions };
+  }
+  if (json.ok && toolName === "ask_jev" && json.answers) {
+    return {
+      type: "ask_jev",
+      answers: json.answers,
+      model: json.model,
+      usage: json.usage,
+    };
+  }
+  const legacy = json.choices?.[0]?.delta?.content;
+  if (typeof legacy === "string" && legacy) return { type: "delta", text: legacy };
+  return null;
 }
 
 export async function streamLlm(
   payload: {
     messages: Array<{ role: string; content: string }>;
     state: string;
+    questions?: unknown;
     jevAnswers?: unknown;
+    includeTranscript?: boolean;
     mode?: "chat" | "propose-questions";
   },
-  onDelta: (full: string) => void,
+  onEvent: (ev: LlmStreamEvent) => void,
 ): Promise<string> {
   const res = await fetch("/api/llm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    cache: "no-store",
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -137,16 +197,32 @@ export async function streamLlm(
   const decoder = new TextDecoder();
   let buffer = "";
   let full = "";
+
+  const handleFrame = (frame: string) => {
+    const json = parseSseFrame(frame);
+    if (!json) return;
+    const ev = eventFromPayload(json);
+    if (!ev) return;
+    if (ev.type === "delta") {
+      full += ev.text;
+      onEvent({ type: "delta", text: full });
+      return;
+    }
+    onEvent(ev);
+  };
+
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
-    full += parseSseDelta(`${parts.join("\n\n")}\n\n`);
-    onDelta(full);
+    const taken = takeSseFrames(buffer);
+    buffer = taken.rest;
+    for (const frame of taken.frames) handleFrame(frame);
   }
-  if (buffer.trim()) full += parseSseDelta(buffer);
-  onDelta(full);
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    const taken = takeSseFrames(buffer.endsWith("\n\n") ? buffer : `${buffer}\n\n`);
+    for (const frame of taken.frames) handleFrame(frame);
+  }
   return full;
 }

@@ -65,8 +65,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: "jev",
-    title: "Ask Jev typed questions",
-    body: "Blueprint side: choice, noul, or score — not essays. Add questions, then Ask Jev. You get probabilities, not a paragraph.",
+    title: "Jev’s Questions",
+    body: "Jev’s Questions: choice, noul, or score — not essays. Add questions, then Ask Jev. You get probabilities, not a paragraph.",
     page: "workshop",
     hooks: ["jev", "ask-jev"],
     selectors: [".pane.jev"],
@@ -74,7 +74,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "wire",
     title: "Pass work across the wire",
-    body: "Propose Jev questions asks the LLM for a JSON question map. After Jev answers, Feed Jev to LLM drops those typed results into the chat.",
+    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). After Jev answers, Feed Jev to LLM drops those typed results into the chat.",
     page: "workshop",
     hooks: ["wire"],
     selectors: [".pane.llm .row-actions"],
