@@ -85,6 +85,16 @@ import {
   type ChatStore,
   type WorkshopSnapshot,
 } from "./history";
+import {
+  TICKET_HEIGHT_MIN,
+  TICKET_NUDGE_PX,
+  TICKET_NUDGE_SHIFT_PX,
+  clampTicketHeight,
+  loadTicketHeight,
+  saveTicketHeight,
+  ticketHeightBounds,
+  workshopColumnHeight,
+} from "./ticketSplit";
 
 type Page = "workshop" | "docs" | "use-cases" | "settings" | "convert";
 
@@ -503,6 +513,12 @@ function Workshop({
     null,
   );
   const [split, setSplit] = useState(50);
+  const [ticketHeight, setTicketHeight] = useState(() => loadTicketHeight());
+  const [ticketSplitDrag, setTicketSplitDrag] = useState(false);
+  const workshopRef = useRef<HTMLElement>(null);
+  const desiredTicketHeightRef = useRef(ticketHeight);
+  const ticketHeightRef = useRef(ticketHeight);
+  ticketHeightRef.current = ticketHeight;
   const [questions, setQuestions] = useState<Record<string, JevQuestion>>(() =>
     withPositionalChoiceKeys(
       boot ? structuredClone(boot.questions) : emptySnapshot().questions,
@@ -1091,6 +1107,108 @@ function Workshop({
     }
   };
 
+  const displayTicketHeight = useCallback((desired: number) => {
+    const el = workshopRef.current;
+    const col = el ? workshopColumnHeight(el) : 0;
+    const next = col > 0 ? clampTicketHeight(desired, col) : Math.round(desired);
+    setTicketHeight(next);
+    return next;
+  }, []);
+
+  useEffect(() => {
+    const el = workshopRef.current;
+    if (!el) return;
+    const sync = () => {
+      displayTicketHeight(desiredTicketHeightRef.current);
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    window.addEventListener("resize", sync);
+    window.visualViewport?.addEventListener("resize", sync);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", sync);
+      window.visualViewport?.removeEventListener("resize", sync);
+    };
+  }, [displayTicketHeight]);
+
+  const commitTicketHeight = useCallback(
+    (px: number, persist: boolean) => {
+      const raw = Math.round(Math.min(2000, Math.max(80, px)));
+      desiredTicketHeightRef.current = raw;
+      displayTicketHeight(raw);
+      if (persist) saveTicketHeight(raw);
+    },
+    [displayTicketHeight],
+  );
+
+  const onTicketSplitPointer = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.currentTarget.focus({ preventScroll: true });
+      const startY = e.clientY;
+      const startH = ticketHeightRef.current;
+      setTicketSplitDrag(true);
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+      const move = (ev: PointerEvent) => {
+        commitTicketHeight(startH + (ev.clientY - startY), false);
+      };
+      const up = () => {
+        setTicketSplitDrag(false);
+        saveTicketHeight(desiredTicketHeightRef.current);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+    },
+    [commitTicketHeight],
+  );
+
+  const onTicketSplitKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const keys = new Set([
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+        "Home",
+        "End",
+      ]);
+      if (!keys.has(e.key)) return;
+      e.preventDefault();
+      const el = workshopRef.current;
+      const col = el ? workshopColumnHeight(el) : 0;
+      const { min, max } =
+        col > 0
+          ? ticketHeightBounds(col)
+          : { min: TICKET_HEIGHT_MIN, max: 2000 };
+      const step = e.shiftKey ? TICKET_NUDGE_SHIFT_PX : TICKET_NUDGE_PX;
+      let next = ticketHeightRef.current;
+      if (e.key === "ArrowUp" || e.key === "ArrowLeft") next -= step;
+      else if (e.key === "ArrowDown" || e.key === "ArrowRight") next += step;
+      else if (e.key === "Home") next = min;
+      else next = max;
+      commitTicketHeight(next, true);
+    },
+    [commitTicketHeight],
+  );
+
+  const ticketBounds = (() => {
+    const el = workshopRef.current;
+    const col = el ? workshopColumnHeight(el) : 0;
+    return col > 0
+      ? ticketHeightBounds(col)
+      : { min: TICKET_HEIGHT_MIN, max: 2000 };
+  })();
+
   const onSplitPointer = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const rail = e.currentTarget.parentElement;
     if (!rail) return;
@@ -1311,7 +1429,7 @@ function Workshop({
   );
 
   return (
-    <main className="workshop">
+    <main className="workshop" ref={workshopRef}>
       <HistoryPanel
         open={historyOpen}
         onClose={() => onHistoryOpenChange(false)}
@@ -1323,8 +1441,10 @@ function Workshop({
         onDelete={onDeleteChat}
       />
       <section
+        id="workshop-ticket"
         className={dropOn ? "ticket drop-on" : "ticket"}
         data-tutorial="case"
+        style={{ height: ticketHeight, flexBasis: ticketHeight, flexShrink: 0, flexGrow: 0 }}
         onDragEnter={onTicketDragEnter}
         onDragOver={onTicketDragOver}
         onDragLeave={onTicketDragLeave}
@@ -1420,6 +1540,21 @@ function Workshop({
             : "Jev judges this. The LLM can draft it. Drop .md into Jev’s State. txt / html / docx / pdf go to Convert."}
         </p>
       </section>
+
+      <div
+        className={ticketSplitDrag ? "splitter ticket-split is-drag" : "splitter ticket-split"}
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize Jev’s State"
+        aria-controls="workshop-ticket"
+        aria-valuemin={ticketBounds.min}
+        aria-valuemax={ticketBounds.max}
+        aria-valuenow={ticketHeight}
+        aria-valuetext={`${ticketHeight} pixels`}
+        tabIndex={0}
+        onPointerDown={onTicketSplitPointer}
+        onKeyDown={onTicketSplitKeyDown}
+      />
 
       <section className="board">{llmJevBoard}</section>
     </main>
