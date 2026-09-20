@@ -77,7 +77,7 @@ export const SAMPLES: SampleCase[] = [
     "Pay, hold, or reject an over-PO freight bill.",
     "business",
     `AP QUEUE · INV-18442 · Northwind Logistics LLC
-Vendor: Net-30, 3 years, no prior disputes. Buyer: Ops (harbor freight). SLA: AP close Friday 5:00pm ET — last open exception on the close list.
+Vendor: Net-30, 3 years, no prior disputes. Buyer: Ops (inbound freight). SLA: AP close Friday 5:00pm ET — last open exception on the close list.
 
 Invoice: $18,640.00 for March freight against PO-9921 authorized $16,200.00. Variance +$2,440 (15.1% over PO).
 - Line 4 “fuel surcharge Q1 true-up” $1,980 — not on the PO. No signed rate addendum on file.
@@ -120,10 +120,10 @@ Vendor dunning: 8 days past terms, threatening late fees.`,
   sample(
     "ticket",
     "Ticket route",
-    "Billing, engineering, success, or spam.",
+    "Billing, engineering, success, or spam — pick the primary owner.",
     "business",
     `ZENDESK #482911 · 14 minutes old · first-response SLA 1h
-Account: Harbor Tools Cloud · Enterprise · ARR $94k · CSAT 92 last 90d · admin sender, domain matches owner · not on suppression.
+Account: Fieldwright Cloud · Enterprise · ARR $94k · CSAT 92 last 90d · admin sender, domain matches owner · not on suppression.
 
 Subject: “Production webhook 500s — also you billed us twice this month”
 
@@ -131,14 +131,14 @@ Body: “Checkout confirmations 500 since 16:40 UTC. Customers can’t complete.
 
 Signals:
 - 3 similar tickets in 40 minutes (webhook 5xx).
-- Billing: invoice 7721 and 7721-DUP same amount, same Stripe charge id ending 4491.
+- Billing: invoice 7721 and 7721-DUP same amount, same Stripe charge id ending 4491 — duplicate PDF, not a second capture.
 - Last ticket 11d ago: billing, refunded politely.
 
-Queues: Billing · Engineering · Success · Spam.`,
+Queues: Billing · Engineering · Success · Spam. Route to one primary owner even though the body has two issues.`,
     {
       queue: {
         type: "choice",
-        instructions: "Which queue should own this ticket?",
+        instructions: "Which queue should be the primary owner of this ticket?",
         criteria: {
           billing: "Payments, invoices, duplicate charges",
           engineering: "Production bugs, outages, webhooks",
@@ -148,16 +148,18 @@ Queues: Billing · Engineering · Success · Spam.`,
       },
       urgent: {
         type: "noul",
-        instructions: "Does this need Sev-1 / immediate attention?",
+        instructions:
+          "Is checkout / production down right now, such that this cannot wait the remaining first-response SLA? (The duplicate invoice is not this question.)",
         criteria: {
-          true: "Production or enterprise-at-risk right now",
-          false: "Can wait the remaining SLA",
+          true: "Production outage now — cannot wait the SLA",
+          false: "The outage can wait the remaining SLA",
         },
       },
       severity: {
         type: "score",
-        instructions: "How severe is this ticket?",
-        criteria: ["Low", "Medium", "Sev-1"],
+        instructions:
+          "Overall business impact (Enterprise ARR, checkout, and the billing mess) — not a Sev label.",
+        criteria: ["Low", "Medium", "High"],
       },
     },
   ),
@@ -167,7 +169,7 @@ Queues: Billing · Engineering · Success · Spam.`,
     "Book a demo, nurture, or disqualify.",
     "business",
     `HUBSPOT D-44190 · inbound “Book a demo” · 22 minutes ago
-Company: Harbor & Pine Credit Union · 14 branches · ~$2.1B assets · 180 employees (Clearbit). Title: VP Operations. Tech: DNA core. No current vendor overlap.
+Company: Oak & Pine Credit Union · 14 branches · ~$2.1B assets · 180 employees (Clearbit). Title: VP Operations. Tech: DNA core. No current vendor overlap.
 
 Form: “Need a decision engine for loan exception queues. Budget this FY. Evaluating two others. Can we see a live demo Thursday?”
 
@@ -210,15 +212,15 @@ SDR note: they asked for “on-prem only.” We are cloud-only with VPC. That is
     `STRIPE pi_3S9k · $247.00 · ORD-77120
 Customer: Maya Chen · tenure 11 months · 2 prior refunds ($18, $42) both approved · lifetime revenue $1,104 · risk score 12/100.
 
-Request (chat, 6m): “The annual plan renewed yesterday. I meant to cancel. I used it 3 days this period. Refund in full please. I’ll chargeback if not.”
+Request (chat, 6m): “The annual plan renewed four days ago. I meant to cancel. I used it on 3 days this period. Refund in full please. I’ll chargeback if not.”
 
 Policy R-3:
 - Full refund if unused, or within the 14-day new-customer window (she is not new).
 - Partial: unused time minus one month already consumed (annual = $20.58/mo → ~$226 leftover) if cancel within 7 days of renewal.
-- Deny: abuse, more than 2 refunds/year, or product fully consumed.
+- Deny: abuse, more than 3 refunds/year, or product fully consumed.
 - A chargeback threat does not by itself deny.
 
-Usage this period: 3 logins, 1 export, no seats added. Renewal was 19 hours ago. Cancel link was in the invoice email (opened, not clicked).`,
+Usage this period: 3 calendar days with logins, 1 export, no seats added. Renewal was 4 days ago. Cancel link was in the invoice email (opened, not clicked). Two prior refunds this year — under the deny threshold.`,
     {
       decision: {
         type: "choice",
@@ -251,11 +253,11 @@ Usage this period: 3 logins, 1 export, no seats added. Renewal was 19 hours ago.
     "business",
     `REQ SWE-II · Decision Systems · recruiter screen + resume (redacted)
 
-Candidate: Jordan Hale. 4.5 years. Last role: fintech, “built routing rules for disputes” (Rails + Sidekiq, not an LLM). CS, state school. GitHub: 12 public repos, one well-starred CSV cleaner.
+Candidate: Jordan Hale. 4.5 years. Last role: fintech, “built routing rules for disputes” (Rails + Sidekiq, not an LLM). GitHub: 12 public repos, one well-starred CSV cleaner.
 
 Resume claims: “Designed a System-One-style classifier for chargebacks.” Recruiter: they could not name a typed-decision API; described a sklearn pipeline and a Slack bot.
 
-Comp ask: $165k + 0.15%. Band: $140–170k cash, 0.08–0.20% equity. Notice: 3 weeks. Work auth: US citizen.
+Comp ask: $165k + 0.15%. Band: $140–170k cash, 0.08–0.20% equity. Notice: 3 weeks.
 
 Scorecard musts: shipped production backend; evidence of judgment-under-uncertainty (ops, risk, or ML-in-prod); communicates tradeoffs.
 Nice: TypeScript, payments.
@@ -302,7 +304,7 @@ Open issues:
 
 Rollback: flip flag off (tested, <2m). Old renderer still dual-writing. On-call: billing-platform.
 
-Go criteria: no open P0/P1 on the artifact we ship. Wait: retag and slip to the next window. Rollback-plan: ship a known P1 only with a documented revert (legal has not asked).`,
+Go criteria: no open P0/P1 on the artifact we ship. Wait: retag and slip to the next window. Rollback-plan: ship the known P1 anyway with written sign-off. Legal has not asked us to ship Friday regardless — finance close is Monday.`,
     {
       call: {
         type: "choice",
@@ -310,7 +312,7 @@ Go criteria: no open P0/P1 on the artifact we ship. Wait: retag and slip to the 
         criteria: {
           ship: "Ship the tagged artifact in this window",
           wait: "Wait — retag / slip the window",
-          rollback_plan: "Ship only with an explicit rollback plan for the known P1",
+          rollback_plan: "Ship the known P1 anyway with written rollback sign-off",
         },
       },
       artifact_ready: {
@@ -331,19 +333,19 @@ Go criteria: no open P0/P1 on the artifact we ship. Wait: retag and slip to the 
   sample(
     "chargeback",
     "Chargeback",
-    "Accept, represent, or block the account.",
+    "Accept or represent the dispute — block is a separate call.",
     "business",
     `STRIPE DISPUTE dp_1S · $1,890.00 · reason: fraudulent · due in 6 days
-Merchant: Pro Tools Cloud. Card: Visa *0244 issued NG. 3DS: not attempted (merchant exemption). AVS zip match, CVV fail.
+Merchant: Pro Tools Cloud. Card: Visa *0244. 3DS: not attempted (merchant exemption). AVS zip match, CVV fail. Card-issuing country does not match the login country.
 
-Order: 40-seat annual, created 2.1 hours after signup, password reset twice, 8 API keys minted, data export of 12k rows, then chargeback. IP: Lagos datacenter ASN. Billing email ≠ login email. Device: first seen.
+Order: 40-seat annual, created 2.1 hours after signup, password reset twice, 8 API keys minted, data export of 12k rows, then chargeback. IP: datacenter ASN (not residential). Billing email ≠ login email. Device: first seen.
 
 History: this card BIN has 4 disputes / 30d across our merchant (1.1% vs 0.3% category). Customer reply: none. Product usage looks like a scrape, not a team.
 
 Policy:
 - Represent if we have AVS+CVV+3DS or clear fulfillment evidence and the customer used the product as a real org.
 - Accept (do not fight) if CVV fail + new account + export + no 3DS.
-- Block the account if scrape/fraud pattern regardless of represent.
+- Block the account if scrape/fraud pattern — that call is independent of accept vs represent.
 
 Compelling evidence on hand: invoice PDF, login logs, export log. No signed contract. No 3DS.`,
     {
@@ -353,7 +355,6 @@ Compelling evidence on hand: invoice PDF, login logs, export log. No signed cont
         criteria: {
           accept: "Accept the dispute — do not fight",
           represent: "Represent with compelling evidence",
-          block: "Block the account (and usually accept the dispute)",
         },
       },
       fraud_likely: {
@@ -363,6 +364,15 @@ Compelling evidence on hand: invoice PDF, login logs, export log. No signed cont
         criteria: {
           true: "Fraud / scrape pattern",
           false: "Could be a real (non-fraud) dispute",
+        },
+      },
+      block_account: {
+        type: "noul",
+        instructions:
+          "Should Risk block the account regardless of whether we accept or represent?",
+        criteria: {
+          true: "Block the account",
+          false: "Leave the account open",
         },
       },
       evidence_strength: {
@@ -377,10 +387,10 @@ Compelling evidence on hand: invoice PDF, login logs, export log. No signed cont
     "Vendor risk",
     "Sign, redline, or walk the MSA.",
     "business",
-    `VENDOR Northwind Observability Inc. · MSA + DPA
+    `VENDOR Helios Observability Inc. · MSA + DPA
 Spend: $86k year 1 · auto-renew 12 months. Liability cap: 3 months fees. Unlimited indemnity for us on IP; they want unlimited indemnity from us on “customer content.”
 
-Security: SOC 2 Type II expired 4 months ago (“in recert”). No bridge letter. Data: EU + US. Subprocessors list includes a model provider with training-on-customer-data unless we opt out in an exhibit they have not attached.
+Security: SOC 2 Type II expired 4 months ago (“in recert”). 90-day bridge letter is on file. Data: EU + US. Subprocessors list includes a model provider; training opt-out is in the attached DPA exhibit.
 
 Legal redlines already rejected twice: cap at 12 months fees, mutual IP indemnity only, no training on our tickets, 30-day termination for convenience after year 1.
 Vendor latest: “Take it or we miss the Q3 implementation slot.”
@@ -389,7 +399,8 @@ Policy PROC-9:
 - No unlimited indemnity outbound.
 - No expired SOC 2 without a bridge letter.
 - Training opt-out must be in the DPA.
-- Walk if two of those three fail and spend is >$50k.`,
+- Walk if two of those three fail and spend is >$50k.
+Here only outbound unlimited indemnity fails — walk is not mandated; sign as-is is still blocked.`,
     {
       action: {
         type: "choice",
@@ -421,7 +432,7 @@ Policy PROC-9:
     "Go live, force an edit, or kill the post.",
     "business",
     `TRUST & SAFETY · PUB-90331 · SLA 15 minutes (4 remaining)
-Creator: @millshed · Pro · 2.4y · 18k followers · 2 prior strikes: medical-misinfo (2025), spam (2024). Format: 42s video + caption.
+Creator: @millshed · Pro · 2.4y · 18k followers · 2 prior strikes: 2025 weight-loss supplement misinfo (not a cancer claim), 2024 spam. Format: 42s video + caption.
 
 Caption: “This cheap peptide stack cured my cousin’s tumor. Link in bio, 40% off today only. Doctors hate this.”
 Video: unidentified vials, no medical license, before/after stills that match a stock-photo watermark on frame 18.
@@ -429,7 +440,8 @@ Video: unidentified vials, no medical license, before/after stills that match a 
 Policy P-4 Health:
 - No unproven treatment claims for cancer.
 - No sales links on health claims.
-- First cancer-claim strike = kill + 7-day feature ban; second = account disable.
+- First cancer-claim strike = kill + 7-day feature ban; second cancer-claim = account disable.
+- This would be the first cancer-claim strike (the 2025 strike was a different bucket).
 - Spam strike is a different bucket.
 - News/commentary exception does not apply to product pitches.
 

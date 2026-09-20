@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.30 — 2026-09-20  
+**Status:** v0.31 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -809,19 +809,21 @@ Each preset is a product contract: **id**, **short label**, **pitch**, **kind** 
 | # | id | Label | Kind | Mix |
 |---|---|---|---|---|
 | 1 | `invoice` | Invoice exception | business | AP. Pay / hold / reject. choice + noul + score. |
-| 2 | `ticket` | Ticket route | business | Queue. billing / engineering / success / spam. |
+| 2 | `ticket` | Ticket route | business | Primary queue. billing / engineering / success / spam. |
 | 3 | `lead` | Lead qualify | business | Book demo / nurture / disqualify. |
 | 4 | `refund` | Refund call | business | Full / partial / deny. |
 | 5 | `hire` | Hire screen | business | Advance / hold / pass. |
 | 6 | `launch` | Launch go/no-go | business | Ship / wait / rollback plan. |
-| 7 | `chargeback` | Chargeback | business | Accept / represent / block. |
+| 7 | `chargeback` | Chargeback | business | Accept / represent. Block is a separate noul. |
 | 8 | `vendor` | Vendor risk | business | Sign / redline / walk. |
 | 9 | `moderate` | Moderate | business | Go live / edit / kill. |
 | 10 | `jacket` | Jacket? | weather | Outdoor layer. Open-Meteo optional. **The one weather snap.** |
 
+Ten distinct company names. Do not reuse **Northwind**, **Harbor**, or one mill across snaps. Do not use a single country as a fraud tell.
+
 ### 12.1 Invoice exception
 
-AP queue. INV-18442, Northwind Logistics LLC, Net-30, 3 years, no prior disputes. Invoice $18,640 vs PO-9921 $16,200 (+15.1%). Fuel surcharge $1,980 not on PO; pallet repair $460 with a carrier claim. Policy AP-4.2: auto-pay ≤ $250 or ≤ 2%; hold 2–5% or $250–$2,000; reject or amend above that. Fuel needs a signed addendum (none on file). Buyer: pay fuel if verbal winter band, do not pay pallet. Vendor dunning 8 days past terms. SLA: AP close Friday 5pm ET.
+AP queue. INV-18442, Northwind Logistics LLC, Net-30, 3 years, no prior disputes. Buyer is Ops (inbound freight) — not a retail brand. Invoice $18,640 vs PO-9921 $16,200 (+15.1%). Fuel surcharge $1,980 not on PO; pallet repair $460 with a carrier claim. Policy AP-4.2: auto-pay ≤ $250 or ≤ 2%; hold 2–5% or $250–$2,000; reject or amend above that. Fuel needs a signed addendum (none on file). Buyer: pay fuel if verbal winter band, do not pay pallet. Vendor dunning 8 days past terms. SLA: AP close Friday 5pm ET.
 
 - `action` **choice** — `1` Pay the invoice as billed / `2` Hold for buyer / `3` Reject and require a corrected invoice
 - `within_policy` **noul** — Is paying this invoice as-is within AP-4.2? true: within policy; false: exception needs hold or reject
@@ -829,15 +831,15 @@ AP queue. INV-18442, Northwind Logistics LLC, Net-30, 3 years, no prior disputes
 
 ### 12.2 Ticket route
 
-Zendesk #482911, 14m old, Enterprise ARR $94k, first-response SLA 1h. Subject mixes production webhook 500s and a duplicate $2,400 invoice. Three similar 5xx tickets in 40m. Duplicate Stripe charge id. Sender matches account owner. Queues: billing / engineering / success / spam.
+Zendesk #482911, 14m old, Fieldwright Cloud, Enterprise ARR $94k, first-response SLA 1h. Subject mixes production webhook 500s and a duplicate $2,400 invoice. Three similar 5xx tickets in 40m. Both invoice PDFs share one Stripe charge id (duplicate document, not a second capture). Sender matches account owner. Choose the **primary** owner — one queue, even though the body has two issues.
 
 - `queue` **choice** — `1` billing / `2` engineering / `3` success / `4` spam
-- `urgent` **noul** — Does this need Sev-1 / immediate attention? true: production or enterprise-at-risk now; false: can wait the SLA
-- `severity` **score** — Low / Medium / Sev-1
+- `urgent` **noul** — Is checkout / production down right now (cannot wait the remaining SLA)? true: production outage now; false: the outage can wait the SLA. Billing duplicate is not this question.
+- `severity` **score** — Low / Medium / High (overall business impact, including Enterprise ARR and the billing mess — not a Sev label)
 
 ### 12.3 Lead qualify
 
-HubSpot D-44190. Harbor & Pine Credit Union, ~$2.1B assets, VP Operations, DNA core. Inbound: decision engine for loan exception queues, budget this FY, demo Thursday. ICP: CU/community bank $500M–$10B, ops/risk buyer, exception or KYC queues. They asked for on-prem; we are cloud + VPC only.
+HubSpot D-44190. Oak & Pine Credit Union, ~$2.1B assets, VP Operations, DNA core. Inbound: decision engine for loan exception queues, budget this FY, demo Thursday. ICP: CU/community bank $500M–$10B, ops/risk buyer, exception or KYC queues. They asked for on-prem; we are cloud + VPC only.
 
 - `disposition` **choice** — `1` book demo / `2` nurture / `3` disqualify
 - `icp_fit` **noul** — Does this account match ICP? true: ICP; false: out of ICP
@@ -845,7 +847,7 @@ HubSpot D-44190. Harbor & Pine Credit Union, ~$2.1B assets, VP Operations, DNA c
 
 ### 12.4 Refund call
 
-Stripe $247 annual renewal, order ORD-77120, Maya Chen, 11 months, lifetime $1,104, two small prior refunds, risk 12/100. Renewed 19h ago; 3 logins this period. Policy R-3: full if unused or 14-day new-customer window (she is not new). Partial: unused months minus consumed month if cancel within 7 days of renewal. Deny: abuse, >2 refunds/year, or fully consumed. Chargeback threat is not itself a deny.
+Stripe $247 annual renewal, order ORD-77120, Maya Chen, 11 months, lifetime $1,104, two small prior refunds, risk 12/100. Renewed **4 days ago** (within the 7-day partial window). She used the product on 3 calendar days this period (3 logins, 1 export) — not “3 days of use inside 19 hours.” Policy R-3: full if unused, or within the 14-day new-customer window (she is not new). Partial: unused months minus one consumed month if cancel within 7 days of renewal. Deny: abuse, **more than 3 refunds/year** (two prior does not auto-deny), or fully consumed. A chargeback threat does not by itself deny.
 
 - `decision` **choice** — `1` full / `2` partial / `3` deny
 - `policy_allows_full` **noul** — Does R-3 allow a full refund here? true: full is in policy; false: it is not
@@ -853,7 +855,7 @@ Stripe $247 annual renewal, order ORD-77120, Maya Chen, 11 months, lifetime $1,1
 
 ### 12.5 Hire screen
 
-SWE-II Decision Systems. Jordan Hale, 4.5 years, fintech routing rules (Rails), claims a “System-One-style classifier” but described sklearn + Slack bot. Comp $165k + 0.15% (band $140–170k, 0.08–0.20%). Musts: production backend, judgment-under-uncertainty, tradeoffs. Auto-pass: cannot discuss a real production system, or >$190k. Interviewer: strong communicator, light systems design.
+SWE-II Decision Systems. Jordan Hale, 4.5 years, fintech routing rules (Rails), claims a “System-One-style classifier” but described sklearn + Slack bot. Comp $165k + 0.15% (band $140–170k, 0.08–0.20%). Musts: production backend, judgment-under-uncertainty, tradeoffs. Auto-pass: cannot discuss a real production system, or >$190k. Interviewer: strong communicator, light systems design. Do **not** put school, citizenship, or work-auth in the state.
 
 - `outcome` **choice** — `1` advance / `2` hold / `3` pass
 - `meets_musts` **noul** — Do they meet the must-have scorecard? true: yes; false: no
@@ -861,23 +863,24 @@ SWE-II Decision Systems. Jordan Hale, 4.5 years, fintech routing rules (Rails), 
 
 ### 12.6 Launch go/no-go
 
-billing-vats 2.12.0, ship window today 16:00–18:00 ET, PDF engine for EU VAT invoices (~1,100 Friday). Open P1: umlauts as `?` on the tagged worker image; fix is on a newer untagged build. Rollback: feature flag off, tested <2m. Go: no P1 on the artifact we ship. Wait: retag. Rollback-plan: ship a known P1 only with a documented revert (legal has not asked).
+billing-vats 2.12.0, ship window today 16:00–18:00 ET, PDF engine for EU VAT invoices (~1,100 Friday). Open P1: umlauts as `?` on the tagged worker image; fix is on a newer untagged build. Rollback: feature flag off, tested <2m. Go: no P1 on the artifact we ship. Wait: retag. Rollback-plan: ship the known P1 anyway with written sign-off — legal has **not** asked us to ship Friday regardless (finance close is Monday).
 
-- `call` **choice** — `1` ship / `2` wait / `3` rollback plan
+- `call` **choice** — `1` ship / `2` wait / `3` ship the known P1 with written rollback sign-off
 - `artifact_ready` **noul** — Is the tagged artifact ready to ship? true: the SHA/tag we would ship is clean of P1; false: it is not
 - `readiness` **score** — Blocked / Fragile / Ready
 
 ### 12.7 Chargeback
 
-Stripe dispute $1,890, reason fraudulent, due 6 days. New account, 40-seat annual, CVV fail, no 3DS, Lagos datacenter ASN, data export 12k rows, then dispute. Policy: represent if strong fulfillment + real-org use; accept if CVV fail + new + export + no 3DS; block if scrape/fraud pattern.
+Stripe dispute $1,890, reason fraudulent, due 6 days. New account, 40-seat annual, CVV fail, no 3DS, datacenter ASN (not residential), card-country ≠ login-country (do **not** name a country), data export 12k rows, then dispute. Policy: represent if strong fulfillment + real-org use; accept (do not fight) if CVV fail + new + export + no 3DS. **Block the account** is a separate call — not a third value of `action`. Block if scrape/fraud pattern, regardless of represent.
 
-- `action` **choice** — `1` accept / `2` represent / `3` block
-- `fraud_likely` **noul** — Is this likely fraud rather than a confused customer? true: fraud pattern; false: could be a real dispute
+- `action` **choice** — `1` accept (do not fight) / `2` represent with compelling evidence
+- `fraud_likely` **noul** — Is this likely fraud rather than a confused customer? true: fraud / scrape pattern; false: could be a real dispute
+- `block_account` **noul** — Should Risk block the account regardless of representment? true: block; false: leave the account open
 - `evidence_strength` **score** — Thin / Mixed / Strong
 
 ### 12.8 Vendor risk
 
-Northwind Observability, $86k year 1, auto-renew. Liability cap 3 months fees. They want unlimited indemnity from us on customer content. SOC 2 Type II expired 4 months, no bridge letter. Training-on-customer-data unless an unattached exhibit. PROC-9: no unlimited outbound indemnity; no expired SOC 2 without a bridge; training opt-out required in the DPA. Walk if two of three fail and spend >$50k.
+Helios Observability, $86k year 1, auto-renew. Liability cap 3 months fees. They want unlimited indemnity from us on customer content. SOC 2 Type II expired 4 months **but a 90-day bridge letter is on file**. Training opt-out **is** in the attached DPA exhibit. PROC-9: no unlimited outbound indemnity; no expired SOC 2 without a bridge; training opt-out required in the DPA. Walk if **two of those three** fail and spend is >$50k. Here only indemnity fails — walk is not mandated; sign as-is is still blocked.
 
 - `action` **choice** — `1` sign / `2` redline / `3` walk
 - `policy_clear` **noul** — Can we sign this paper as-is under PROC-9? true: clear to sign; false: not clear
@@ -885,7 +888,7 @@ Northwind Observability, $86k year 1, auto-renew. Liability cap 3 months fees. T
 
 ### 12.9 Moderate
 
-Trust & Safety PUB-90331. Pro creator, 2 prior strikes (medical-misinfo + spam). 42s video: peptide stack “cured my cousin’s tumor,” sales link, stock-photo watermark. Policy P-4 Health: no unproven cancer-treatment claims; no sales links on health claims; first cancer-claim strike = kill + 7-day feature ban. SLA 15 minutes. Would run next to a hospital advertiser.
+Trust & Safety PUB-90331. Pro creator, 2 prior strikes: **2025 weight-loss supplement misinfo (not a cancer claim)** + 2024 spam. 42s video: peptide stack “cured my cousin’s tumor,” sales link, stock-photo watermark. Policy P-4 Health: no unproven cancer-treatment claims; no sales links on health claims; **first** cancer-claim strike = kill + 7-day feature ban; second cancer-claim = account disable. This is the first cancer-claim, so `kill` (not disable). SLA 15 minutes. Would run next to a hospital advertiser.
 
 - `action` **choice** — `1` go live / `2` edit / `3` kill
 - `policy_violation` **noul** — Does this violate P-4 Health as posted? true: violation; false: can stand
