@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.8 — 2026-09-19  
+**Status:** v0.9 — 2026-09-19  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -65,7 +65,7 @@ Env names (standard):
 - Optional overrides in `.env.local`:
   - `JEV_MODEL` default `typesafe/jev-1.13` (pin; do not silently follow `~typesafe/jev-latest` in MVP)
   - `LLM_MODEL` default `deepseek/deepseek-v4-flash`
-- If OpenRouter is missing, the UI says so and both Ask buttons stay disabled with a reason. Never log any key.
+- If OpenRouter is missing, **Settings** says so and both Ask buttons stay disabled with a reason. Chrome has **no** key-status pill. Never log any key. Never show the full key in the UI.
 - **Load weather** and sample presets do **not** need any API key.
 
 Referer headers on outbound OpenRouter calls:
@@ -129,27 +129,10 @@ Global chrome (all pages):
 - Left: product name **Talk to Jev** (links home Workshop)
 - Nav: **Workshop** | **Use Cases** | **Docs** | **Settings** | **Convert**
 - **Convert** sits **after** Settings. Visible label **Convert**; `title` and accessible name **Convert to Markdown**. Route `/convert`.
-- Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), **key pill** (status text; shortcut to Settings — see **Chrome key pill**), **Update Jev docs**
+- Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), **Update Jev docs**
+- **No chrome key-status pill** (no Key ready / Need key / Checking…). Keys live in **Settings** (nav tab + `/settings`). `/api/health` still runs so Ask buttons can lock when OpenRouter is missing. Never show the full key.
 - No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch).
 - No native `<dialog>` / iframe for the coach. See §6.4.
-
-### Chrome key pill → Settings
-
-The right-side key-status pill is a **shortcut to Settings** (`/settings`). It is not a second Settings label — nav already has **Settings**. Visible text stays the OpenRouter key status. Never rename the pill to the word “Settings.”
-
-| State | Visible text | `title` (and accessible name) |
-|---|---|---|
-| checking | `Checking key…` | Checking OpenRouter key — open Settings |
-| ready | `Key ready` | OpenRouter key is on the server — open Settings |
-| missing | `Need OpenRouter key` | Need OpenRouter key — paste in Settings |
-| error | `Key check failed` | Could not check OpenRouter key — open Settings |
-
-Behavior (every state, including checking / missing / error):
-
-- Real `<button type="button">` — not a dead `<span>`. Keyboard: Enter / Space, same as any button.
-- Cursor `pointer`.
-- Click (and keyboard activate) uses the same route as the Settings nav item: `/settings`.
-- Missing-key title tells you to **paste in Settings**. Ready / checking / error titles still say this opens Settings.
 
 ### 6.1 Workshop — `/`
 
@@ -656,7 +639,7 @@ Use Cases (`/use-cases`) renders the same ten as cards. Workshop chips and Use C
 
 Before calling Workshop done:
 
-1. Health pill shows key state accurately
+1. Chrome has **no** key-status pill. `/settings` OpenRouter row shows **Key ready** / missing (last-4 only when present — never the full key). `/api/health` still returns booleans.
 2. Send an LLM message; streamed reply appears
 3. Ask Jev on the landing **Invoice exception**; three answers render (choice / noul / score)
 4. Propose questions replaces or fills the editor
@@ -687,7 +670,7 @@ Before calling Workshop done:
 29. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
 30. Saving an empty unused key (e.g. OpenAI) does not echo a full key in the UI or JSON
 31. `GET /api/settings` has `present` / `last4` only — no full key
-32. Chrome key pill (checking / ready / missing / error) is a real button with `cursor: pointer`; click and keyboard go to `/settings`; `title` mentions Settings on every state (missing: paste in Settings); visible label stays the key status, not the word Settings
+32. Chrome right-side has Tour / History (Workshop) / Update Jev docs only — **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. Nav **Settings** and `/settings` remain the key home.
 33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`). Typing an id works. **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled.
 35. Ticket label reads **Jev’s case** (not **Case**). Use Cases gallery title stays **Use Cases**.

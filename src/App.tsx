@@ -212,42 +212,11 @@ function emptyQuestion(type: QuestionType): JevQuestion {
   };
 }
 
-/** Chrome key-status pill — shortcut to Settings, never a second “Settings” label. */
-function chromeKeyPill(health: Health | null, failed: boolean) {
-  if (failed) {
-    return {
-      className: "pill error",
-      label: "Key check failed",
-      title: "Could not check OpenRouter key — open Settings",
-    };
-  }
-  if (health == null) {
-    return {
-      className: "pill",
-      label: "Checking key…",
-      title: "Checking OpenRouter key — open Settings",
-    };
-  }
-  if (health.hasKey) {
-    return {
-      className: "pill ready",
-      label: "Key ready",
-      title: "OpenRouter key is on the server — open Settings",
-    };
-  }
-  return {
-    className: "pill missing",
-    label: "Need OpenRouter key",
-    title: "Need OpenRouter key — paste in Settings",
-  };
-}
-
 export function App() {
   const [page, setPage] = useState<Page>(pageFromPath);
   const [caseId, setCaseId] = useState<string | null>(caseFromSearch);
   const [presetNonce, setPresetNonce] = useState(0);
   const [health, setHealth] = useState<Health | null>(null);
-  const [healthError, setHealthError] = useState(false);
   const [toast, setToast] = useState("");
   const [updating, setUpdating] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -280,11 +249,9 @@ export function App() {
     getHealth()
       .then((h) => {
         setHealth(h);
-        setHealthError(false);
       })
       .catch(() => {
         setHealth(null);
-        setHealthError(true);
       });
   }, []);
 
@@ -350,9 +317,8 @@ export function App() {
       );
       try {
         setHealth(await getHealth());
-        setHealthError(false);
       } catch {
-        setHealthError(true);
+        setHealth(null);
       }
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Update failed");
@@ -360,8 +326,6 @@ export function App() {
       setUpdating(false);
     }
   };
-
-  const keyPill = chromeKeyPill(health, healthError);
 
   return (
     <div className="app">
@@ -442,15 +406,6 @@ export function App() {
             </button>
           ) : null}
           <button
-            type="button"
-            className={keyPill.className}
-            title={keyPill.title}
-            aria-label={keyPill.title}
-            onClick={() => go("settings")}
-          >
-            {keyPill.label}
-          </button>
-          <button
             className="btn ghost"
             type="button"
             disabled={updating}
@@ -480,9 +435,8 @@ export function App() {
           onSaved={async () => {
             try {
               setHealth(await getHealth());
-              setHealthError(false);
             } catch {
-              setHealthError(true);
+              setHealth(null);
             }
           }}
         />
