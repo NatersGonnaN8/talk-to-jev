@@ -14,6 +14,9 @@ type AxisEls = {
   inc: HTMLButtonElement;
   track: HTMLDivElement;
   thumb: HTMLDivElement;
+  hover: boolean;
+  holdTimer: number | null;
+  fadeTimer: number | null;
 };
 
 type Drag = {
@@ -28,16 +31,20 @@ type HostCtl = {
   host: HTMLElement;
   y: AxisEls;
   x: AxisEls;
-  hoverHost: boolean;
-  hoverBar: boolean;
   dragging: Drag | null;
-  holdTimer: number | null;
-  fadeTimer: number | null;
+  pressAxis: Axis | null;
   pressTimer: number | null;
   pressRepeat: number | null;
   ro: ResizeObserver;
   off: () => void;
 };
+
+function stillInsideBar(
+  bar: HTMLElement,
+  related: EventTarget | null,
+): boolean {
+  return related instanceof Node && bar.contains(related);
+}
 
 function isRoot(el: HTMLElement): boolean {
   return el === document.documentElement;
@@ -168,7 +175,16 @@ function makeAxis(axis: Axis): AxisEls {
   inc.tabIndex = -1;
   track.append(thumb);
   root.append(dec, track, inc);
-  return { root, dec, inc, track, thumb };
+  return {
+    root,
+    dec,
+    inc,
+    track,
+    thumb,
+    hover: false,
+    holdTimer: null,
+    fadeTimer: null,
+  };
 }
 
 function stepSize(host: HTMLElement, axis: Axis): number {
@@ -189,6 +205,7 @@ function applyScroll(host: HTMLElement, axis: Axis, delta: number): void {
 export function startMillScrollbars(layer: HTMLElement): () => void {
   const hosts = new Map<HTMLElement, HostCtl>();
   let dragging: HostCtl | null = null;
+  let armed: HostCtl | null = null;
   let scanTok = 0;
   let layoutTok = 0;
 
@@ -219,54 +236,64 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     }
   }
 
-  function clearHide(ctl: HostCtl): void {
-    if (ctl.holdTimer != null) {
-      window.clearTimeout(ctl.holdTimer);
-      ctl.holdTimer = null;
+  function clearHide(bar: AxisEls): void {
+    if (bar.holdTimer != null) {
+      window.clearTimeout(bar.holdTimer);
+      bar.holdTimer = null;
     }
-    if (ctl.fadeTimer != null) {
-      window.clearTimeout(ctl.fadeTimer);
-      ctl.fadeTimer = null;
-    }
-  }
-
-  function busy(ctl: HostCtl): boolean {
-    return ctl.hoverHost || ctl.hoverBar || ctl.dragging !== null;
-  }
-
-  function setRails(
-    ctl: HostCtl,
-    on: boolean,
-    fade: boolean,
-  ): void {
-    for (const root of [ctl.y.root, ctl.x.root]) {
-      root.classList.toggle("is-on", on);
-      root.classList.toggle("is-fade", fade);
+    if (bar.fadeTimer != null) {
+      window.clearTimeout(bar.fadeTimer);
+      bar.fadeTimer = null;
     }
   }
 
-  function reveal(ctl: HostCtl): void {
-    clearHide(ctl);
-    setRails(ctl, true, false);
+  function axisBusy(ctl: HostCtl, axis: Axis): boolean {
+    const bar = ctl[axis];
+    return (
+      bar.hover ||
+      ctl.dragging?.axis === axis ||
+      ctl.pressAxis === axis
+    );
   }
 
-  function startFade(ctl: HostCtl): void {
-    if (busy(ctl)) return;
-    setRails(ctl, false, true);
-    ctl.fadeTimer = window.setTimeout(() => {
-      ctl.fadeTimer = null;
-      if (busy(ctl)) return;
-      setRails(ctl, false, false);
+  function setBar(bar: AxisEls, on: boolean, fade: boolean): void {
+    bar.root.classList.toggle("is-on", on);
+    bar.root.classList.toggle("is-fade", fade);
+  }
+
+  function reveal(ctl: HostCtl, axis: Axis): void {
+    const bar = ctl[axis];
+    clearHide(bar);
+    setBar(bar, true, false);
+  }
+
+  function startFade(ctl: HostCtl, axis: Axis): void {
+    if (axisBusy(ctl, axis)) return;
+    const bar = ctl[axis];
+    setBar(bar, false, true);
+    bar.fadeTimer = window.setTimeout(() => {
+      bar.fadeTimer = null;
+      if (axisBusy(ctl, axis)) return;
+      setBar(bar, false, false);
     }, FADE_MS);
   }
 
-  function scheduleHide(ctl: HostCtl): void {
-    if (busy(ctl)) return;
-    clearHide(ctl);
-    ctl.holdTimer = window.setTimeout(() => {
-      ctl.holdTimer = null;
-      startFade(ctl);
+  function scheduleHide(ctl: HostCtl, axis: Axis): void {
+    if (axisBusy(ctl, axis)) return;
+    const bar = ctl[axis];
+    clearHide(bar);
+    bar.holdTimer = window.setTimeout(() => {
+      bar.holdTimer = null;
+      startFade(ctl, axis);
     }, HOLD_MS);
+  }
+
+  function flashFromScroll(ctl: HostCtl): void {
+    for (const axis of ["y", "x"] as const) {
+      if (ctl[axis].root.style.display === "none") continue;
+      reveal(ctl, axis);
+      if (!axisBusy(ctl, axis)) scheduleHide(ctl, axis);
+    }
   }
 
   function layout(ctl: HostCtl): void {
@@ -322,10 +349,12 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     }
   }
 
-  function beginPress(ctl: HostCtl, fn: () => void): void {
+  function beginPress(ctl: HostCtl, axis: Axis, fn: () => void): void {
     clearPress(ctl);
+    ctl.pressAxis = axis;
+    armed = ctl;
     fn();
-    reveal(ctl);
+    reveal(ctl, axis);
     ctl.pressTimer = window.setTimeout(() => {
       ctl.pressTimer = null;
       ctl.pressRepeat = window.setInterval(fn, REPEAT_EVERY);
@@ -335,12 +364,13 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
   function bindAxis(ctl: HostCtl, axis: Axis, els: AxisEls): void {
     const host = ctl.host;
     const onBarEnter = (): void => {
-      ctl.hoverBar = true;
-      reveal(ctl);
+      els.hover = true;
+      reveal(ctl, axis);
     };
-    const onBarLeave = (): void => {
-      ctl.hoverBar = false;
-      scheduleHide(ctl);
+    const onBarLeave = (e: PointerEvent): void => {
+      if (stillInsideBar(els.root, e.relatedTarget)) return;
+      els.hover = false;
+      scheduleHide(ctl, axis);
     };
     els.root.addEventListener("pointerenter", onBarEnter);
     els.root.addEventListener("pointerleave", onBarLeave);
@@ -350,8 +380,8 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
         e.preventDefault();
         host.scrollTop += e.deltaY;
         host.scrollLeft += e.deltaX;
-        reveal(ctl);
-        if (!busy(ctl)) scheduleHide(ctl);
+        reveal(ctl, axis);
+        if (!axisBusy(ctl, axis)) scheduleHide(ctl, axis);
       },
       { passive: false },
     );
@@ -369,13 +399,13 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
       e.preventDefault();
       e.stopPropagation();
       els.dec.setPointerCapture(e.pointerId);
-      beginPress(ctl, () => nudge(-1));
+      beginPress(ctl, axis, () => nudge(-1));
     });
     els.inc.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       e.stopPropagation();
       els.inc.setPointerCapture(e.pointerId);
-      beginPress(ctl, () => nudge(1));
+      beginPress(ctl, axis, () => nudge(1));
     });
 
     const pageToward = (client: number): void => {
@@ -393,7 +423,7 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
       e.stopPropagation();
       els.track.setPointerCapture(e.pointerId);
       const point = axis === "y" ? e.clientY : e.clientX;
-      beginPress(ctl, () => pageToward(point));
+      beginPress(ctl, axis, () => pageToward(point));
     });
 
     els.thumb.addEventListener("pointerdown", (e) => {
@@ -418,7 +448,8 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
         maxScroll,
       };
       dragging = ctl;
-      reveal(ctl);
+      armed = ctl;
+      reveal(ctl, axis);
     });
   }
 
@@ -427,11 +458,8 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
       host,
       y: makeAxis("y"),
       x: makeAxis("x"),
-      hoverHost: false,
-      hoverBar: false,
       dragging: null,
-      holdTimer: null,
-      fadeTimer: null,
+      pressAxis: null,
       pressTimer: null,
       pressRepeat: null,
       ro: new ResizeObserver(() => layout(ctl)),
@@ -441,27 +469,14 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     bindAxis(ctl, "y", ctl.y);
     bindAxis(ctl, "x", ctl.x);
 
-    const onEnter = (): void => {
-      ctl.hoverHost = true;
-      reveal(ctl);
-    };
-    const onLeave = (): void => {
-      ctl.hoverHost = false;
-      scheduleHide(ctl);
-    };
     const onScroll = (): void => {
       layout(ctl);
-      reveal(ctl);
-      if (!ctl.hoverHost && !ctl.hoverBar && !ctl.dragging) scheduleHide(ctl);
+      flashFromScroll(ctl);
     };
 
-    host.addEventListener("pointerenter", onEnter);
-    host.addEventListener("pointerleave", onLeave);
     host.addEventListener("scroll", onScroll, { passive: true });
     ctl.ro.observe(host);
     ctl.off = () => {
-      host.removeEventListener("pointerenter", onEnter);
-      host.removeEventListener("pointerleave", onLeave);
       host.removeEventListener("scroll", onScroll);
     };
     layout(ctl);
@@ -469,7 +484,8 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
   }
 
   function detach(ctl: HostCtl): void {
-    clearHide(ctl);
+    clearHide(ctl.y);
+    clearHide(ctl.x);
     clearPress(ctl);
     ctl.ro.disconnect();
     ctl.off();
@@ -512,8 +528,7 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     }
     if (ctl) {
       layout(ctl);
-      reveal(ctl);
-      if (!ctl.hoverHost && !ctl.hoverBar && !ctl.dragging) scheduleHide(ctl);
+      flashFromScroll(ctl);
     }
     requestLayout();
   };
@@ -532,13 +547,21 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     layout(dragging);
   };
 
-  const onPointerUp = (): void => {
-    if (!dragging) return;
-    const ctl = dragging;
+  const onPointerUp = (e: PointerEvent): void => {
+    const ctl = armed ?? dragging;
+    if (!ctl) return;
+    const axis = ctl.dragging?.axis ?? ctl.pressAxis;
     clearPress(ctl);
+    ctl.pressAxis = null;
     ctl.dragging = null;
+    armed = null;
     dragging = null;
-    scheduleHide(ctl);
+    if (!axis) return;
+    const bar = ctl[axis];
+    const top = document.elementFromPoint(e.clientX, e.clientY);
+    bar.hover = top instanceof Node && bar.root.contains(top);
+    if (bar.hover) reveal(ctl, axis);
+    else scheduleHide(ctl, axis);
   };
 
   const mo = new MutationObserver(() => requestScan());

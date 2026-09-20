@@ -44,6 +44,7 @@ body,
   position: fixed;
   box-sizing: border-box;
   display: none;
+  /* Rest: clicks pass through the invisible strip onto mill content. */
   pointer-events: none;
   opacity: 0;
   user-select: none;
@@ -52,6 +53,7 @@ body,
 
 .mill-bar.is-on {
   opacity: 1;
+  /* Visible strip is the fade host — not the mill pane / tab / Inspector. */
   pointer-events: auto;
   transition: none;
 }
