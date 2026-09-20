@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.37 — 2026-09-20  
+**Status:** v0.38 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -251,7 +251,7 @@ Layout (desktop):
 - Scrollable transcript (user / assistant) lives in `.thread` — **that** is the pane scroller, not the window. Composer stays under the thread. Assistant turns are **agentic**, not a single JSON dump in the bubble.
 - **LLM thread scroll while streaming (2026-09-20).** Nater: “make it so that the LLM, when it streams, doesn't force the scroll to the bottom. Make it so that we can scroll separately from it streaming.” Scroll root is `article.pane.llm` → `div.thread` (`overflow-y: auto`). The pane itself is overflow hidden; `html` / `body` overflow hidden. **Do not** yank `scrollTop` to `scrollHeight` on every stream token, thought, tool card, or content update. **Do not** `scrollIntoView` the last bubble. **Do not** scroll the window. **Sticky follow:** if the operator is already at/near the bottom (distance-from-bottom ≤ **40px**), following new tokens is OK and slick. If they have scrolled up (not near bottom), leave their `scrollTop` alone until they return near the bottom (that re-pins). Same rule when Thoughts expand/collapse during a stream — those height changes must not yank the thread if they are reading above. Starting a new LLM turn (Send / Send answers to LLM / Propose / Random state / an Agentic loop turn) may pin **once** so the new You + assistant pair is in view; after that, only sticky follow. Overlay mill-green scrollbars (`.mill-bar` / `is-on` / `is-fade`) stay. Jev `.jev-scroll` is unchanged. No CSS `resize`. No native grips.
 - Composer: textarea (`resize: none`) + **Send** when idle; **Stop** (filled square in a circle) in that same slot while `/api/llm` is streaming. See **Composer Stop** below.
-- Secondary mill row: **Random state**, **Agentic loop**, **Propose Jev questions**, **Inspector** (§6.7). **No** Send answers to LLM on this pane. Public Sans like `.nav-btn`. Pane-title size only on headers. Mixed case, never ALL CAPS CSS.
+- Secondary mill row: **Random state**, **Agentic loop**, **Propose Jev questions**, **Inspector** (§6.7). **No** Send answers to LLM on this pane. Public Sans like `.nav-btn`. Pane-title size only on headers. Mixed case, never ALL CAPS CSS. Tour spotlights **those four buttons** (left to right) — `data-tutorial` on the real control, not the pane-head and not a ghost `.row-actions` hole. Keep existing `data-tutorial="wire"` on `.row-actions`; that hook is not a Tour step anymore.
 - **Random state:** click runs the invent one-shot (§5.1). No popover.
 - **Agentic loop** mill popover: **How many turns do you want to do?** Options **1–10**, default **3**. Confirm starts; Cancel aborts. No ALL CAPS. Public Sans chips. Opaque, flip, fully on-screen, high z-index. See §5.2. Disabled / mill-warn when the mill has no state or no real-id questions.
 - Empty: “Draft the state, or ask how to phrase a Jev question.”
@@ -414,17 +414,26 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 
 **Steps** (each is independent). If the target is missing because a sibling page/control has not landed, **skip that step** — do not block the tour.
 
-1. **Welcome** — two AIs, one OpenRouter key. The LLM talks. Jev does not write.
-2. **Jev’s State** — this slip is Jev `state`. Drop `.md` here; other files open the **Convert** tab.
-3. **LLM pane** — prose / draft / chat. Thinking chrome while it works; real thoughts if the model streams them; tool cards for Workshop mutations. **Inspector** (in this pane-head) shows logged `/api/llm` and `/api/jev` request/response JSON when toggled; recording never stops.
-4. **Jev’s Questions** pane — typed `choice` / `noul` / `score` + **Ask Jev**. **Send answers to LLM** sits next to Ask Jev on this pane-head (sends typed answers to the LLM immediately).
-5. **Propose Jev questions** (tools fill the q-cards) / **Random state** (invent once) / **Agentic loop** (turn picker on the current mill) / **Inspector** on the LLM mill if those buttons exist. **Send answers to LLM** is on Jev’s Questions, not this mill.
-6. **Example Uses** — nine operator snaps plus one weather snap (Jacket), same list as Workshop **Preset States**.
-7. **Docs** — Nice view (rendered Markdown), Code view (raw snapshot), boxed-i Iframe **only when the live page will embed**. **Update Jev docs** is on this page (toolbar), not the header. May navigate to `/docs`.
-8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
-9. **Convert** — chrome **Convert** tab (`/convert`). Drop txt / html / docx / pdf here, or onto Jev’s State (that still opens this tab). Files stay in the browser.
-10. **History** if the Jev’s State row control exists (not chrome-right).
-11. **Load weather** if that control is **visible** (Jacket preset only; Open-Meteo input, not a third model). Skip when the weather row is hidden on a business preset.
+Nater (2026-09-20) selected the four LLM pane-head mill buttons (left to right) and said: “add these to the tour, 1-2 sentences and sounds like a human not AI.” They sit in the **LLM-pane stretch** after the LLM pane step, before Jev’s Questions — toolbar order, not dumped at the end. Spotlight the **button**, never a ghost pane-head / whole `.row-actions` hole.
+
+Exact live copy + hooks (keep 1:1 with `src/tutorial.ts` / [`docs/TOUR.md`](TOUR.md)):
+
+1. **Welcome** (`welcome`) — no spotlight. *Talk to Jev wires an LLM that chats to Jev which decides using a single OpenRouter key.*
+2. **Jev’s State** (`case` → `data-tutorial="case"`). Live body is Nater’s walk copy in `src/tutorial.ts`.
+3. **LLM pane** (`llm` → `data-tutorial="llm"`). Tools: `set_jev_state`, `set_jev_questions`, `ask_jev`. Live body is Nater’s walk copy.
+4. **Random state** (`random-state` → `data-tutorial="random-state"` on the LLM mill **Random state** `button.btn.ghost` in `.llm-mill-slot`). Title **Random state**. Body: *This invents a short fake ticket so you can try the mill without writing one. It does not call Jev — Ask Jev still does that.* One invent SSE; writes state + 3–5 questions; does **not** call `ask_jev`.
+5. **Agentic loop** (`agentic-loop` → `data-tutorial="agentic-loop"` on `button.btn.ghost.mill-loop-btn`, `aria-controls=agentic-loop-popover`). Title **Agentic loop**. Body: *A few LLM turns on this ticket — questions, then Jev, then talk from the numbers. You pick how many (1–10, default 3); empty mill disables it.* Turn 1 forced `ask_jev`.
+6. **Propose Jev questions** (`propose-questions` → `data-tutorial="propose-questions"` on that `button.btn.ghost` in `.row-actions`). Title **Propose Jev questions**. Body: *Have the LLM write typed questions for whatever is in Jev’s State right now.*
+7. **Inspector** (`inspector` → `data-tutorial="inspector"` on the Inspector `button.btn.ghost`, `aria-controls=dev-inspector`). Title **Inspector**. Body: *The raw To LLM / To Jev payloads. Keys never show up here — Close it if it covers Send.*
+8. **Jev’s Questions** (`jev` → `jev` / `ask-jev` / `feed-jev`). Typed `choice` / `noul` / `score` + **Ask Jev**. **Send answers to LLM** sits next to Ask Jev. Live body is Nater’s walk copy.
+9. **Example Uses** — nine operator snaps plus one weather snap (Jacket), same list as Workshop **Preset States**.
+10. **Docs** — Nice view (rendered Markdown), Code view (raw snapshot), boxed-i Iframe **only when the live page will embed**. **Update Jev docs** is on this page (toolbar), not the header. May navigate to `/docs`.
+11. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
+12. **Convert** — chrome **Convert** tab (`/convert`). Drop txt / html / docx / pdf here, or onto Jev’s State (that still opens this tab). Files stay in the browser.
+13. **History** if the Jev’s State row control exists (not chrome-right).
+14. **Load weather** if that control is **visible** (Jacket preset only; Open-Meteo input, not a third model). Skip when the weather row is hidden on a business preset.
+
+There is **no** bundled “Pass work across the wire” step. Keep `data-tutorial="wire"` on `.row-actions` so older hooks still resolve; Tour does not spotlight that wrapper.
 
 **Code:** `src/tutorial.ts` (step list + storage helpers) and `src/TutorialOverlay.tsx`. Hook live controls with `data-tutorial` attributes. Overlay may switch Workshop ↔ Docs for those steps, then continue.
 
@@ -955,7 +964,7 @@ Before calling Workshop done:
 23. On Jacket: changing the location field and loading again replaces the weather block without wiping the Situation
 24. `/docs` overlay still works after the Workshop weather work
 25. First visit (or clear `talk-to-jev:tutorial-done`): coach overlay appears on Workshop; card fully on-screen and opaque
-26. Next walks at least 3 steps; Back returns; missing targets (Example Uses / Settings / weather if hidden on a business preset) are skipped, not crashed
+26. Next walks at least 3 steps; Back returns; missing targets (Example Uses / Settings / weather if hidden on a business preset) are skipped, not crashed. After the LLM pane step, Tour spotlights **Random state**, **Agentic loop**, **Propose Jev questions**, then **Inspector** — the real mill buttons, 1–2 human sentences each, not the whole pane-head.
 27. Skip dismisses; refresh does not reopen the overlay
 28. Chrome **Tour** restarts the overlay; Docs eyeball/code step still keeps that view overlay fully visible
 29. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
@@ -1109,7 +1118,7 @@ Not a new product contract — known leftover work as of **2026-09-20**. Core lo
 
 - **Inspector overlay covers LLM Send.** Fixed bottom panel (`z-index: 40`, default height 280px) paints over the composer. Operator must **Close** first. SPEC §6.7 does not yet say the overlay must leave Send clickable; either raise the board bottom while open or shrink the default height.
 - **Docs first-paint race.** Rail shows **Loading snapshot…** and the reader **Pick a page** until `GET /api/docs` returns. `ready` avoids a false empty-catalog message; persisted type tags still drive **Clear** before files load. SPEC §6.2 already names the flash.
-- **Tour markdown vs live copy.** Welcome body in `docs/TOUR.md` is longer than `src/tutorial.ts` (live SoT). Nater picks copy on his walk; then 1:1 them.
+- **Tour markdown vs live copy.** After v0.38, mill-header buttons are four Tour steps (SPEC §6.4). Keep `docs/TOUR.md` 1:1 with `src/tutorial.ts` (live SoT), including Nater’s walk bodies on `case` / `llm` / `jev`.
 - **Open-source pre-flight re-run** before any “we’re clean” claim. **This session (2026-09-20):** no `.env*` ever tracked; HEAD key-shaped hits are scrub **regexes** only (SPEC / `devLog` / settings sanitizer / docsEmbed); `npm audit` **0**; live CSRF: cross-site `text/plain` POST `/api/settings` **403**, same-origin JSON POST **200**, header-less GET `/api/health` **200**, foreign `Host` **403**. Re-run before the next public claim — do not trust this paragraph forever.
 
 ### Nater-owned
