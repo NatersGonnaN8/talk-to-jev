@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSettings, saveSetting } from "../api";
+import {
+  LLM_INSTRUCTIONS_MAX,
+  readLlmInstructions,
+  writeLlmInstructions,
+} from "../llmInstructions";
 import type { KeyStatus } from "../types";
 import { FlipTip } from "../FlipTip";
 
@@ -12,6 +17,7 @@ export function SettingsPage({
 }) {
   const [keys, setKeys] = useState<KeyStatus[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [instructions, setInstructions] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState("");
 
@@ -27,6 +33,7 @@ export function SettingsPage({
 
   useEffect(() => {
     void load();
+    setInstructions(readLlmInstructions());
   }, [load]);
 
   const onSave = async (id: string) => {
@@ -49,6 +56,14 @@ export function SettingsPage({
     }
   };
 
+  const onSaveInstructions = () => {
+    const next = writeLlmInstructions(instructions);
+    setInstructions(next);
+    onToast(
+      next ? "LLM instructions saved." : "LLM instructions cleared.",
+    );
+  };
+
   return (
     <main className="settings" data-tutorial="settings-page">
       <section className="settings-intro">
@@ -57,7 +72,8 @@ export function SettingsPage({
         <p>
           Keys stay on this computer in gitignored <code>.env.local</code>. The
           browser never stores them. OpenRouter runs the LLM and Jev today. The
-          other slots wait for search and direct models.
+          other slots wait for search and direct models. Standing LLM
+          instructions live in this browser, not in that file.
         </p>
       </section>
       {err ? <p className="empty">{err}</p> : null}
@@ -123,6 +139,38 @@ export function SettingsPage({
           </li>
         ))}
       </ul>
+      <section className="llm-instructions">
+        <header className="key-head">
+          <div>
+            <h2 className="pane-title">LLM instructions</h2>
+            <p className="key-why">
+              These go with every LLM request. They are not shown as chat
+              bubbles.
+            </p>
+          </div>
+        </header>
+        <form
+          className="llm-instructions-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSaveInstructions();
+          }}
+        >
+          <textarea
+            name="llm-instructions"
+            rows={8}
+            maxLength={LLM_INSTRUCTIONS_MAX}
+            spellCheck
+            placeholder="Optional. Empty is off."
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            aria-label="LLM instructions"
+          />
+          <button className="btn solid" type="submit">
+            Save
+          </button>
+        </form>
+      </section>
     </main>
   );
 }

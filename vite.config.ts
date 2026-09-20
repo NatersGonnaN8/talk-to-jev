@@ -339,6 +339,7 @@ function workshopApi(): Plugin {
                 jevAnswers: body.jevAnswers,
                 includeTranscript: body.includeTranscript,
                 mode: body.mode,
+                instructions: body.instructions,
               },
               res,
             });

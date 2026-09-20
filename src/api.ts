@@ -3,6 +3,7 @@ import {
   finishDevCall,
   patchDevCall,
 } from "./devLog";
+import { readLlmInstructions } from "./llmInstructions";
 import type { Health, JevAnswer, JevQuestion, SettingsResponse } from "./types";
 import type { WeatherResponse } from "./weather";
 
@@ -304,6 +305,8 @@ export async function streamLlm(
   onEvent: (ev: LlmStreamEvent) => void,
 ): Promise<string> {
   const title = payload.mode || "chat";
+  const instructions = readLlmInstructions();
+  const body = instructions ? { ...payload, instructions } : payload;
   const clientBody = {
     path: "/api/llm" as const,
     mode: payload.mode || "chat",
@@ -312,6 +315,7 @@ export async function streamLlm(
     jevAnswers: payload.jevAnswers,
     includeTranscript: payload.includeTranscript ?? false,
     messages: payload.messages,
+    ...(instructions ? { instructions } : {}),
   };
   const logId = beginDevCall("llm", title, clientBody);
   const tools: Array<{ name: string; status: string; ok?: boolean; argsSummary?: string; resultSummary?: string }> = [];
@@ -329,7 +333,7 @@ export async function streamLlm(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       let message = "LLM request failed";

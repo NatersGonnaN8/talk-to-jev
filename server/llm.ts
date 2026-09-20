@@ -114,7 +114,7 @@ function modeBlock(mode: LlmMode) {
     return `\n\nMode: propose-questions. You MUST call set_jev_questions with a complete valid map (typically 2–4 atomic questions). Do NOT call ask_jev. Do NOT reply with JSON only. After the tool, one short confirmation.`;
   }
   if (mode === "random-case") {
-    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_case. (2) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. (3) Call ask_jev once questions are clean. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation — analysis is a separate Feed Jev turn, then stop. This is not the N-turn agentic loop.`;
+    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_case. (2) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. (3) Call ask_jev once questions are clean. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation — analysis is a separate Send answers to LLM turn, then stop. This is not the N-turn agentic loop.`;
   }
   if (mode === "agentic-loop") {
     return `\n\nMode: agentic-loop. Use the CURRENT Jev’s State and current questions. Do NOT invent a new random scenario. Do NOT call set_jev_case to replace the ticket with fiction. If questions are clean, you MUST call ask_jev. You may call set_jev_questions only if ids are dirty or you need a new option, then ask_jev. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation.`;
@@ -129,6 +129,7 @@ export type LlmSessionBody = {
   jevAnswers?: unknown;
   includeTranscript?: unknown;
   mode?: unknown;
+  instructions?: unknown;
 };
 
 type Working = {
@@ -191,13 +192,30 @@ function incomingQuestions(raw: unknown): Record<string, JevQuestion> {
   return parsed.questions;
 }
 
+export const LLM_INSTRUCTIONS_MAX = 8_000;
+
+export function normalizeLlmInstructions(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw.trim().slice(0, LLM_INSTRUCTIONS_MAX);
+}
+
 export function llmSystem(opts: {
   primer: string;
   state: string;
   questions: Record<string, JevQuestion>;
   jevAnswers: unknown;
   mode: LlmMode;
+  instructions?: string;
 }) {
+  const standing = normalizeLlmInstructions(opts.instructions);
+  const standingBlock = standing
+    ? `## Operator standing instructions
+These are standing instructions from Settings (LLM instructions). They apply every turn. They are not a chat message.
+
+${standing}
+
+`
+    : "";
   const answers =
     opts.jevAnswers === undefined || opts.jevAnswers === null
       ? ""
@@ -207,7 +225,7 @@ export function llmSystem(opts: {
     : "\n\n## Current Jev’s Questions (editor)\n(empty or blank ids only)\n";
   const propose = modeBlock(opts.mode);
 
-  return `You are the prose half of Talk to Jev. You talk. Jev decides.
+  return `${standingBlock}You are the prose half of Talk to Jev. You talk. Jev decides.
 
 Jev is TypeSafe's System One model. It is NOT an LLM. It does not write. It evaluates a state against typed questions in one parallel call and returns choice / noul / score answers with probabilities. OpenRouter route: POST https://openrouter.ai/api/alpha/decisions (never chat/completions). Pin typesafe/jev-1.13.
 
@@ -253,10 +271,13 @@ function inspectLlmSent(opts: {
   model: string;
   mode: LlmMode;
   messages: OrMessage[];
+  instructions?: string;
 }) {
+  const instructions = normalizeLlmInstructions(opts.instructions);
   return {
     model: opts.model,
     mode: opts.mode,
+    ...(instructions ? { instructions } : {}),
     tools: LLM_TOOLS.map((t) => t.function.name),
     messages: opts.messages.map((m) => {
       if (m.role === "system") {
@@ -597,12 +618,14 @@ export async function runLlmSession(opts: {
   };
   work.questionCount = Object.keys(work.questions).length;
 
+  const instructions = normalizeLlmInstructions(opts.body.instructions);
   const system = llmSystem({
     primer: opts.primer,
     state: work.state,
     questions: work.questions,
     jevAnswers: opts.body.jevAnswers,
     mode,
+    instructions,
   });
 
   const messages: OrMessage[] = [
@@ -615,7 +638,12 @@ export async function runLlmSession(opts: {
     channel: "llm",
     phase: "request",
     title: mode,
-    sent: inspectLlmSent({ model: opts.model, mode, messages }),
+    sent: inspectLlmSent({
+      model: opts.model,
+      mode,
+      messages,
+      instructions,
+    }),
   });
   try {
     console.info(
