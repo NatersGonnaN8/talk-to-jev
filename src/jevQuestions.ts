@@ -23,6 +23,30 @@ export function blankQuestionKeys(questions: Record<string, JevQuestion>) {
   return Object.keys(questions).filter((id) => isBlankQuestionId(id));
 }
 
+/** 0 → a, 25 → z, 26 → aa, 27 → ab */
+function optionLetterSuffix(index: number): string {
+  let n = index;
+  let out = "";
+  do {
+    out = String.fromCharCode(97 + (n % 26)) + out;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return out;
+}
+
+/**
+ * Next unused choice option key on one question: option_a … option_z, then option_aa.
+ * Skips keys already present. Does not mint random opt_* ids.
+ */
+export function nextChoiceOptionKey(usedKeys: Iterable<string>): string {
+  const used = new Set(usedKeys);
+  for (let i = 0; i < Number.MAX_SAFE_INTEGER; i++) {
+    const key = `option_${optionLetterSuffix(i)}`;
+    if (!used.has(key)) return key;
+  }
+  throw new Error("exhausted sequential option keys");
+}
+
 export function emptyQuestion(type: QuestionType): JevQuestion {
   if (type === "choice") {
     return {

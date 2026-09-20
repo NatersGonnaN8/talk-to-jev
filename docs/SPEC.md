@@ -190,8 +190,8 @@ Layout (desktop):
   - Fields: id, type (`choice` | `noul` | `score`), instructions
   - **Add question** inserts a new card with an **empty id**. The user types the id. Do **not** auto-generate `q_*` / random suffixes. Only **user-added** cards start blank — presets keep their real ids (`wear_jacket`, business ids, and the rest in `src/samples.ts`).
   - Id input placeholder: `question id` (a hint, not a fake value). The field value stays empty until they type.
-  - New-card defaults (empty editor UX): type `noul`, empty instructions, empty true/false criteria. Switching type uses the same empty choice (two blank option rows) / score (Low / Medium / High) / noul defaults as today.
-  - Choice: option key + description rows (add/remove). 1–255 options in spirit; UI allows at least 2.
+  - New-card defaults (empty editor UX): type `noul`, empty instructions, empty true/false criteria. Switching type to **choice** starts two rows keyed `option_a` and `option_b` (empty descriptions). Score stays Low / Medium / High. Noul stays empty true/false criteria.
+  - Choice: option key + description rows (add/remove). 1–255 options in spirit; UI allows at least 2. **Add option** mints the next unused sequential key **on that question**: `option_a`, `option_b`, `option_c`, … `option_z`, then `option_aa`, `option_ab`, … Skip keys already present (including custom keys like `pay`). Do **not** mint random `opt_*` suffixes. Empty/blank keys stay allowed if the operator clears a key field; the *default on add* is sequential `option_*`. Same class of bug as blank question ids: never invent random ids for typed Jev fields. Nater (2026-09-20): a third option showed `opt_c58rm` — it should have been `option_c`.
   - Score: ordered level lines (min 2)
   - Noul: optional true / false criteria
   - Blank id on **Ask Jev** (or sending the editor through the propose → ask flow): inline error on the card, do not call Jev, do not invent an id.
@@ -745,6 +745,7 @@ Before calling Workshop done:
 47. Jev’s case tools are **New Case**, **Preset Cases**, **History** — not a row of ten sample chips. Chrome-right has no History button.
 48. **New Case** clears case text, strips attach chips, resets Jev questions to one blank-id card, clears Jev answers, empties the LLM thread, hides weather chrome, strips `?case=`, and leaves **Preset Cases** with none selected — it must **not** load Invoice exception. Opening **Preset Cases** lists all ten snaps; picking one loads like today. **History** on that row still opens the localStorage drawer.
 49. Jev pane heading reads **Jev’s Questions**; the model id is the subtitle/meta; **Ask Jev** remains.
+50. **Add option** on a choice card that already has `option_a` and `option_b` inserts `option_c` (not `opt_<random>`). Next unused letter on that question; after `option_z`, `option_aa`. Clearing a key field by hand is still allowed.
 
 ---
 

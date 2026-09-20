@@ -27,6 +27,7 @@ import {
   emptyQuestion,
   isBlankQuestionId,
   nextBlankQuestionKey,
+  nextChoiceOptionKey,
   questionIdValue,
 } from "./jevQuestions";
 import { DEFAULT_LOCATION_QUERY, mergeWeatherIntoCase } from "./weather";
@@ -77,10 +78,6 @@ function pageFromPath(): Page {
 function caseFromSearch(): string | null {
   const id = new URLSearchParams(window.location.search).get("case");
   return id?.trim() || null;
-}
-
-function newId(prefix: string) {
-  return `${prefix}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
 const BLANK_QUESTION_ID_ERROR =
@@ -1198,7 +1195,10 @@ function QuestionEditor({
                 onClick={() =>
                   setQ(id, {
                     ...q,
-                    criteria: { ...q.criteria, [newId("opt")]: "" },
+                    criteria: {
+                      ...q.criteria,
+                      [nextChoiceOptionKey(Object.keys(q.criteria))]: "",
+                    },
                   })
                 }
               >
