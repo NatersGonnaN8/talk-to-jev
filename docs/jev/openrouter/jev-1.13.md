@@ -1,6 +1,6 @@
 ---
 source: https://openrouter.ai/typesafe/jev-1.13
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 # Source
@@ -128,13 +128,13 @@ TypeSafe
 
 $0.042
 Free
-0.24s
+0.23s
 
 100.00%
 
 Latency
 
-0.24s
+0.23s
 
 P50, best provider
 
@@ -155,7 +155,7 @@ Availability 99.97%
 
 OpenRouter Availability
 
-99.98%
+99.99%
 
 When an error occurs in an upstream provider, we can recover by routing to another healthy provider, if your request filters allow it. You can access per-provider uptime data programmatically through the Endpoints API. Learn more about our load balancing and customization options.
 
@@ -163,7 +163,7 @@ When an error occurs in an upstream provider, we can recover by routing to anoth
 
 Gloomberb new
 
-806Mtokens
+820Mtokens
 
 2.
 

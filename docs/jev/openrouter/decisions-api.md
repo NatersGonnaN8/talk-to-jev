@@ -1,6 +1,6 @@
 ---
 source: https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 # Source
@@ -39,9 +39,9 @@ cURL
 ```
 `curl --request POST \
   --url https://openrouter.ai/api/alpha/decisions \
-  --header 'Authorization: Bearer &#x3C;token>' \
-  --header 'Content-Type: application/json' \
-  --data '
+  --header &#x27;Authorization: Bearer <token>&#x27; \
+  --header &#x27;Content-Type: application/json&#x27; \
+  --data &#x27;
 {
   "model": "typesafe/jev-1.13",
   "questions": {
@@ -77,7 +77,7 @@ cURL
     "ticket": "My checkout page shows a blank screen after I click Pay. I have tried two browsers."
   }
 }
-'`
+&#x27;`
 ```
 
 ```
@@ -488,9 +488,9 @@ cURL
 ```
 `curl --request POST \
   --url https://openrouter.ai/api/alpha/decisions \
-  --header 'Authorization: Bearer &#x3C;token>' \
-  --header 'Content-Type: application/json' \
-  --data '
+  --header &#x27;Authorization: Bearer <token>&#x27; \
+  --header &#x27;Content-Type: application/json&#x27; \
+  --data &#x27;
 {
   "model": "typesafe/jev-1.13",
   "questions": {
@@ -526,7 +526,7 @@ cURL
     "ticket": "My checkout page shows a blank screen after I click Pay. I have tried two browsers."
   }
 }
-'`
+&#x27;`
 ```
 
 ```
@@ -960,7 +960,8 @@ Show child attributes
 
 Example:
 ```
-`{ "allow_fallbacks": true }`
+`{ "allow_fallbacks": true }
+`
 
 ```
 
@@ -988,7 +989,8 @@ Example:
 `{
   "trace_id": "trace-abc123",
   "trace_name": "my-app-trace"
-}`
+}
+`
 
 ```
 

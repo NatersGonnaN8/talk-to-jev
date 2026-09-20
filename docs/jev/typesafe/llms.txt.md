@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/llms.txt
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 # TypeSafe AI

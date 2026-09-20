@@ -1,6 +1,6 @@
 ---
 source: assembled from docs/jev snapshot
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 # Jev primer (app context)
@@ -12,7 +12,7 @@ This file is generated. Prefer the individual pages in this folder.
 
 ---
 source: https://docs.typesafe.ai/introduction.md
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 > ## Documentation Index
@@ -60,7 +60,7 @@ For example, instead of "rate this startup pitch," ask separately about market s
 
 ---
 source: https://docs.typesafe.ai/introduction/quickstart.md
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 > ## Documentation Index
@@ -295,7 +295,7 @@ See the [Agent Skill](/agent-skill) page for more details.
 
 ---
 source: https://docs.typesafe.ai/concepts/system-one.md
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 > ## Documentation Index
@@ -359,7 +359,7 @@ Start with [State](/concepts/state) to prepare the input and [Primitives (Questi
 
 ---
 source: https://docs.typesafe.ai/concepts/state.md
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 > ## Documentation Index
@@ -431,7 +431,7 @@ See the [API reference](/api) for the request schema and [client SDKs](/sdk) for
 
 ---
 source: https://docs.typesafe.ai/primitives.md
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 > ## Documentation Index
@@ -920,7 +920,7 @@ To see how these compose into system architectures, head to [Patterns](/patterns
 
 ---
 source: https://docs.typesafe.ai/primitives/choice.md
-fetched_at: 2026-09-19T19:58:44.732Z
+fetched_at: 2026-09-19T22:40:24.991Z
 ---
 
 > ## Documentation Index
