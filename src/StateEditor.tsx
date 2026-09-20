@@ -28,14 +28,21 @@ export function StateEditor({
 }) {
   const [editing, setEditing] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const readRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
-    if (!editing) return;
-    const el = taRef.current;
-    if (!el) return;
-    el.focus();
-    const n = el.value.length;
-    el.setSelectionRange(n, n);
+    if (editing) {
+      const el = taRef.current;
+      if (!el) return;
+      el.focus();
+      const n = el.value.length;
+      el.setSelectionRange(n, n);
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active === readRef.current) {
+      active.blur();
+    }
   }, [editing]);
 
   if (editing) {
@@ -62,6 +69,7 @@ export function StateEditor({
   const empty = !value.trim();
   return (
     <div
+      ref={readRef}
       className={empty ? "case case-read is-empty" : "case case-read"}
       role="textbox"
       tabIndex={0}
@@ -75,6 +83,9 @@ export function StateEditor({
       }}
       onFocus={(e) => {
         if (e.target !== e.currentTarget) return;
+        // Unmounting the textarea dumps focus here with no relatedTarget.
+        // Tabbing in from another control still enters edit.
+        if (!(e.relatedTarget instanceof Element)) return;
         setEditing(true);
       }}
       onKeyDown={(e) => {
