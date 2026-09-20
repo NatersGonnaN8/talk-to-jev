@@ -35,31 +35,134 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function asChoiceCriteria(raw: unknown): Record<string, string> | null {
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-      const key = k.trim();
-      if (!key) continue;
-      out[key] = v == null ? "" : String(v);
-    }
-    return Object.keys(out).length >= 2 ? out : null;
+/** Description text only — never fall back to the option key (`"1": "1"`). */
+function asChoiceDescription(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value.map((item) => asChoiceDescription(item)).filter(Boolean).join("; ");
   }
-  if (!Array.isArray(raw)) return null;
+  const rec = asRecord(value);
+  if (!rec) return "";
+  const text = rec.description ?? rec.label ?? rec.text ?? rec.instructions;
+  if (text != null) return asChoiceDescription(text);
+  return "";
+}
+
+function asChoiceCriteria(raw: unknown): Record<string, string> | null {
+  const values: string[] = [];
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const value of Object.values(raw as Record<string, unknown>)) {
+      values.push(asChoiceDescription(value));
+    }
+  } else if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === "string") {
+        if (item.trim()) values.push(item.trim());
+        continue;
+      }
+      const rec = asRecord(item);
+      if (!rec) continue;
+      const desc = asChoiceDescription(
+        rec.description ?? rec.label ?? rec.text ?? rec.instructions ?? rec.value,
+      );
+      if (desc) values.push(desc);
+    }
+  } else {
+    return null;
+  }
+  if (values.length < 2) return null;
   const out: Record<string, string> = {};
-  for (const item of raw) {
-    if (typeof item === "string") {
-      const key = item.trim();
-      if (key) out[key] = key;
+  values.forEach((desc, i) => {
+    out[String(i + 1)] = desc;
+  });
+  return out;
+}
+
+/** Choice keys Jev receives: "1", "2", "3", … → description text. Never `"1": "1"`. */
+export function toPositionalChoiceCriteria(
+  rec: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  let n = 1;
+  for (const value of Object.values(rec)) {
+    out[String(n)] = asChoiceDescription(value);
+    n += 1;
+  }
+  return out;
+}
+
+export function withPositionalChoiceKeys(
+  questions: Record<string, JevQuestion>,
+): Record<string, JevQuestion> {
+  const out: Record<string, JevQuestion> = {};
+  for (const [id, q] of Object.entries(questions)) {
+    out[id] =
+      q.type === "choice"
+        ? { ...q, criteria: toPositionalChoiceCriteria(q.criteria) }
+        : q;
+  }
+  return out;
+}
+
+/** Decisions payload: rewrite semantic choice keys even if the map was not parsed. */
+export function rewriteChoiceKeysInQuestions(
+  questions: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [id, q] of Object.entries(questions)) {
+    const rec = asRecord(q);
+    if (!rec || String(rec.type ?? "").toLowerCase() !== "choice") {
+      out[id] = q;
       continue;
     }
-    const rec = asRecord(item);
-    if (!rec) continue;
-    const key = String(rec.key ?? rec.id ?? rec.value ?? rec.option ?? "").trim();
-    if (!key) continue;
-    out[key] = String(rec.description ?? rec.label ?? rec.text ?? rec.instructions ?? key);
+    const parsed = asChoiceCriteria(rec.criteria ?? rec.options ?? rec.choices);
+    if (parsed) {
+      out[id] = { ...rec, criteria: parsed };
+      continue;
+    }
+    const crit = rec.criteria;
+    if (!crit || typeof crit !== "object" || Array.isArray(crit)) {
+      out[id] = q;
+      continue;
+    }
+    const asStrings: Record<string, string> = {};
+    for (const [k, v] of Object.entries(crit as Record<string, unknown>)) {
+      asStrings[k] = asChoiceDescription(v);
+    }
+    out[id] = { ...rec, criteria: toPositionalChoiceCriteria(asStrings) };
   }
-  return Object.keys(out).length >= 2 ? out : null;
+  return out;
+}
+
+/** Jev choice answers are keyed by option name only — attach descriptions we sent. */
+export function attachChoiceLegends(
+  answers: unknown,
+  questions: Record<string, unknown>,
+): unknown {
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+    return answers;
+  }
+  const out: Record<string, unknown> = {};
+  for (const [id, a] of Object.entries(answers as Record<string, unknown>)) {
+    const rec = asRecord(a);
+    const q = asRecord(questions[id]);
+    if (!rec || String(rec.type ?? "").toLowerCase() !== "choice" || !q) {
+      out[id] = a;
+      continue;
+    }
+    const parsed = asChoiceCriteria(q.criteria ?? q.options ?? q.choices);
+    let legend = parsed;
+    if (!legend && q.criteria && typeof q.criteria === "object" && !Array.isArray(q.criteria)) {
+      legend = {};
+      for (const [k, v] of Object.entries(q.criteria as Record<string, unknown>)) {
+        legend[k] = asChoiceDescription(v);
+      }
+    }
+    out[id] = legend ? { ...rec, legend } : a;
+  }
+  return out;
 }
 
 function asScoreLegend(raw: unknown): string[] | null {

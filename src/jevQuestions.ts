@@ -1,4 +1,4 @@
-import type { JevQuestion, QuestionType } from "./types";
+import type { JevAnswer, JevQuestion, QuestionType } from "./types";
 
 /** Map key for a user-added card whose id field is still empty. Never shown, never sent to Jev. */
 export const BLANK_QUESTION_KEY_PREFIX = "__blank__:";
@@ -47,9 +47,32 @@ export function blankQuestionKeys(questions: Record<string, JevQuestion>) {
 }
 
 /**
+ * Description text for one choice option. Never falls back to the option key
+ * (that produced `{ "1": "1" }` after positional rewrite).
+ */
+export function choiceDescriptionFromValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => choiceDescriptionFromValue(item))
+      .filter(Boolean)
+      .join("; ");
+  }
+  if (typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    const text = rec.description ?? rec.label ?? rec.text ?? rec.instructions;
+    if (text != null) return choiceDescriptionFromValue(text);
+  }
+  return "";
+}
+
+/**
  * Choice keys sent to Jev and shown on the card: "1", "2", "3", … (never 0).
- * Visual/object order wins. Semantic LLM keys (refund/deny) are dropped as keys;
- * their descriptions stay.
+ * Visual/object order wins. Values are **description text** (`"1": "papaya"`),
+ * never the positional key (`"1": "1"`). Semantic LLM keys (refund/deny) drop
+ * as keys; their descriptions stay.
  */
 export function toPositionalChoiceCriteria(
   rec: Record<string, string>,
@@ -57,7 +80,7 @@ export function toPositionalChoiceCriteria(
   const out: Record<string, string> = {};
   let n = 1;
   for (const value of Object.values(rec)) {
-    out[String(n)] = value;
+    out[String(n)] = choiceDescriptionFromValue(value);
     n += 1;
   }
   return out;
@@ -72,6 +95,37 @@ export function withPositionalChoiceKeys(
       q.type === "choice"
         ? { ...q, criteria: toPositionalChoiceCriteria(q.criteria) }
         : q;
+  }
+  return out;
+}
+
+/** Bar label: `1 papaya` / `0 Low`. Bare key if the description is missing or equals the key. */
+export function probabilityBarLabel(
+  key: string,
+  legend?: Record<string, string>,
+): string {
+  const desc = (legend?.[key] ?? "").trim();
+  if (!desc || desc === key) return key;
+  return `${key} ${desc}`;
+}
+
+/** Jev choice answers have no legend — copy descriptions from the criteria we sent. */
+export function attachChoiceLegends(
+  answers: Record<string, JevAnswer>,
+  questions: Record<string, JevQuestion>,
+): Record<string, JevAnswer> {
+  const out: Record<string, JevAnswer> = {};
+  for (const [id, a] of Object.entries(answers)) {
+    if (a.type !== "choice") {
+      out[id] = a;
+      continue;
+    }
+    const q = questions[id];
+    const fromQuestion =
+      q?.type === "choice" ? toPositionalChoiceCriteria(q.criteria) : undefined;
+    const legend =
+      a.legend && Object.keys(a.legend).length ? a.legend : fromQuestion;
+    out[id] = legend ? { ...a, legend } : a;
   }
   return out;
 }

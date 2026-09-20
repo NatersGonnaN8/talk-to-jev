@@ -1,4 +1,5 @@
 import { openRouterHeaders } from "./openrouter";
+import { attachChoiceLegends, rewriteChoiceKeysInQuestions } from "./questions";
 
 export type JevCallResult =
   | { ok: true; model: string; answers: unknown; usage: unknown }
@@ -10,13 +11,14 @@ export async function callJev(opts: {
   state: unknown;
   questions: Record<string, unknown>;
 }): Promise<JevCallResult> {
+  const questions = rewriteChoiceKeysInQuestions(opts.questions);
   const upstream = await fetch("https://openrouter.ai/api/alpha/decisions", {
     method: "POST",
     headers: openRouterHeaders(opts.apiKey),
     body: JSON.stringify({
       model: opts.model,
       state: opts.state,
-      questions: opts.questions,
+      questions,
     }),
   });
   const payload = (await upstream.json().catch(() => ({}))) as Record<string, unknown>;
@@ -30,7 +32,7 @@ export async function callJev(opts: {
   return {
     ok: true,
     model: typeof payload.model === "string" ? payload.model : opts.model,
-    answers: payload.answers,
+    answers: attachChoiceLegends(payload.answers, questions),
     usage: payload.usage,
   };
 }

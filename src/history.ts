@@ -5,8 +5,10 @@ import {
   LANDING_SAMPLE_ID,
 } from "./samples";
 import {
+  attachChoiceLegends,
   blankWorkshopQuestions,
   questionsAreBlankWorkshop,
+  toPositionalChoiceCriteria,
 } from "./jevQuestions";
 
 export const STORAGE_KEY = "talk-to-jev:chats";
@@ -314,6 +316,7 @@ function normalizeThread(raw: unknown): ChatThread | null {
   if (typeof rec.id !== "string") return null;
   const messages = normalizeMessages(rec.messages);
   const questions = normalizeQuestions(rec.questions);
+  const answersRaw = normalizeAnswers(rec.answers);
   const state = typeof rec.state === "string" ? rec.state : "";
   const titleLocked = Boolean(rec.titleLocked);
   const createdAt = num(rec.createdAt) ?? Date.now();
@@ -331,7 +334,9 @@ function normalizeThread(raw: unknown): ChatThread | null {
     state,
     includeChat: rec.includeChat !== false,
     questions,
-    answers: normalizeAnswers(rec.answers),
+    answers: answersRaw
+      ? attachChoiceLegends(answersRaw, questions)
+      : null,
     jevMeta: typeof rec.jevMeta === "string" ? rec.jevMeta : "",
     samplePresetId:
       typeof rec.samplePresetId === "string" && rec.samplePresetId
@@ -402,11 +407,13 @@ function asQuestion(raw: unknown): JevQuestion | null {
     return {
       type: "choice",
       instructions,
-      criteria: Object.fromEntries(
-        Object.entries(rec.criteria as Record<string, unknown>).map(([k, v]) => [
-          k,
-          v == null ? "" : String(v),
-        ]),
+      criteria: toPositionalChoiceCriteria(
+        Object.fromEntries(
+          Object.entries(rec.criteria as Record<string, unknown>).map(([k, v]) => [
+            k,
+            v == null ? "" : String(v),
+          ]),
+        ),
       ),
     };
   }
@@ -456,6 +463,7 @@ function asAnswer(raw: unknown): JevAnswer | null {
       choice: String(rec.choice ?? ""),
       probabilities: asNumMap(rec.probabilities),
       confidence: num(rec.confidence),
+      legend: asStrMap(rec.legend),
     };
   }
   if (rec.type === "score") {

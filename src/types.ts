@@ -23,6 +23,7 @@ export type QuestionType = "choice" | "noul" | "score";
 export type ChoiceQuestion = {
   type: "choice";
   instructions: string;
+  /** Option descriptions keyed by 1-based positional strings ("1", "2", …). */
   criteria: Record<string, string>;
 };
 
@@ -45,6 +46,8 @@ export type ChoiceAnswer = {
   choice: string;
   probabilities: Record<string, number>;
   confidence?: number;
+  /** Option descriptions keyed by positional labels ("1", "2", …). Jev does not return this. */
+  legend?: Record<string, string>;
 };
 
 export type NoulAnswer = {
