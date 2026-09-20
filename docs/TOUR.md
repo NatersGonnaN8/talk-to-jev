@@ -39,14 +39,14 @@ Each step is independent. **page** is where the overlay navigates. **hooks** are
 
 Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRouter key runs chat completions and the Decisions API. Jev is System One: state plus typed questions, then probabilities — not a chatbot.
 
-### 2. Jev’s case is Jev state
+### 2. Jev’s State
 
 - **id:** `case`
 - **page:** workshop
 - **hooks:** `case`
 - **selectors:** `.ticket`
 
-This slip is Jev state. New Case starts a blank workshop — not a preset. Preset Cases loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.
+This slip is Jev state. New State starts a blank workshop — not a preset. Preset States loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.
 
 ### 3. The LLM pane talks
 
@@ -55,7 +55,7 @@ This slip is Jev state. New Case starts a blank workshop — not a preset. Prese
 - **hooks:** `llm`
 - **selectors:** `.pane.llm`
 
-Manila side: draft the case, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s case or questions — not a JSON dump. Jev never writes in this thread.
+Manila side: draft the state, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s State or questions — not a JSON dump. Payloads (in this pane, off until you toggle it) always records what went to the LLM and to Jev. Jev never writes in this thread.
 
 ### 4. Jev’s Questions
 
@@ -73,16 +73,16 @@ Jev’s Questions: choice, noul, or score — not essays. Add questions, then As
 - **hooks:** `wire`
 - **selectors:** `.pane.llm .row-actions`
 
-Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random case (left of Propose) runs an autonomous LLM↔Jev loop. After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.
+Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Propose) runs an autonomous LLM↔Jev loop. After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.
 
-### 6. Use Cases
+### 6. Example Uses
 
 - **id:** `use-cases`
 - **page:** use-cases
 - **hooks:** `use-cases`, `use-cases-page`
-- **texts:** Use Cases
+- **texts:** Example Uses
 
-Nine operator snaps plus Jacket — the same list as Workshop Preset Cases. Open a card to load the case and Jev questions.
+Nine operator snaps plus Jacket — the same list as Workshop Preset States. Open a card to load the state and Jev questions.
 
 ### 7. Docs: Nice, Code, Iframe
 
@@ -110,7 +110,7 @@ Paste your OpenRouter key here. It stays on the server — never in git, never i
 - **hooks:** `convert-page`, `convert`, `convert-nav`
 - **texts:** Convert
 
-Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev’s case, which brings you here. Files stay in the browser. Add the markdown to the LLM, to Jev’s case, or save it.
+Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev’s State, which brings you here. Files stay in the browser. Add the markdown to the LLM, to Jev’s State, or save it.
 
 ### 10. History stays on this machine
 
@@ -119,7 +119,7 @@ Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev
 - **hooks:** `history`
 - **texts:** History
 
-History lives on Jev’s case, not in the header. Threads stay in this browser’s localStorage. Refresh restores them. Keys are never stored here.
+History lives on Jev’s State, not in the header. Threads stay in this browser’s localStorage. Refresh restores them. Keys are never stored here.
 
 ### 11. Load weather
 
@@ -128,4 +128,4 @@ History lives on Jev’s case, not in the header. Threads stay in this browser�
 - **hooks:** `weather`
 - **texts:** Load weather
 
-Jacket is the one weather case. Load weather writes Open-Meteo into that ticket. Other snaps are operator decisions — no weather field.
+Jacket is the one weather snap. Load weather writes Open-Meteo into that ticket. Other snaps are operator decisions — no weather field.

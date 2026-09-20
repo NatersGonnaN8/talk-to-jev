@@ -14,7 +14,7 @@ Repo: [talk-to-jev](https://github.com/NatersGonnaN8/talk-to-jev)
 1. Clone this repo. `npm install`.
 2. `npm run dev` — Vite UI + API on **port 5182** (`127.0.0.1` only).
 3. Open the app. Paste your [OpenRouter](https://openrouter.ai/) key in **Settings**. That writes gitignored `.env.local` on the server. The browser never sees the key.
-4. Workshop: **Jev’s case** is Jev **state**. Manila pane = LLM. Blueprint pane = **Ask Jev**. Drop `.md` into Jev’s case; txt / html / docx / pdf open the **Convert** tab (PDF text layer stays in the browser).
+4. Workshop: **Jev’s State** is Jev **state**. Manila pane = LLM. Blueprint pane = **Ask Jev**. Drop `.md` into Jev’s State; txt / html / docx / pdf open the **Convert** tab (PDF text layer stays in the browser).
 
 Optional: create `.env.local` yourself with `OPENROUTER_API_KEY=` (same file Settings writes). Do not put the key in git, in the browser, or in a Vite `VITE_` variable.
 
@@ -39,14 +39,14 @@ Weather is **Open-Meteo** input (free, no key) on the **Jacket** preset only —
 
 | Page | Path | What it is |
 |---|---|---|
-| **Workshop** | `/` | **Jev’s case** + LLM pane + **Jev’s Questions**. First-open is an **empty** Workshop. **New Case** starts another empty Workshop (does **not** load Invoice). **Preset Cases** (9 business + Jacket), **History** on that row. **Load weather** on Jacket only. **Ask Jev**, **Random case** (autonomous LLM↔Jev loop), **Propose Jev questions** (tools fill the q-cards), **Feed Jev to LLM**. Drop `.md` into Jev’s case; other files open the **Convert** tab. |
-| **Use Cases** | `/use-cases` (`/cases`) | Same ten snaps as Workshop **Preset Cases**: nine operator cases plus Jacket. |
+| **Workshop** | `/` | **Jev’s State** + LLM pane + **Jev’s Questions**. First-open is an **empty** Workshop. **New State** starts another empty Workshop (does **not** load Invoice). **Preset States** (9 business + Jacket), **History** on that row. **Load weather** on Jacket only. **Ask Jev**, **Random state** (autonomous LLM↔Jev loop), **Propose Jev questions** (tools fill the q-cards), **Feed Jev to LLM**. Drop `.md` into Jev’s State; other files open the **Convert** tab. |
+| **Example Uses** | `/use-cases` (`/cases`) | Same ten snaps as Workshop **Preset States**: nine operator snaps plus Jacket. |
 | **Docs** | `/docs` | In-repo Jev snapshot. Eyeball = nice Markdown; code icon = raw source. |
 | **Settings** | `/settings` | BYOK. Paste keys; they stay in `.env.local` on this machine. |
-| **Convert** | `/convert` | Convert txt / html / docx / pdf to markdown in this browser. Add to the LLM, add to Jev’s case, download, or save as MD. |
-| **History** | Jev’s case row | Local threads in `localStorage` (this browser only). Not a server. Not in the header. |
+| **Convert** | `/convert` | Convert txt / html / docx / pdf to markdown in this browser. Add to the LLM, add to Jev’s State, download, or save as MD. |
+| **History** | Jev’s State row | Local threads in `localStorage` (this browser only). Not a server. Not in the header. |
 
-Chrome **Tour** restarts the coach overlay. **Update Jev docs** refreshes `docs/jev/`. History is on **Jev’s case**, not next to Tour.
+Chrome **Tour** restarts the coach overlay. **Update Jev docs** refreshes `docs/jev/`. History is on **Jev’s State**, not next to Tour. Workshop **Payloads** (LLM pane, off by default) shows logged `/api/llm` and `/api/jev` request/response JSON — always recording, never keys.
 
 ---
 

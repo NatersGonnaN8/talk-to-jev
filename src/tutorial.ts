@@ -49,8 +49,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: "case",
-    title: "Jev’s case is Jev state",
-    body: "This slip is Jev state. New Case starts a blank workshop — not a preset. Preset Cases loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.",
+    title: "Jev’s State",
+    body: "This slip is Jev state. New State starts a blank workshop — not a preset. Preset States loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.",
     page: "workshop",
     hooks: ["case"],
     selectors: [".ticket"],
@@ -58,7 +58,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "llm",
     title: "The LLM pane talks",
-    body: "Manila side: draft the case, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s case or questions — not a JSON dump. Jev never writes in this thread.",
+    body: "Manila side: draft the state, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s State or questions — not a JSON dump. Payloads (in this pane, off until you toggle it) always records what went to the LLM and to Jev. Jev never writes in this thread.",
     page: "workshop",
     hooks: ["llm"],
     selectors: [".pane.llm"],
@@ -74,18 +74,18 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "wire",
     title: "Pass work across the wire",
-    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random case (left of Propose) runs an autonomous LLM↔Jev loop. After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.",
+    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Propose) runs an autonomous LLM↔Jev loop. After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.",
     page: "workshop",
     hooks: ["wire"],
     selectors: [".pane.llm .row-actions"],
   },
   {
     id: "use-cases",
-    title: "Use Cases",
-    body: "Nine operator snaps plus Jacket — the same list as Workshop Preset Cases. Open a card to load the case and Jev questions.",
+    title: "Example Uses",
+    body: "Nine operator snaps plus Jacket — the same list as Workshop Preset States. Open a card to load the state and Jev questions.",
     page: "use-cases",
     hooks: ["use-cases", "use-cases-page"],
-    texts: ["Use Cases"],
+    texts: ["Example Uses"],
   },
   {
     id: "docs",
@@ -107,7 +107,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "convert",
     title: "Convert to Markdown",
-    body: "Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev’s case, which brings you here. Files stay in the browser. Add the markdown to the LLM, to Jev’s case, or save it.",
+    body: "Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev’s State, which brings you here. Files stay in the browser. Add the markdown to the LLM, to Jev’s State, or save it.",
     page: "convert",
     hooks: ["convert-page", "convert", "convert-nav"],
     texts: ["Convert"],
@@ -115,7 +115,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "history",
     title: "History stays on this machine",
-    body: "History lives on Jev’s case, not in the header. Threads stay in this browser’s localStorage. Refresh restores them. Keys are never stored here.",
+    body: "History lives on Jev’s State, not in the header. Threads stay in this browser’s localStorage. Refresh restores them. Keys are never stored here.",
     page: "workshop",
     hooks: ["history"],
     texts: ["History"],
@@ -123,7 +123,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "weather",
     title: "Load weather",
-    body: "Jacket is the one weather case. Load weather writes Open-Meteo into that ticket. Other snaps are operator decisions — no weather field.",
+    body: "Jacket is the one weather snap. Load weather writes Open-Meteo into that ticket. Other snaps are operator decisions — no weather field.",
     page: "workshop",
     hooks: ["weather"],
     texts: ["Load weather"],
@@ -203,7 +203,7 @@ export function stepExistsInDom(step: TutorialStep): boolean {
   if (queryTutorialEl(step, false)) return true;
   if (step.page === "workshop") return true;
   if (step.page === "docs" || step.page === "use-cases") {
-    return Boolean(queryByText(step.page === "docs" ? "Docs" : "Use Cases"));
+    return Boolean(queryByText(step.page === "docs" ? "Docs" : "Example Uses"));
   }
   return false;
 }
