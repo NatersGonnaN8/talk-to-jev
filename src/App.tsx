@@ -116,6 +116,20 @@ function summarizeAnswers(answers: Record<string, JevAnswer>) {
   return lines.join("\n");
 }
 
+function patchLastAssistant(
+  messages: ChatMessage[],
+  content: string,
+): ChatMessage[] {
+  const copy = messages.map((m) => ({ role: m.role, content: m.content }));
+  for (let i = copy.length - 1; i >= 0; i--) {
+    if (copy[i].role === "assistant") {
+      copy[i] = { role: "assistant", content };
+      return copy;
+    }
+  }
+  return [...copy, { role: "assistant", content }];
+}
+
 export function App() {
   const [page, setPage] = useState<Page>(pageFromPath);
   const [caseId, setCaseId] = useState<string | null>(caseFromSearch);
@@ -447,6 +461,11 @@ function Workshop({
   storeRef.current = store;
   const persistReady = useRef(false);
   const skipFirstPersist = useRef(true);
+  const streamLockRef = useRef(false);
+  const onToastRef = useRef(onToast);
+  onToastRef.current = onToast;
+  const onBlankWorkshopRef = useRef(onBlankWorkshop);
+  onBlankWorkshopRef.current = onBlankWorkshop;
   // History restore wins over a leftover `?case=` from last session.
   const skipStaleUrlPreset = useRef(Boolean(boot && presetId));
 
@@ -493,9 +512,10 @@ function Workshop({
 
   useEffect(() => {
     if (!presetId) return;
+    if (streamLockRef.current) return;
     if (skipStaleUrlPreset.current) {
       skipStaleUrlPreset.current = false;
-      onBlankWorkshop();
+      onBlankWorkshopRef.current();
       return;
     }
     const preset = cloneSample(presetId);
@@ -510,18 +530,16 @@ function Workshop({
       jevMeta: "",
       samplePresetId: preset.id,
     });
-    onToast(
+    onToastRef.current(
       preset.kind === "weather"
         ? `Loaded “${preset.label}”. Click Load weather for live Open-Meteo.`
         : `Loaded “${preset.label}”.`,
     );
-  }, [presetId, presetNonce, onToast]);
+  }, [presetId, presetNonce]);
 
+  // Boot already loaded from localStorage. Re-applying disk on remount
+  // (Strict Mode / HMR) overwrites an in-flight or just-finished LLM turn.
   useEffect(() => {
-    const latest = loadStore();
-    commitStore(latest);
-    const thread = activeThread(latest);
-    if (thread) applySnapshot(thread);
     persistReady.current = true;
   }, []);
 
@@ -600,9 +618,20 @@ function Workshop({
           }
         : { role: "user", content };
     const history = [...messages, nextUser];
-    setMessages([...history, { role: "assistant", content: "" }]);
+    const nextMessages: ChatMessage[] = [
+      ...history,
+      { role: "assistant", content: "" },
+    ];
+    streamLockRef.current = true;
+    setMessages(nextMessages);
     if (!extra) setDraft("");
     setBusy(mode === "propose-questions" ? "propose" : "llm");
+    commitStore(
+      upsertActive(storeRef.current, {
+        ...snapRef.current,
+        messages: nextMessages,
+      }),
+    );
     try {
       let appliedQs = 0;
       const full = await streamLlm(
@@ -616,11 +645,11 @@ function Workshop({
         },
         (ev) => {
           if (ev.type === "delta") {
-            setMessages((m) => {
-              const copy = [...m];
-              copy[copy.length - 1] = { role: "assistant", content: ev.text };
-              return copy;
-            });
+            setMessages((m) => patchLastAssistant(m, ev.text));
+            return;
+          }
+          if (ev.type === "error") {
+            setMessages((m) => patchLastAssistant(m, ev.message));
             return;
           }
           if (ev.type === "set_jev_case") {
@@ -636,6 +665,7 @@ function Workshop({
             onToast(`Loaded ${appliedQs} proposed questions into Jev.`);
             return;
           }
+          if (ev.type !== "ask_jev") return;
           setAnswers(ev.answers);
           const usage = ev.usage as
             | { input_tokens?: number; cost?: number }
@@ -650,19 +680,19 @@ function Workshop({
         },
       );
       if (!full.trim() && appliedQs) {
-        setMessages((m) => {
-          const copy = [...m];
-          copy[copy.length - 1] = {
-            role: "assistant",
-            content: `Loaded ${appliedQs} questions into Jev’s Questions. Click Ask Jev when you’re ready.`,
-          };
-          return copy;
-        });
+        setMessages((m) =>
+          patchLastAssistant(
+            m,
+            `Loaded ${appliedQs} questions into Jev’s Questions. Click Ask Jev when you’re ready.`,
+          ),
+        );
       }
     } catch (err) {
-      onToast(err instanceof Error ? err.message : "LLM failed");
-      setMessages((m) => m.slice(0, -1));
+      const message = err instanceof Error ? err.message : "LLM failed";
+      onToast(message);
+      setMessages((m) => patchLastAssistant(m, message));
     } finally {
+      streamLockRef.current = false;
       setBusy(null);
     }
   };

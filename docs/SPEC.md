@@ -180,6 +180,7 @@ Layout (desktop):
 - Secondary: **Propose Jev questions**
 - After Jev has answered: **Feed Jev to LLM**
 - Empty: “Draft the case, or ask how to phrase a Jev question.”
+- **Send** streams `/api/llm` SSE into the open assistant turn. Apply `{ type: "delta", text }` (accumulate `text` — this is **not** OpenAI `choices[0].delta.content`). Apply `{ type: "tool", name, ok, ... }` immediately (`set_jev_case` / `set_jev_questions` / `ask_jev`). `{ type: "error", message }` stays **in that assistant bubble**. `{ type: "done" }` ends the stream. Keep the user + assistant pair on screen. History persist / preset reload must not wipe an in-flight or just-finished turn.
 
 **Jev pane** (blueprint / typed) — header `article.pane.jev > header.pane-head`
 
@@ -211,11 +212,12 @@ Layout (desktop):
 - Chrome-right stays **Tour** / **Update Jev docs**. Do not duplicate History there.
 - Drawer **New chat** — same full reset as row **New Case**: save the open thread if it has anything worth keeping, then start an **empty** Workshop (no sample id, blank case text, one blank-id question, empty LLM thread, no Jev answers, **Preset Cases** none selected).
 - **Clear current** — empty the open LLM thread and last Jev answers; keep the case ticket, include-chat checkbox, and question editor. This is the half-reset. **New Case** is not this.
-- Click a past thread to restore it: LLM messages, case text, include-chat, Jev questions, last Jev answers (if any), and selected sample preset id.
+- Click a past thread to restore it: LLM messages, case text, include-chat, Jev questions (including blank-id `__blank__:…` cards), last Jev answers (if any), jevMeta, and selected sample preset id. Apply the **disk** copy of that thread; do not persist the open empty pane over it first.
 - Title: auto from the first user line, else the case’s first line, else “Untitled case”. Optional rename (pencil); a renamed title stays until the user edits it again.
 - Each row shows the title plus a timestamp (`updatedAt`).
 - Delete one thread (trash). Deleting the open thread returns to the **empty** Workshop (same as **New Case**). Deleting the last thread leaves that empty Workshop, not a ghost list item.
-- Survives refresh. Does not sync across browsers or machines.
+- Survives refresh. Reload hydrates the last `activeId` **before** any persist write: Jev’s case, LLM transcript, questions, answers, jevMeta, include-chat. Do **not** mint a new empty thread on boot. Do **not** let a leftover `?case=` replace that restored thread — only an in-session **Preset Cases** / Use Cases pick (session nonce) loads a preset. New Case parks the open thread if it is worth keeping and starts blank **without** destroying other saved chats. Nater (2026-09-20): history for Jev’s case, LLM, and Jev’s questions wasn’t being saved / restored.
+- Does not sync across browsers or machines.
 
 **Mobile:** stack Case → LLM → Jev. Splitter hidden; panes full width. History drawer uses most of the viewport width.
 
@@ -488,6 +490,9 @@ Rules:
 - Quota errors: drop oldest inactive threads and retry; never crash the Workshop.
 - Composer draft and pane split are not required to persist.
 - Empty untouched **empty Workshop** (`samplePresetId` null, blank case text, blank/empty questions, no messages, no answers) is **not** stored as a ghost thread. Untouched **Invoice exception** (`samplePresetId` `invoice`, invoice copy, questions unchanged, no messages, no answers) is also **not** stored — loading the demo without working it is not a thread. A thread is written once it has messages, a renamed title, a non-empty case, non-blank questions, Jev answers, `includeChat` off, or a **non-invoice** sample preset (including Jacket).
+- Hydrate from this key **before** any persist write. Restore `activeId` on load. Skip the first persist tick so boot / Strict Mode remount cannot mint a blank chat or overwrite a saved thread with an empty snapshot. If the UI snapshot is empty and the active thread is worth keeping, **park** (`activeId` null) — do not wipe `messages` / `state` / `questions` / `answers`.
+- Blank-id question map keys (`__blank__:…`) round-trip; restore still shows that card. Attached `.md` lives inside `state` (no extra field).
+- **Do not clobber an in-flight or just-finished LLM turn.** Persist the user + assistant pair as soon as Send (or Propose) starts — do not wait for the debounce, and do not restore an older empty snapshot over that pair. A failed stream keeps both messages and puts the error in the assistant bubble. Preset reload (`?case=` / Preset Cases) may clear the thread only when the operator actually picked a preset, never because a toast callback identity changed.
 
 ---
 
@@ -710,8 +715,8 @@ Before calling Workshop done:
 12. Click a card: Workshop loads that case + questions (`?case=` in the URL)
 13. `/api/health` JSON has `hasKey` / `keys.*` booleans only — no key material in the body
 14. Tips on Use Cases cards stay fully visible (flip, opaque)
-15. Send an LLM message, refresh: the thread is still in History and the transcript restores
-16. Click a past thread to restore case + questions + last Jev answers
+15. Send an LLM message, refresh: the **same** thread is active (not a new blank chat), History still lists it, and the LLM transcript restores with Jev’s case and questions
+16. Click a past thread to restore LLM transcript + case + questions (blank-id cards included) + last Jev answers
 17. **New Case** (and drawer New chat) returns to an **empty** Workshop (blank case, no invoice preset, **Preset Cases** none selected); the previous thread remains in the list if it was worth keeping
 18. Delete one thread; it is gone after refresh
 19. `localStorage["talk-to-jev:chats"]` has no API key

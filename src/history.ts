@@ -52,6 +52,19 @@ export function emptySnapshot(): WorkshopSnapshot {
   };
 }
 
+/** Detached copy so React state is not aliased to the store object. */
+export function cloneSnapshot(snap: WorkshopSnapshot): WorkshopSnapshot {
+  return {
+    messages: snap.messages.map((m) => ({ role: m.role, content: m.content })),
+    state: snap.state,
+    includeChat: snap.includeChat,
+    questions: structuredClone(snap.questions),
+    answers: snap.answers ? structuredClone(snap.answers) : null,
+    jevMeta: snap.jevMeta,
+    samplePresetId: snap.samplePresetId,
+  };
+}
+
 export function autoTitle(messages: ChatMessage[], state: string): string {
   const firstUser = messages.find((m) => m.role === "user" && m.content.trim());
   if (firstUser) return clipTitle(firstUser.content);
@@ -118,13 +131,23 @@ export function upsertActive(
   snap: WorkshopSnapshot,
   opts?: { titleLocked?: boolean; title?: string },
 ): ChatStore {
-  if (!snapshotWorthSaving(snap, opts?.titleLocked ?? false) && !store.activeId) {
-    return persistStore({ v: 1, activeId: null, chats: store.chats });
+  const existing = store.chats.find((c) => c.id === store.activeId);
+  const titleLocked = opts?.titleLocked ?? existing?.titleLocked ?? false;
+  const worth = snapshotWorthSaving(snap, titleLocked);
+
+  if (!worth) {
+    if (existing && snapshotWorthSaving(existing, existing.titleLocked)) {
+      // Boot / Strict unmount often flushes an empty Workshop while activeId
+      // still points at a real thread. Park it. Never wipe messages/case.
+      return persistStore({ v: 1, activeId: null, chats: store.chats });
+    }
+    const chats = existing
+      ? store.chats.filter((c) => c.id !== existing.id)
+      : store.chats;
+    return persistStore({ v: 1, activeId: null, chats });
   }
 
   const now = Date.now();
-  const existing = store.chats.find((c) => c.id === store.activeId);
-  const titleLocked = opts?.titleLocked ?? existing?.titleLocked ?? false;
   const title =
     opts?.title?.trim() ||
     (titleLocked && existing?.title
@@ -137,13 +160,10 @@ export function upsertActive(
       createdAt: now,
       titleLocked: false,
     }),
-    ...snap,
+    ...cloneSnapshot(snap),
     title,
     titleLocked,
     updatedAt: now,
-    questions: structuredClone(snap.questions),
-    messages: snap.messages.map((m) => ({ role: m.role, content: m.content })),
-    answers: snap.answers ? structuredClone(snap.answers) : null,
   };
 
   const chats = [thread, ...store.chats.filter((c) => c.id !== thread.id)];
@@ -329,6 +349,7 @@ function normalizeQuestions(raw: unknown): Record<string, JevQuestion> {
   const out: Record<string, JevQuestion> = {};
   for (const [id, q] of Object.entries(raw as Record<string, unknown>)) {
     const parsed = asQuestion(q);
+    // Keep `__blank__:uuid` keys — restore must still show the empty-id card.
     if (parsed) out[id] = parsed;
   }
   return Object.keys(out).length ? out : blankWorkshopQuestions();
