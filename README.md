@@ -14,7 +14,7 @@ Repo: [talk-to-jev](https://github.com/NatersGonnaN8/talk-to-jev)
 1. Clone this repo. `npm install`.
 2. `npm run dev` — Vite UI + API on **port 5182** (`127.0.0.1` only).
 3. Open the app. Paste your [OpenRouter](https://openrouter.ai/) key in **Settings**. That writes gitignored `.env.local` on the server. The browser never sees the key.
-4. Workshop: Case ticket is Jev **state**. Manila pane = LLM. Blueprint pane = **Ask Jev**.
+4. Workshop: **Jev’s case** is Jev **state**. Manila pane = LLM. Blueprint pane = **Ask Jev**. Drop `.md` into Jev’s case; txt / html / docx / pdf open Convert to Markdown (PDF text layer stays in the browser).
 
 Optional: create `.env.local` yourself with `OPENROUTER_API_KEY=` (same file Settings writes). Do not put the key in git, in the browser, or in a Vite `VITE_` variable.
 
@@ -39,7 +39,7 @@ Weather is **Open-Meteo** input (free, no key) on the **Jacket** preset only —
 
 | Page | Path | What it is |
 |---|---|---|
-| **Workshop** | `/` | Case ticket + LLM pane + Jev pane. Lands on **Invoice exception**. Sample chips (9 business + Jacket). **Load weather** on Jacket only. **Ask Jev**, **Propose Jev questions**, **Feed Jev to LLM**. |
+| **Workshop** | `/` | **Jev’s case** + LLM pane + Jev pane. Lands on **Invoice exception**. Sample chips (9 business + Jacket). **Load weather** on Jacket only. **Ask Jev**, **Propose Jev questions**, **Feed Jev to LLM**. Drop `.md` into Jev’s case; other files open **Convert to Markdown**. |
 | **Use Cases** | `/use-cases` (`/cases`) | Same ten snaps as the Workshop chips: nine operator cases plus Jacket. |
 | **Docs** | `/docs` | In-repo Jev snapshot. Eyeball = nice Markdown; code icon = raw source. |
 | **Settings** | `/settings` | BYOK. Paste keys; they stay in `.env.local` on this machine. |

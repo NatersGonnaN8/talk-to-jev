@@ -39,14 +39,14 @@ Each step is independent. **page** is where the overlay navigates. **hooks** are
 
 Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRouter key runs chat completions and the Decisions API. Jev is System One: state plus typed questions, then probabilities — not a chatbot.
 
-### 2. The Case ticket is Jev state
+### 2. Jev’s case is Jev state
 
 - **id:** `case`
 - **page:** workshop
 - **hooks:** `case`
 - **selectors:** `.ticket`
 
-This slip is what Jev judges. The LLM can draft it. Operator snaps and (on Jacket) weather all live here as state — not as a chat with Jev.
+This slip is what Jev judges. The LLM can draft it. Operator snaps, local .md you drop in, converted files you add from Convert to Markdown, and (on Jacket) weather all live here as state — not as a chat with Jev.
 
 ### 3. The LLM pane talks
 

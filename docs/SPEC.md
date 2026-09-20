@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.5 — 2026-09-19  
+**Status:** v0.7 — 2026-09-19  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -23,7 +23,7 @@ Jev is TypeSafe’s first **System One** model. It is **not** a chatbot. You sen
 
 The LLM is the cheap prose half. Jev is the cheap decision half. The app is the wire between them.
 
-**Weather is one use case, not the product.** Nater (2026-09-19): “Weather is literally one use case.” Nine of the ten snaps are **operator / business** decisions. Live conditions come from **Open-Meteo** (free, no API key), fetched server-side, and written into the Case ticket **only for the Jacket preset**. Still **one OpenRouter key**.
+**Weather is one use case, not the product.** Nater (2026-09-19): “Weather is literally one use case.” Nine of the ten snaps are **operator / business** decisions. Live conditions come from **Open-Meteo** (free, no API key), fetched server-side, and written into **Jev’s case** **only for the Jacket preset**. Still **one OpenRouter key**.
 
 ---
 
@@ -38,7 +38,8 @@ The LLM is the cheap prose half. Jev is the cheap decision half. The app is the 
 - No multi-user, no deploy, no billing UI.
 - Do not call Jev via chat completions (that 400s). Do not ask Jev to write poems or code.
 - No second weather API key, no paid weather wrapper. Weather is Open-Meteo (free, no key), server-side only.
-- Do not send weather to a third model. Open-Meteo → Case ticket → Jev / LLM.
+- Do not send weather to a third model. Open-Meteo → Jev’s case → Jev / LLM.
+- Attached / converted files stay in the **browser**. Do **not** upload them to a new server store, a SaaS converter, write them into `.env` / `.env.local`, or commit user files. Do **not** dump the official `docs/jev/` snapshot into Jev’s case (Docs is the snapshot; attach is **local user files**). PDF convert is **pdf.js text layer only** — no OCR, no images, no cloud.
 
 ---
 
@@ -104,16 +105,16 @@ Failed fetches are recorded in the index; a partial update is still committed-wo
 
 ## 5. How the two AIs are wired
 
-Shared **case** (the Jev `state`) sits in a ticket strip at the top. Both models see it.
+Shared **Jev’s case** (the Jev `state`) sits in a ticket strip at the top. Both models see it. This is **not** the **Use Cases** gallery.
 
 | Action | What happens |
 |---|---|
-| **Ask the LLM** | Chat completions. System prompt includes `primer.md` so the LLM knows Jev’s contract (state + questions, not chat). Optional: last Jev answers. Case text (including any weather block) is the current case. |
-| **Ask Jev** | Decisions API. `state` = case text, plus optional `{ transcript }` of the LLM thread. `questions` = the editor on the Jev pane. If any question **id is blank**, show a clear **inline** error on that card and **do not** call Jev. Never silently invent an id (`q_*`, random suffixes, or similar). |
+| **Ask the LLM** | Chat completions. System prompt includes `primer.md` so the LLM knows Jev’s contract (state + questions, not chat). Optional: last Jev answers. Jev’s case text (including any weather block and any **attach** blocks from local files) is the current state. |
+| **Ask Jev** | Decisions API. `state` = Jev’s case text (same string: situation, weather block, attached blocks), plus optional `{ transcript }` of the LLM thread. `questions` = the editor on the Jev pane. If any question **id is blank**, show a clear **inline** error on that card and **do not** call Jev. Never silently invent an id (`q_*`, random suffixes, or similar). |
 | **Propose questions** | LLM is asked to return a JSON `questions` map for this case. Valid maps replace (or merge into) the Jev editor. Invalid JSON stays in chat as prose. Skip entries with a blank id — do not mint a placeholder id for them. If the user then **Ask Jev** with a still-blank id, same inline error as above. |
 | **Feed Jev → LLM** | Inject a user-visible note into the LLM thread summarizing typed answers (choice / noul / score / confidence). Next LLM turn sees it. |
-| **Load weather** | **Jacket preset only.** Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on the Case ticket. Does not call Jev or the LLM. Hidden on business presets. |
-| **Sample case** | One click (Workshop chip **or** Use Cases card) loads the same `src/samples.ts` preset: Case situation (weather placeholder **only** on Jacket), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
+| **Load weather** | **Jacket preset only.** Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on Jev’s case. Does not call Jev or the LLM. Hidden on business presets. |
+| **Sample case** | One click (Workshop chip **or** Use Cases card) loads the same `src/samples.ts` preset: Jev’s case situation (weather placeholder **only** on Jacket), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
 
 Code owns routing. The UI shows probabilities; it does not pretend a typed answer is “correct.”
 
@@ -157,23 +158,31 @@ Layout (desktop):
 
 ```
 [ chrome ]
-[ CASE TICKET ]
+[ JEV’S CASE TICKET ]
   [ samples: 10 chips — 9 business + Jacket ]
   [ location field + Load weather ]   ← Jacket only; hidden on business chips
   [ include-chat checkbox ]
+  [ Add .md + Convert to Markdown + attached-file chips ]
   [ shared state textarea ]
-[ LLM pane | splitter | JEV pane ]
+  [ drop .md into Jev’s case; other formats open Convert ]
+[ CONVERT PANE (when open, half) | LLM pane | splitter | JEV pane ]
 ```
 
-**Case ticket**
+**Jev’s case** (the state ticket — **not** Use Cases cards)
 
-- Label: **Case** (this is Jev’s `state`)
+- Label: **Jev’s case** (this is Jev’s `state`)
 - Checkbox **Include LLM chat in Jev state** (default on)
 - **Samples** row: ten one-click chips (see §12). Active chip is visually on. **First-open** and **New chat** load **Invoice exception** (`invoice`) — a business snap — not Jacket.
 - **Weather row:** shown **only** when the active preset is **Jacket?** (`jacket`). Location field (default **Columbus, OH**) + **Load weather**. **Hide** the row on the nine business presets (do not leave a disabled weather form that still makes the Workshop look like a weather app). Accepts a city / “City, ST” (Open-Meteo geocoding) or `lat, lon`. Loading does not require the OpenRouter key.
 - Textarea, `resize: none`, fills the ticket. **Load weather** (Jacket only) replaces the marked weather block (or prepends one).
-- Helper: “Jev judges this. The LLM can draft it.” On Jacket only, add: “Weather is Open-Meteo input, not a model.”
+- **Add .md** (file picker, `accept=".md,.markdown,text/markdown"`, multiple): local user markdown is inserted into Jev’s case as `state`. Official `docs/jev/` snapshot stays in Docs; do not auto-insert it.
+- **Convert to Markdown** (file picker for `.txt`, `.html`, `.htm`, `.docx`, `.pdf`, `.doc`): opens the convert pane (§16). Does not attach until the operator picks an action.
+- **Drag-and-drop** onto the whole Jev’s case ticket (including the textarea). **Mix:** `.md` / `.markdown` go **into Jev’s case** (no convert window). Convert formats open Convert to Markdown with **per-file progress**. Unsupported types: inline error. See **§15** and **§16**.
+- Attached names list near the ticket. Remove one = strip that attach block. Weather / situation text stay.
+- Helper: “Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf open Convert to Markdown.” On Jacket only, add: “Weather is Open-Meteo input, not a model.”
 - After a successful weather load, a one-line status under the row: resolved place + now summary (e.g. `Columbus, Ohio · 72°F · Partly cloudy`). Toast on failure.
+- Size-cap attachments so a huge dump cannot freeze the UI. See **§15**. Convert caps: **§16**.
+- Tips on **Add .md** / **Convert to Markdown** are fully opaque, flip above/below so they stay on-screen.
 
 **LLM pane** (manila / prose)
 
@@ -204,7 +213,7 @@ Layout (desktop):
 - Usage line: input tokens + cost when OpenRouter returns them
 - Empty answers: “Define questions, then ask Jev.”
 
-**Splitter:** drag the shared vertical edge. Not a native resize handle. Nater (2026-09-19): the old style looked like “a sick candy cane” — dashed orange hatch on cream with a pine stripe. **Visual:** a thin, quiet mill/pine divider (hit target stays wide enough to grab). Rest: 1px `--line` seam, mill-floor gutter, `cursor: col-resize`. Hover / while dragging: the seam widens slightly to pine so it reads as a handle — no dashed circus stripe, no orange/blue hatch, no garnish. Hidden on mobile; panes stack full width. `resize: none` on textareas; never CSS `resize` for layout.
+**Splitter:** drag the shared vertical edge. Not a native resize handle. Nater (2026-09-19): the old style looked like “a sick candy cane” — dashed orange hatch on cream with a pine stripe. **Visual:** a thin, quiet mill/pine divider (hit target stays wide enough to grab). Rest: 1px `--line` seam, mill-floor gutter, `cursor: col-resize`. Hover / while dragging: the seam widens slightly to pine so it reads as a handle — no dashed circus stripe, no orange/blue hatch, no garnish. Hidden on mobile; panes stack full width. `resize: none` on textareas; never CSS `resize` for layout. When Convert to Markdown is open, a **second** quiet splitter sits between the convert pane (half) and the LLM \| Jev pair.
 
 **History** (local threads, overlay drawer — not a permanent sidebar):
 
@@ -274,7 +283,7 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 **Look and placement**
 
 - `position: fixed`, z-index **above** chrome (20) and History (30) — use **80+**.
-- Spotlight / hole around the real control when a target exists (Case, Ask Jev, etc.).
+- Spotlight / hole around the real control when a target exists (Jev’s case, Ask Jev, etc.).
 - Coach **card** is fully opaque (manila `#F3E7D3` or blueprint `#C9DCE8`, pine ink, mill floor). No translucent fill.
 - Chrome is sticky at the top, so prefer **below** the target or **center** of the remaining viewport. Flip above only if the card would clip the bottom. Clamp every edge on-screen.
 - No native resize grips. Slick: sage mill / manila / blueprint, usable, no garnish.
@@ -284,7 +293,7 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 **Steps** (each is independent). If the target is missing because a sibling page/control has not landed, **skip that step** — do not block the tour.
 
 1. **Welcome** — two AIs, one OpenRouter key. The LLM talks. Jev does not write.
-2. **Case ticket** — this slip is Jev `state`.
+2. **Jev’s case** — this slip is Jev `state`. Drop `.md` here; other files open Convert to Markdown.
 3. **LLM pane** — prose / draft / chat.
 4. **Jev pane** — typed `choice` / `noul` / `score` + **Ask Jev**.
 5. **Propose Jev questions** / **Feed Jev to LLM** if those buttons exist.
@@ -337,7 +346,7 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 | GET | `/api/docs` | Index of snapshot files |
 | GET | `/api/docs/file` | Query `path` relative to `docs/jev`. Reject `..` |
 | POST | `/api/docs/update` | Run the snapshotter; return `{ ok, fetched, failed, files }` |
-| GET | `/api/weather` | Open-Meteo proxy. Query `q` (city or `lat,lon`) or `latitude`+`longitude`. Default `q=Columbus, OH`. Returns `{ ok, place, current, daily, hourly, text, json }`. `text` is the Case weather block. No OpenRouter key. |
+| GET | `/api/weather` | Open-Meteo proxy. Query `q` (city or `lat,lon`) or `latitude`+`longitude`. Default `q=Columbus, OH`. Returns `{ ok, place, current, daily, hourly, text, json }`. `text` is the Jev’s case weather block. No OpenRouter key. |
 | GET | `/api/geo` | Open-Meteo geocoding helper. Query `q`. Returns `{ ok, results: [{ name, admin1, country, latitude, longitude }] }`. Optional; **Load weather** may geocode internally. |
 
 Errors: 501 missing key, 400 bad body, 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter. `POST /api/jev` and `POST /api/llm` return 501 when the key is missing. Error strings that look like keys (`Bearer`, `sk-or-`, `OPENROUTER_API_KEY`) are replaced with a generic failure. Jev success JSON is `ok`, `model`, `answers`, `usage` — do not spread the raw upstream object.
@@ -356,7 +365,7 @@ Workshop, not a generic AI dashboard.
 - Probability fill: industrial orange `#E06B2A`
 - Type: **Bricolage Grotesque** (display), **Public Sans** (body), **Fragment Mono** (ids, JSON, meters)
 
-Signature: the **case ticket** as a physical slip the two instruments share. Probability is a filled bar, not a pie.
+Signature: **Jev’s case** as a physical slip the two instruments share. Probability is a filled bar, not a pie.
 
 Slick = sharp, usable, no garnish. Tooltips (if any) stay fully on-screen, opaque, flip placement. The Workshop pane splitter is a **quiet divider**, not decoration.
 
@@ -373,6 +382,7 @@ The LLM is told, every request:
 - When `mode` is `propose-questions`, reply with **only** a JSON object of questions (`type`, `instructions`, `criteria`).
 - Primer from `docs/jev/primer.md` is attached (truncated if huge).
 - A `## Weather` block in the case is observational Open-Meteo input. Do not invent a weather API call. Do not pretend to be Jev.
+- `<!-- attach:start … -->` blocks are **user-provided** markdown the operator dropped into Jev’s case (or added from Convert to Markdown). Treat them as part of `state`. Do not fetch files. Do not invent a docs-snapshot dump.
 
 ---
 
@@ -394,13 +404,15 @@ The LLM is told, every request:
 ChatThread:
   id, title, titleLocked, createdAt, updatedAt
   messages            // LLM thread: { role: "user"|"assistant", content }[]
-  state               // Case ticket text
+  state               // Jev’s case text
   includeChat         // Include LLM chat in Jev state
   questions           // Jev question editor
   answers             // last Jev answers or null
   jevMeta             // usage line if any
   samplePresetId      // §12 preset id; landing `invoice` is the empty default (not a ghost thread)
 ```
+
+Attached `.md` lives **inside** `state` (marked blocks). No extra history field, no file blobs, no keys from `.env`.
 
 Rules:
 
@@ -425,7 +437,7 @@ Provider: **Open-Meteo** Forecast API + Geocoding API. No API key. CC BY 4.0 att
 
 **What loads into Jev state**
 
-The Case ticket owns a marked block:
+Jev’s case owns a marked block:
 
 ```
 <!-- weather:start -->
@@ -458,15 +470,55 @@ Unknown place → 404 `{ ok:false, message }` (no OpenRouter mention). Upstream 
 
 ---
 
+## 15. Jev’s case attachments (.md → Jev state)
+
+Nater (2026-09-19): “can we add .md files to the case for jev?” **Yes.** Local markdown becomes part of **Jev’s case** — the same `state` string sent to `POST /api/alpha/decisions`. This is **not** a chatbot file-chat feature (no separate file pane, no model that “reads attachments” besides Jev/LLM seeing the case text).
+
+**Workshop**
+
+- Control **Add .md**: hidden file picker, `accept=".md,.markdown,text/markdown"`, `multiple`.
+- **Drag-and-drop** onto **Jev’s case** (the whole slip, including the textarea).
+- Multiple files OK. Re-adding the **same sanitized filename** **replaces** that attach block. New names **append** (do not clobber the situation or the weather block).
+- List attached names near the ticket. Remove one = strip that file’s attach block only.
+- **Mix drops:** `.md` / `.markdown` attach immediately. Convert formats (`.txt`, `.html`, `.htm`, `.docx`, `.pdf`, `.doc`) open **Convert to Markdown** (§16) — they are **not** an error. Truly unsupported types: short **inline** error (`role="alert"`), not `window.alert`.
+- Tip on **Add .md**: fully opaque, flip above/below so it stays on-screen, never a translucent fill.
+
+**Markers** (HTML comments in Jev’s case text):
+
+```
+<!-- attach:start filename.md -->
+…file text…
+<!-- attach:end filename.md -->
+```
+
+Sanitized basename only (no path). Strip control characters and `--` so the comment stays valid. Do not read `.env` / `.env.local` on this path — only `File` objects the user picked or dropped.
+
+**Caps (do not freeze the UI)**
+
+- **256 KiB** per file (byte size) before read
+- **200,000 characters** per file after read
+- **12** attach blocks per Jev’s case
+
+Over-cap files are skipped with an inline error. Remaining valid files still insert.
+
+**Never**
+
+- Upload to a new server store or add an attach API
+- Write attached text into `.env` / `.env.local`
+- Commit user files into the repo
+- Auto-insert the official `docs/jev/` snapshot into Jev’s case (Docs overlay already has that)
+
+---
+
 ## 12. Ten sample cases (Workshop presets)
 
-One-click chips on the Case ticket **and** cards on **Use Cases**. Same ten. One module: `src/samples.ts`. Do not fork a second catalog.
+One-click chips on **Jev’s case** **and** cards on **Use Cases**. Same ten. One module: `src/samples.ts`. Do not fork a second catalog.
 
 Nater (2026-09-19): weather is **literally one use case**. The other nine are **business / operator** snaps — real tickets and memos (amounts, SLA, customer tier, policy quotes), not lifestyle weather, not sports-weather, not “festival in the rain.” Mix Jev primitives **choice**, **noul**, and **score** across the set (not all noul). Cheap LLM can still draft; Jev returns probabilities.
 
 Each preset is a product contract: **id**, **short label**, **pitch**, **kind** (`business` | `weather`), **situation** (case text), **Jev questions** (2–4, with ids / types / option keys). Clicking a chip or a Use Cases card:
 
-- Writes the situation into the Case textarea (weather placeholder **only** on Jacket)
+- Writes the situation into Jev’s case textarea (weather placeholder **only** on Jacket)
 - Replaces the Jev question editor
 - Clears last Jev answers and the LLM thread (the previous case must not leak if “Include LLM chat” is on)
 - Marks that chip active
@@ -598,8 +650,8 @@ Before calling Workshop done:
 18. Delete one thread; it is gone after refresh
 19. `localStorage["talk-to-jev:chats"]` has no API key
 20. First-open Workshop: **Invoice exception** chip is on; weather row is **hidden**. Jacket chip shows the weather row; switching back to a business chip hides it again
-21. On Jacket: **Load weather** (default Columbus, OH) fills the Case ticket weather block; status line shows place + now; no OpenRouter key required
-22. Pick at least two **business** chips plus Jacket: Case + Jev questions swap; Ask Jev returns typed answers
+21. On Jacket: **Load weather** (default Columbus, OH) fills Jev’s case weather block; status line shows place + now; no OpenRouter key required
+22. Pick at least two **business** chips plus Jacket: Jev’s case + Jev questions swap; Ask Jev returns typed answers
 23. On Jacket: changing the location field and loading again replaces the weather block without wiping the Situation
 24. `/docs` overlay still works after the Workshop weather work
 25. First visit (or clear `talk-to-jev:tutorial-done`): coach overlay appears on Workshop; card fully on-screen and opaque
@@ -612,6 +664,17 @@ Before calling Workshop done:
 32. Chrome key pill (checking / ready / missing / error) is a real button with `cursor: pointer`; click and keyboard go to `/settings`; `title` mentions Settings on every state (missing: paste in Settings); visible label stays the key status, not the word Settings
 33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`). Typing an id works. **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled.
+35. Ticket label reads **Jev’s case** (not **Case**). Use Cases gallery title stays **Use Cases**.
+36. **Add .md** (or drop `.md` onto Jev’s case) inserts a marked attach block into the textarea; chips list the filename. Ask Jev / the LLM see that text as `state`.
+37. Drop a **mix** (`.md` + `.txt` or `.pdf`): markdown attaches; the convert pane opens for the rest with per-file progress. A truly unsupported type shows an inline error (no native `alert`). A huge markdown file (over the §15 cap) is rejected without freezing the UI.
+38. Remove a chip: that attach block is gone; weather / situation text stay.
+39. Re-adding the same filename replaces that attach block (does not duplicate it).
+40. Opening Docs does **not** dump the official snapshot into Jev’s case. Attach is local user files only.
+41. Drop `.txt` / `.html` / `.docx` / `.pdf` onto Jev’s case: Convert to Markdown opens and takes **half** the Workshop board. Quiet splitter (not candy-cane). Per-file progress. Resulting MD can **Add to the LLM**, **Add to Jev’s case**, **Download**, **Save as MD**.
+42. PDF: text layer via **pdfjs-dist** in the browser. No network upload of the file. A scan / image-only PDF errors **scan / no selectable text**. Convert pane footnotes Pandoc as a heavier local option.
+43. `.doc` (legacy): convert pane says **save as .docx** (no cheap browser path).
+44. Convert pane shows Jev token copy from TypeSafe (`docs/jev/typesafe/models.md`): **~64,000 tokens per request**; **32k** for state + longest question. Warn if converted MD would blow 32k; block **Add to Jev’s case** if it would blow 64k. Download / Save still work.
+45. Convert pane textareas `resize: none`. Tips opaque and fully on-screen.
 
 ---
 
@@ -628,3 +691,88 @@ Nater wants this public soon (Jev wave). Flip GitHub to **public** only if all a
 7. `env.local.template` (if present) has **empty** values only — never real secrets
 
 If any fail: **keep private**, fix what we can, report. LICENSE is MIT, copyright Nathan Utley, 2026.
+
+---
+
+## 16. Convert to Markdown (client-side)
+
+Nater (2026-09-19): drop files on **Jev’s case**. Markdown goes into Jev state. Other text-ish files open **Convert to Markdown**. PDFs are **text layer only** via OSS **pdf.js** (`pdfjs-dist`) in the browser. **No images, no OCR, no upload to a SaaS converter.** Files never leave the machine.
+
+### Drop mix (Jev’s case ticket)
+
+| Kind | Extensions / types | Behavior |
+|---|---|---|
+| Markdown | `.md`, `.markdown`, `text/markdown` | Drop **into Jev’s case** as attach blocks. **No convert pane.** |
+| Convert | `.txt`, `.html`, `.htm`, `.docx`, `.pdf` | Auto-open **Convert to Markdown**. Per-file progress. |
+| Legacy Word | `.doc` (OLE / `application/msword`) | Open the convert pane with an error: **save as .docx**. No cheap reliable browser path for OLE `.doc`. |
+| Mix | markdown + convert | Markdown attaches; convert files open the pane. |
+| Other | anything else | Inline error on the ticket (`role="alert"`). Not `alert()`. |
+
+**Add .md** stays markdown-only.
+
+**Convert to Markdown** control on the ticket: file picker `accept` for `.txt,.html,.htm,.docx,.pdf,.doc` plus matching MIME types, `multiple`. Opens the convert pane. Does not attach until an action.
+
+Drag-and-drop onto the **whole Jev’s case ticket**.
+
+### Convert pane
+
+When any convert file is queued, the Workshop **board splits**: Convert pane takes **half** (default 50%). Quiet custom splitter (same mill/pine seam as LLM \| Jev — not a dashed orange hatch). Hidden on mobile; panes stack. `resize: none` on the preview textarea.
+
+Eyebrow: **Convert to Markdown**.
+
+Per-file row: filename, status (queued / reading / converting / done / error), progress (PDF = page n of m). Select a done file to preview resulting MD.
+
+**Actions** on the selected resulting MD:
+
+| Action | What |
+|---|---|
+| **Add to the LLM** | Insert a user-visible note into the LLM thread with the markdown. Does **not** auto-call the LLM. |
+| **Add to Jev’s case** | Merge as an attach block (same markers as §15). Same replace-same-name / cap rules. |
+| **Download** | Browser download of the `.md`. |
+| **Save as MD** | `showSaveFilePicker` when the browser has it; otherwise same as Download. |
+
+Close (×) hides the pane. A later drop can reopen and append jobs.
+
+### Libraries (browser, OSS)
+
+| Format | Path |
+|---|---|
+| `.docx` | **mammoth** → HTML → **turndown** → MD. Skip embedded images (Jev is text-only). |
+| `.html` / `.htm` | **turndown** |
+| `.txt` | Read as UTF-8 text; treat as markdown (no fake formatting). |
+| `.pdf` | **pdfjs-dist** (Mozilla pdf.js). Extract **text items only**. Do not rasterize, do not OCR, do not send the file anywhere. |
+| `.doc` | No convert. Message: save as `.docx` and drop again. |
+
+PDF with **no text layer** (scan / image-only): error **scan / no selectable text**. Do not pretend to OCR.
+
+Password-protected PDF: error that it is locked.
+
+Optional UI footnote: heavier local tool = [Pandoc](https://pandoc.org/).
+
+### Caps
+
+- Convert source: **12 MiB** per file, **8** files per batch
+- Resulting MD: **200,000 characters** to **Add to Jev’s case** (same as §15). Download / Save / Add to the LLM may still use a larger preview; warn if over.
+- Never upload. Never a convert API. Never read `.env` / `.env.local`.
+
+### Jev token window (TypeSafe snapshot)
+
+Source of truth: [`docs/jev/typesafe/models.md`](jev/typesafe/models.md) (fetched 2026-09-19):
+
+- **64k tokens per request** (`state` + all questions combined)
+- **32k tokens** for `state` plus the **single longest question**
+
+OpenRouter’s Jev 1.13 listing in this snapshot still says **32,000** context — treat that as **stale vs TypeSafe**. UI copy: **Jev context window ~64,000 tokens** (TypeSafe), with a note that **state + longest question** is **32k**.
+
+Rough estimate: `ceil(chars / 4)`. Show estimated tokens on the convert pane for the resulting MD.
+
+- **Warn** if the MD (or MD + current Jev’s case) would exceed **32k** (state + longest question).
+- **Error** (block **Add to Jev’s case**) if the MD alone, or MD + current case, would exceed **64k**. Download / Save / Add to the LLM still allowed.
+
+### Never
+
+- Images into Jev
+- OCR / Tesseract / cloud PDF APIs
+- New upload endpoint
+- Secrets in convert output or history
+
