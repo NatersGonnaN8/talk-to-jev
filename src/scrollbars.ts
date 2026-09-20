@@ -46,6 +46,14 @@ function stillInsideBar(
   return related instanceof Node && bar.contains(related);
 }
 
+function barIsShown(bar: AxisEls): boolean {
+  return bar.root.style.display === "flex";
+}
+
+function nodeOnBar(bar: AxisEls, node: EventTarget | null): boolean {
+  return node instanceof Node && bar.root.contains(node);
+}
+
 function isRoot(el: HTMLElement): boolean {
   return el === document.documentElement;
 }
@@ -208,6 +216,8 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
   let armed: HostCtl | null = null;
   let scanTok = 0;
   let layoutTok = 0;
+  let lastPtrX = Number.NaN;
+  let lastPtrY = Number.NaN;
 
   function requestScan(): void {
     if (scanTok) return;
@@ -247,10 +257,18 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     }
   }
 
+  function pointerOnStrip(bar: AxisEls): boolean {
+    if (!barIsShown(bar)) return false;
+    if (Number.isFinite(lastPtrX) && Number.isFinite(lastPtrY)) {
+      const top = document.elementFromPoint(lastPtrX, lastPtrY);
+      return nodeOnBar(bar, top);
+    }
+    return bar.hover;
+  }
+
   function axisBusy(ctl: HostCtl, axis: Axis): boolean {
-    const bar = ctl[axis];
     return (
-      bar.hover ||
+      pointerOnStrip(ctl[axis]) ||
       ctl.dragging?.axis === axis ||
       ctl.pressAxis === axis
     );
@@ -290,7 +308,9 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
 
   function flashFromScroll(ctl: HostCtl): void {
     for (const axis of ["y", "x"] as const) {
-      if (ctl[axis].root.style.display === "none") continue;
+      if (!barIsShown(ctl[axis])) continue;
+      const bar = ctl[axis];
+      bar.hover = pointerOnStrip(bar);
       reveal(ctl, axis);
       if (!axisBusy(ctl, axis)) scheduleHide(ctl, axis);
     }
@@ -372,6 +392,7 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
       els.hover = false;
       scheduleHide(ctl, axis);
     };
+    // Hover host is this 14px strip only — never the overflow pane / Inspector body.
     els.root.addEventListener("pointerenter", onBarEnter);
     els.root.addEventListener("pointerleave", onBarLeave);
     els.root.addEventListener(
@@ -534,6 +555,8 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
   };
 
   const onPointerMove = (e: PointerEvent): void => {
+    lastPtrX = e.clientX;
+    lastPtrY = e.clientY;
     if (!dragging?.dragging) return;
     const d = dragging.dragging;
     const delta =
@@ -558,8 +581,9 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     dragging = null;
     if (!axis) return;
     const bar = ctl[axis];
-    const top = document.elementFromPoint(e.clientX, e.clientY);
-    bar.hover = top instanceof Node && bar.root.contains(top);
+    lastPtrX = e.clientX;
+    lastPtrY = e.clientY;
+    bar.hover = pointerOnStrip(bar);
     if (bar.hover) reveal(ctl, axis);
     else scheduleHide(ctl, axis);
   };
