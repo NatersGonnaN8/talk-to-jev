@@ -34,7 +34,8 @@ body,
   font-family: var(--font-ui);
 }
 
-code {
+code,
+pre {
   font-family: var(--font-code);
 }
 
@@ -723,6 +724,18 @@ textarea.case {
   display: block;
   font-family: var(--font-code);
   font-size: 0.72rem;
+  color: var(--mute);
+}
+
+.pane-head .pane-meta {
+  display: block;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.3;
+  text-transform: none;
   color: var(--mute);
 }
 
@@ -1461,8 +1474,11 @@ body:has(.page-mount:not([hidden]) > .workshop) {
   transform: translateX(-50%);
   background: #142018;
   color: #f3e7d3;
+  font-family: var(--font-ui);
   font-size: 0.72rem;
   line-height: 1.2;
+  letter-spacing: normal;
+  text-transform: none;
   padding: 0.28rem 0.5rem;
   border-radius: 4px;
   white-space: nowrap;
@@ -1629,6 +1645,7 @@ body:has(.page-mount:not([hidden]) > .workshop) {
   padding: 0.8rem 1rem;
   border-radius: 8px;
   overflow: auto;
+  font-family: var(--font-code);
 }
 
 .md-nice pre code {
@@ -1957,8 +1974,11 @@ select:focus-visible,
   z-index: 90;
   background: #142018;
   color: #f3e7d3;
+  font-family: var(--font-ui);
   font-size: 0.72rem;
   line-height: 1.25;
+  letter-spacing: normal;
+  text-transform: none;
   padding: 0.28rem 0.5rem;
   border-radius: 4px;
   white-space: normal;

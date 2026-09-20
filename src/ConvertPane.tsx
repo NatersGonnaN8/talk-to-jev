@@ -306,7 +306,7 @@ export function ConvertPane({
           <header className="pane-head">
             <div>
               <h2 className="pane-title">Files</h2>
-              <code>txt · html · docx · pdf</code>
+              <p className="pane-meta">txt · html · docx · pdf</p>
             </div>
             <FlipTip text="Convert txt, html, docx, or pdf in this browser. Files never leave the machine.">
               <button
@@ -383,7 +383,7 @@ export function ConvertPane({
           <header className="pane-head">
             <div>
               <h2 className="pane-title">Markdown</h2>
-              <code>in this browser · files stay here</code>
+              <p className="pane-meta">in this browser · files stay here</p>
             </div>
           </header>
           <p className="convert-note">
