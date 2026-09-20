@@ -846,7 +846,7 @@ function Workshop({
             });
             return;
           }
-          if (ev.type === "set_jev_case") {
+          if (ev.type === "set_jev_state") {
             stateRef.current = ev.state;
             setState(ev.state);
             onToast("Updated Jev’s State.");

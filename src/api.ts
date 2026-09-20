@@ -155,7 +155,7 @@ export type LlmStreamEvent =
       argsSummary: string;
       resultSummary?: string;
     }
-  | { type: "set_jev_case"; state: string }
+  | { type: "set_jev_state"; state: string }
   | { type: "set_jev_questions"; questions: Record<string, JevQuestion> }
   | {
       type: "ask_jev";
@@ -259,8 +259,8 @@ export function eventsFromPayload(json: SsePayload): LlmStreamEvent[] {
         ? { resultSummary: json.resultSummary }
         : {}),
     });
-    if (json.ok && toolName === "set_jev_case" && typeof json.state === "string") {
-      out.push({ type: "set_jev_case", state: json.state });
+    if (json.ok && toolName === "set_jev_state" && typeof json.state === "string") {
+      out.push({ type: "set_jev_state", state: json.state });
     }
     if (json.ok && toolName === "set_jev_questions" && json.questions) {
       out.push({ type: "set_jev_questions", questions: json.questions });
@@ -295,7 +295,7 @@ export function eventFromPayload(json: SsePayload): LlmStreamEvent | null {
   return (
     all.find(
       (e) =>
-        e.type === "set_jev_case" ||
+        e.type === "set_jev_state" ||
         e.type === "set_jev_questions" ||
         e.type === "ask_jev" ||
         e.type === "delta" ||

@@ -28,9 +28,9 @@ export const LLM_TOOLS = [
   {
     type: "function" as const,
     function: {
-      name: "set_jev_case",
+      name: "set_jev_state",
       description:
-        "Write Jev’s State (the ticket / Jev state). Replaces the state textarea. Use this instead of pasting state JSON into chat.",
+        "Write the TypeSafe state (Jev’s State mill ticket — the `state` Jev judges). Replaces the state textarea. Use this instead of pasting state JSON into chat.",
       parameters: {
         type: "object",
         properties: {
@@ -126,12 +126,12 @@ function modeBlock(mode: LlmMode) {
     return `\n\nMode: propose-questions. You MUST call set_jev_questions with a complete valid map (typically 2–4 atomic questions). Do NOT call ask_jev. Do NOT reply with JSON only. After the tool, one short confirmation.`;
   }
   if (mode === "random-case") {
-    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_case. (2) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. Do NOT call ask_jev. Asking Jev is the mill Ask Jev button. Do NOT invent probabilities. Do NOT reply with JSON only. After tools, one short confirmation, then stop. This is not the N-turn agentic loop.`;
+    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_state. (2) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. Do NOT call ask_jev. Asking Jev is the mill Ask Jev button. Do NOT invent probabilities. Do NOT reply with JSON only. After tools, one short confirmation, then stop. This is not the N-turn agentic loop.`;
   }
   if (mode === "agentic-loop") {
-    return `\n\nMode: agentic-loop. Use the CURRENT Jev’s State and current questions. Do NOT invent a new random scenario. Do NOT call set_jev_case to replace the ticket with fiction. If questions are clean, you MUST call ask_jev. You may call set_jev_questions only if ids are dirty or you need a new option, then ask_jev. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation.`;
+    return `\n\nMode: agentic-loop. Use the CURRENT Jev’s State and current questions. Do NOT invent a new random scenario. Do NOT call set_jev_state to replace the ticket with fiction. If questions are clean, you MUST call ask_jev. You may call set_jev_questions only if ids are dirty or you need a new option, then ask_jev. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation.`;
   }
-  return `\n\nMode: chat. If the operator asks to write the state and/or propose Jev questions, call set_jev_case and/or set_jev_questions. Only call ask_jev when they want a snap now AND questions are clean. Otherwise leave Ask Jev as the click.`;
+  return `\n\nMode: chat. If the operator asks to write the state and/or propose Jev questions, call set_jev_state and/or set_jev_questions. Only call ask_jev when they want a snap now AND questions are clean. Otherwise leave Ask Jev as the click.`;
 }
 
 export type LlmSessionBody = {
@@ -250,7 +250,7 @@ A weather block in Jev’s State (<!-- weather:start --> or ## Weather) is obser
 You have tools that mutate the Workshop. USE THEM. Do not paste state JSON or a questions map into the chat — the UI already shows the ticket and q-cards. After tools, write one short confirmation.
 
 Tools:
-1. set_jev_case — write Jev’s State (the ticket / state).
+1. set_jev_state — write the TypeSafe state (Jev’s State mill ticket). Not a case.
 2. set_jev_questions — replace typed questions. Real ids. Types choice / noul / score. instructions hold the full question. choice criteria = option descriptions in visual order (semantic keys like refund/deny are rewritten to "1","2",… on the card and when calling Jev; never mint option_a). score criteria = ordered level strings. noul criteria = optional {true, false}. Skip blank ids; never invent q_* or empty ids.
 3. ask_jev — call Jev only if the state + questions are clean. Do not invent probabilities. If not clean: tools 1–2 (in agentic-loop, keep going until ask_jev works). In random-case: tools 1–2 only — do not call ask_jev.
 
@@ -446,7 +446,7 @@ function toolCallsFromMessage(msg: {
 
 function sortToolCalls(calls: OrToolCall[]) {
   const rank = (name: string) =>
-    name === "set_jev_case" ? 0 : name === "set_jev_questions" ? 1 : name === "ask_jev" ? 2 : 3;
+    name === "set_jev_state" ? 0 : name === "set_jev_questions" ? 1 : name === "ask_jev" ? 2 : 3;
   return [...calls].sort((a, b) => rank(a.function.name) - rank(b.function.name));
 }
 
@@ -494,7 +494,7 @@ async function executeTool(
 ): Promise<string> {
   const { work, res, callId, argsSummary } = ctx;
   const base = { id: callId, name, status: "done" as const, argsSummary };
-  if (name === "set_jev_case") {
+  if (name === "set_jev_state") {
     const state = String(args.state ?? args.case ?? args.text ?? "");
     if (!state.trim()) {
       const payload = { ok: false, message: "state is required." };

@@ -33,7 +33,7 @@ The LLM never answers a Jev question itself. It has three tools, and the server 
 
 | Tool | Does |
 |---|---|
-| `set_jev_case` | Writes **Jev’s State** — the `state` Jev judges. |
+| `set_jev_state` | Writes **Jev’s State** — the TypeSafe `state` Jev judges (not a “case”). |
 | `set_jev_questions` | Replaces the typed questions. Real snake_case ids only. `choice` options become `"1"`, `"2"`, … with descriptions as values; `score` is an ordered legend; `noul` is optional `{ true, false }`. Blank ids are dropped, never invented. |
 | `ask_jev` | `POST /api/alpha/decisions` with the current state + questions. Only runs when every id is real. Returns probabilities, not prose. |
 

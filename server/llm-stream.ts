@@ -163,7 +163,7 @@ export function isAbortError(err: unknown): boolean {
 }
 
 export function summarizeToolArgs(name: string, args: Record<string, unknown>): string {
-  if (name === "set_jev_case") {
+  if (name === "set_jev_state") {
     const state = String(args.state ?? args.case ?? args.text ?? "");
     const line =
       state
