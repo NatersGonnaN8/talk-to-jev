@@ -114,6 +114,7 @@ function caseFromSearch(): string | null {
 
 const BLANK_QUESTION_ID_ERROR =
   "Type a question id before asking Jev. We will not invent one.";
+const THREAD_STICKY_PX = 40;
 
 function questionsForJev(questions: Record<string, JevQuestion>) {
   const out: Record<string, JevQuestion> = {};
@@ -538,6 +539,8 @@ function Workshop({
   const [dropOn, setDropOn] = useState(false);
   const dragDepth = useRef(0);
   const threadRef = useRef<HTMLDivElement>(null);
+  const threadStackRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
   const snapRef = useRef<WorkshopSnapshot>(
     boot ? cloneSnapshot(boot) : emptySnapshot(),
   );
@@ -609,16 +612,39 @@ function Workshop({
     dragDepth.current = 0;
   };
 
+  const followThreadIfPinned = useCallback(() => {
+    const el = threadRef.current;
+    if (!el || !stickToBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, []);
+
   useEffect(() => {
     const el = threadRef.current;
     if (!el) return;
+    const onScroll = () => {
+      const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickToBottomRef.current = gap <= THREAD_STICKY_PX;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const stack = threadStackRef.current;
+    if (!stack) return;
+    const ro = new ResizeObserver(() => {
+      followThreadIfPinned();
+    });
+    ro.observe(stack);
+    return () => ro.disconnect();
+  }, [followThreadIfPinned]);
+
+  useEffect(() => {
     const id = window.requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
-      const last = el.querySelector(".bubble:last-child");
-      last?.scrollIntoView({ block: "nearest" });
+      followThreadIfPinned();
     });
     return () => window.cancelAnimationFrame(id);
-  }, [messages, busy]);
+  }, [messages, busy, followThreadIfPinned]);
 
   useEffect(() => {
     if (!presetId) return;
@@ -740,6 +766,7 @@ function Workshop({
       { role: "assistant", content: "" },
     ];
     streamLockRef.current = true;
+    stickToBottomRef.current = true;
     messagesRef.current = nextMessages;
     setMessages(nextMessages);
     if (opts?.clearDraft) setDraft("");
@@ -1310,33 +1337,35 @@ function Workshop({
           ref={threadRef}
           aria-busy={busy === "llm" || busy === "propose"}
         >
-          {messages.length === 0 ? (
-            <p className="empty">
-              Draft the state, or ask how to phrase a Jev question.
-            </p>
-          ) : (
-            messages.map((m, i) => {
-              const streaming =
-                Boolean(busy === "llm" || busy === "propose") &&
-                i === messages.length - 1 &&
-                m.role === "assistant";
-              if (m.role === "assistant") {
+          <div className="thread-stack" ref={threadStackRef}>
+            {messages.length === 0 ? (
+              <p className="empty">
+                Draft the state, or ask how to phrase a Jev question.
+              </p>
+            ) : (
+              messages.map((m, i) => {
+                const streaming =
+                  Boolean(busy === "llm" || busy === "propose") &&
+                  i === messages.length - 1 &&
+                  m.role === "assistant";
+                if (m.role === "assistant") {
+                  return (
+                    <LlmBubble
+                      key={`${m.role}-${i}`}
+                      message={m}
+                      streaming={streaming}
+                    />
+                  );
+                }
                 return (
-                  <LlmBubble
-                    key={`${m.role}-${i}`}
-                    message={m}
-                    streaming={streaming}
-                  />
+                  <div key={`${m.role}-${i}`} className="bubble user">
+                    <span className="who">You</span>
+                    <pre>{m.content}</pre>
+                  </div>
                 );
-              }
-              return (
-                <div key={`${m.role}-${i}`} className="bubble user">
-                  <span className="who">You</span>
-                  <pre>{m.content}</pre>
-                </div>
-              );
-            })
-          )}
+              })
+            )}
+          </div>
         </div>
         <form
           className="composer"

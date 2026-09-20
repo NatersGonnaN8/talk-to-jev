@@ -837,6 +837,9 @@ textarea.case {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.thread-stack {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
