@@ -44,8 +44,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: "case",
-    title: "The Case ticket is Jev state",
-    body: "This slip is what Jev judges. The LLM can draft it. Operator snaps and (on Jacket) weather all live here as state — not as a chat with Jev.",
+    title: "Jev’s case is Jev state",
+    body: "This slip is what Jev judges. The LLM can draft it. Operator snaps, local .md you drop in, converted files you add from Convert to Markdown, and (on Jacket) weather all live here as state — not as a chat with Jev.",
     page: "workshop",
     hooks: ["case"],
     selectors: [".ticket"],

@@ -344,6 +344,9 @@ function workshopApi(): Plugin {
 
 export default defineConfig({
   plugins: [react(), workshopApi()],
+  optimizeDeps: {
+    include: ["mammoth", "turndown", "pdfjs-dist"],
+  },
   server: {
     port: 5182,
     strictPort: true,

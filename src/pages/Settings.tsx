@@ -1,40 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getSettings, saveSetting } from "../api";
 import type { KeyStatus } from "../types";
-
-function FlipTip({ text, children }: { text: string; children: ReactNode }) {
-  const host = useRef<HTMLSpanElement>(null);
-  const tip = useRef<HTMLSpanElement>(null);
-  const [place, setPlace] = useState<"below" | "above">("below");
-
-  const measure = () => {
-    const t = tip.current;
-    const h = host.current;
-    if (!t || !h) return;
-    const hr = h.getBoundingClientRect();
-    const chrome = 64;
-    const need = Math.max(t.offsetHeight, 28) + 10;
-    const spaceBelow = window.innerHeight - hr.bottom;
-    const spaceAbove = hr.top - chrome;
-    if (spaceBelow >= need) setPlace("below");
-    else if (spaceAbove >= need) setPlace("above");
-    else setPlace(spaceBelow >= spaceAbove ? "below" : "above");
-  };
-
-  return (
-    <span
-      className="flip-host"
-      ref={host}
-      onMouseEnter={measure}
-      onFocus={measure}
-    >
-      {children}
-      <span ref={tip} className={`flip-tip ${place}`} role="tooltip">
-        {text}
-      </span>
-    </span>
-  );
-}
+import { FlipTip } from "../FlipTip";
 
 export function SettingsPage({
   onToast,

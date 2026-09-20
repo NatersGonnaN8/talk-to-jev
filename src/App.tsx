@@ -26,6 +26,18 @@ import {
   type SampleId,
 } from "./samples";
 import { DEFAULT_LOCATION_QUERY, mergeWeatherIntoCase } from "./weather";
+import {
+  MAX_ATTACH_CHARS,
+  MAX_ATTACH_FILES,
+  attachFilesToCase,
+  listAttachedNames,
+  mergeAttachIntoCase,
+  sanitizeAttachName,
+  stripAttachFromCase,
+} from "./attach";
+import { AttachBar } from "./AttachBar";
+import { ConvertPane } from "./ConvertPane";
+import { partitionDroppedFiles } from "./convert/formats";
 import { UseCasesPage } from "./UseCases";
 import { SettingsPage } from "./pages/Settings";
 import { HistoryPanel } from "./HistoryPanel";
@@ -496,6 +508,15 @@ function Workshop({
   );
   const [locationQuery, setLocationQuery] = useState(DEFAULT_LOCATION_QUERY);
   const [weatherLine, setWeatherLine] = useState("");
+  const [attachError, setAttachError] = useState("");
+  const [dropOn, setDropOn] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [convertBatch, setConvertBatch] = useState<{
+    id: string;
+    files: File[];
+  } | null>(null);
+  const [convertSplit, setConvertSplit] = useState(50);
+  const dragDepth = useRef(0);
   const threadRef = useRef<HTMLDivElement>(null);
   const snapRef = useRef<WorkshopSnapshot>(emptySnapshot());
   const storeRef = useRef(store);
@@ -528,6 +549,11 @@ function Workshop({
     setDraft("");
     setWeatherLine("");
     setLocationQuery(DEFAULT_LOCATION_QUERY);
+    setAttachError("");
+    setDropOn(false);
+    dragDepth.current = 0;
+    setConvertOpen(false);
+    setConvertBatch(null);
   };
 
   useEffect(() => {
@@ -571,6 +597,7 @@ function Workshop({
     setMessages([]);
     setDraft("");
     setWeatherLine("");
+    setAttachError("");
     onToast(
       preset.kind === "weather"
         ? `Loaded “${preset.label}”. Click Load weather for live Open-Meteo.`
@@ -710,6 +737,114 @@ function Workshop({
     onToast("Fed Jev’s answers into the LLM thread.");
   };
 
+  const attachedNames = useMemo(() => listAttachedNames(state), [state]);
+
+  const consumeConvertBatch = useCallback(() => {
+    setConvertBatch(null);
+  }, []);
+
+  const queueConvertFiles = (files: File[]) => {
+    if (!files.length) return;
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    setConvertBatch({ id, files });
+    setConvertOpen(true);
+  };
+
+  const onTicketFiles = async (list: FileList | File[]) => {
+    const files = Array.from(list);
+    if (!files.length) return;
+    const { markdown, convert, unsupported } = partitionDroppedFiles(files);
+    const errors: string[] = [];
+    if (unsupported.length) {
+      errors.push(`Not supported: ${unsupported.join(", ")}`);
+    }
+    if (markdown.length) {
+      const result = await attachFilesToCase(state, markdown);
+      setState(result.state);
+      errors.push(...result.errors);
+    }
+    if (convert.length) queueConvertFiles(convert);
+    setAttachError(errors.filter(Boolean).join(" "));
+  };
+
+  const onPickMarkdown = (list: FileList) => {
+    void onTicketFiles(list);
+  };
+
+  const onPickConvert = (list: FileList) => {
+    void onTicketFiles(list);
+  };
+
+  const onRemoveAttach = (name: string) => {
+    setState((s) => stripAttachFromCase(s, name));
+    setAttachError("");
+  };
+
+  const onConvertAddToCase = (filename: string, markdown: string) => {
+    const name = sanitizeAttachName(filename);
+    if (markdown.length > MAX_ATTACH_CHARS) {
+      return {
+        ok: false,
+        message: `Too large for Jev’s case (max ${MAX_ATTACH_CHARS.toLocaleString()} characters)`,
+      };
+    }
+    let ok = true;
+    let message = `Added ${name} to Jev’s case.`;
+    setState((s) => {
+      const already = listAttachedNames(s);
+      const replacing = already.includes(name);
+      if (!replacing && already.length >= MAX_ATTACH_FILES) {
+        ok = false;
+        message = `At most ${MAX_ATTACH_FILES} attached files`;
+        return s;
+      }
+      return mergeAttachIntoCase(s, name, markdown);
+    });
+    return { ok, message };
+  };
+
+  const onConvertAddToLlm = (filename: string, markdown: string) => {
+    setMessages((m) => [
+      ...m,
+      {
+        role: "user",
+        content: `Converted markdown from ${filename}:\n\n${markdown}`,
+      },
+    ]);
+    onToast("Added converted markdown to the LLM thread.");
+  };
+
+  const onTicketDragEnter = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDropOn(true);
+  };
+
+  const onTicketDragOver = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const onTicketDragLeave = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    dragDepth.current -= 1;
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0;
+      setDropOn(false);
+    }
+  };
+
+  const onTicketDrop = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDropOn(false);
+    const files = e.dataTransfer.files;
+    if (files?.length) void onTicketFiles(files);
+  };
+
   const onLoadWeather = async () => {
     setBusy("weather");
     try {
@@ -741,6 +876,143 @@ function Workshop({
     window.addEventListener("pointerup", up);
   }, []);
 
+  const onConvertSplitPointer = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const rail = e.currentTarget.parentElement;
+      if (!rail) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      const move = (ev: PointerEvent) => {
+        const rect = rail.getBoundingClientRect();
+        const x = ((ev.clientX - rect.left) / rect.width) * 100;
+        setConvertSplit(Math.min(72, Math.max(28, x)));
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    },
+    [],
+  );
+
+  const llmJevBoard = (
+    <>
+      <article className="pane llm" data-tutorial="llm" style={{ flex: `${split} 1 0` }}>
+        <header className="pane-head">
+          <div>
+            <span className="eyebrow">LLM</span>
+            <code>{health?.llmModel ?? "deepseek/deepseek-v4-flash"}</code>
+          </div>
+          <div className="row-actions" data-tutorial="wire">
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={locked}
+              onClick={() => void sendLlm("propose-questions")}
+            >
+              {busy === "propose" ? "Proposing…" : "Propose Jev questions"}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={!answers || busy !== null}
+              onClick={feedJev}
+            >
+              Feed Jev to LLM
+            </button>
+          </div>
+        </header>
+        <div className="thread" ref={threadRef}>
+          {messages.length === 0 ? (
+            <p className="empty">
+              Draft the case, or ask how to phrase a Jev question.
+            </p>
+          ) : (
+            messages.map((m, i) => (
+              <div key={`${m.role}-${i}`} className={`bubble ${m.role}`}>
+                <span className="who">{m.role === "user" ? "You" : "LLM"}</span>
+                <pre>{m.content || (busy && i === messages.length - 1 ? "…" : "")}</pre>
+              </div>
+            ))
+          )}
+        </div>
+        <form
+          className="composer"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void sendLlm("chat");
+          }}
+        >
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Talk to the LLM"
+            rows={2}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void sendLlm("chat");
+              }
+            }}
+          />
+          <button className="btn solid" type="submit" disabled={locked || !draft.trim()}>
+            {busy === "llm" ? "Sending…" : "Send"}
+          </button>
+        </form>
+      </article>
+
+      <div
+        className="splitter"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize panes"
+        onPointerDown={onSplitPointer}
+      />
+
+      <article className="pane jev" data-tutorial="jev" style={{ flex: `${100 - split} 1 0` }}>
+        <header className="pane-head">
+          <div>
+            <span className="eyebrow">Jev</span>
+            <code>{health?.jevModel ?? "typesafe/jev-1.13"}</code>
+          </div>
+          <button
+            type="button"
+            className="btn solid"
+            data-tutorial="ask-jev"
+            disabled={locked}
+            onClick={() => void onAskJev()}
+          >
+            {busy === "jev" ? "Asking…" : "Ask Jev"}
+          </button>
+        </header>
+        {blankIdError ? (
+          <p className="inline-error" role="alert">
+            {BLANK_QUESTION_ID_ERROR}
+          </p>
+        ) : null}
+        <QuestionEditor
+          questions={questions}
+          showBlankIdError={blankIdError}
+          onChange={(next) => {
+            setQuestions(next);
+            if (!blankQuestionKeys(next).length) setBlankIdError(false);
+          }}
+        />
+        <div className="answers">
+          {!answers ? (
+            <p className="empty">Define questions, then ask Jev.</p>
+          ) : (
+            Object.entries(answers).map(([id, a]) => (
+              <AnswerCard key={id} id={id} answer={a} />
+            ))
+          )}
+          {jevMeta ? <p className="meta">{jevMeta}</p> : null}
+        </div>
+      </article>
+    </>
+  );
+
   return (
     <main className="workshop">
       <HistoryPanel
@@ -753,9 +1025,16 @@ function Workshop({
         onRename={onRenameChat}
         onDelete={onDeleteChat}
       />
-      <section className="ticket" data-tutorial="case">
+      <section
+        className={dropOn ? "ticket drop-on" : "ticket"}
+        data-tutorial="case"
+        onDragEnter={onTicketDragEnter}
+        onDragOver={onTicketDragOver}
+        onDragLeave={onTicketDragLeave}
+        onDrop={onTicketDrop}
+      >
         <div className="ticket-head">
-          <span className="eyebrow">Case</span>
+          <span className="eyebrow">Jev’s case</span>
           <label className="check">
             <input
               type="checkbox"
@@ -812,126 +1091,49 @@ function Workshop({
           placeholder="What Jev should judge"
           rows={8}
         />
+        <AttachBar
+          names={attachedNames}
+          error={attachError}
+          onPickMarkdown={onPickMarkdown}
+          onPickConvert={onPickConvert}
+          onRemove={onRemoveAttach}
+        />
         <p className="hint">
           {isWeatherSample(samplePresetId)
-            ? "Jev judges this. The LLM can draft it. Weather is Open-Meteo input, not a model."
-            : "Jev judges this. The LLM can draft it."}
+            ? "Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf open Convert to Markdown. Weather is Open-Meteo input, not a model."
+            : "Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf open Convert to Markdown."}
         </p>
       </section>
 
       <section className="board">
-        <article className="pane llm" data-tutorial="llm" style={{ flex: `${split} 1 0` }}>
-          <header className="pane-head">
-            <div>
-              <span className="eyebrow">LLM</span>
-              <code>{health?.llmModel ?? "deepseek/deepseek-v4-flash"}</code>
-            </div>
-            <div className="row-actions" data-tutorial="wire">
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={locked}
-                onClick={() => void sendLlm("propose-questions")}
-              >
-                {busy === "propose" ? "Proposing…" : "Propose Jev questions"}
-              </button>
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={!answers || busy !== null}
-                onClick={feedJev}
-              >
-                Feed Jev to LLM
-              </button>
-            </div>
-          </header>
-          <div className="thread" ref={threadRef}>
-            {messages.length === 0 ? (
-              <p className="empty">
-                Draft the case, or ask how to phrase a Jev question.
-              </p>
-            ) : (
-              messages.map((m, i) => (
-                <div key={`${m.role}-${i}`} className={`bubble ${m.role}`}>
-                  <span className="who">{m.role === "user" ? "You" : "LLM"}</span>
-                  <pre>{m.content || (busy && i === messages.length - 1 ? "…" : "")}</pre>
-                </div>
-              ))
-            )}
-          </div>
-          <form
-            className="composer"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void sendLlm("chat");
-            }}
-          >
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Talk to the LLM"
-              rows={2}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void sendLlm("chat");
-                }
-              }}
+        {convertOpen ? (
+          <>
+            <ConvertPane
+              batch={convertBatch}
+              caseText={state}
+              onBatchConsumed={consumeConvertBatch}
+              onAddToCase={onConvertAddToCase}
+              onAddToLlm={onConvertAddToLlm}
+              onClose={() => setConvertOpen(false)}
+              style={{ flex: `${convertSplit} 1 0` }}
             />
-            <button className="btn solid" type="submit" disabled={locked || !draft.trim()}>
-              {busy === "llm" ? "Sending…" : "Send"}
-            </button>
-          </form>
-        </article>
-
-        <div
-          className="splitter"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize panes"
-          onPointerDown={onSplitPointer}
-        />
-
-        <article className="pane jev" data-tutorial="jev" style={{ flex: `${100 - split} 1 0` }}>
-          <header className="pane-head">
-            <div>
-              <span className="eyebrow">Jev</span>
-              <code>{health?.jevModel ?? "typesafe/jev-1.13"}</code>
-            </div>
-            <button
-              type="button"
-              className="btn solid"
-              data-tutorial="ask-jev"
-              disabled={locked}
-              onClick={() => void onAskJev()}
+            <div
+              className="splitter"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize convert pane"
+              onPointerDown={onConvertSplitPointer}
+            />
+            <div
+              className="board-rest"
+              style={{ flex: `${100 - convertSplit} 1 0` }}
             >
-              {busy === "jev" ? "Asking…" : "Ask Jev"}
-            </button>
-          </header>
-          {blankIdError ? (
-            <p className="inline-error" role="alert">
-              {BLANK_QUESTION_ID_ERROR}
-            </p>
-          ) : null}
-          <QuestionEditor
-            questions={questions}
-            showBlankIdError={blankIdError}
-            onChange={(next) => {
-              setQuestions(next);
-              if (!blankQuestionKeys(next).length) setBlankIdError(false);
-            }}
-          />
-          <div className="answers">
-            {!answers ? (
-              <p className="empty">Define questions, then ask Jev.</p>
-            ) : (
-              Object.entries(answers).map(([id, a]) => (
-                <AnswerCard key={id} id={id} answer={a} />
-              ))
-            )}
-            {jevMeta ? <p className="meta">{jevMeta}</p> : null}
-          </div>
-        </article>
+              {llmJevBoard}
+            </div>
+          </>
+        ) : (
+          llmJevBoard
+        )}
       </section>
     </main>
   );
