@@ -22,14 +22,17 @@ import {
 } from "./samples";
 import {
   BLANK_QUESTION_KEY_PREFIX,
+  addChoiceOption,
   blankQuestionKeys,
   emptyQuestion,
   isBlankQuestionId,
   nextBlankQuestionKey,
-  nextChoiceOptionKey,
   nextStableUid,
   questionIdValue,
+  removeChoiceOption,
   renameRecordKey,
+  spacesToSnake,
+  withPositionalChoiceKeys,
 } from "./jevQuestions";
 import { DEFAULT_LOCATION_QUERY, mergeWeatherIntoCase } from "./weather";
 import {
@@ -92,7 +95,7 @@ function questionsForJev(questions: Record<string, JevQuestion>) {
   for (const [id, q] of Object.entries(questions)) {
     if (!isBlankQuestionId(id)) out[id] = q;
   }
-  return out;
+  return withPositionalChoiceKeys(out);
 }
 
 function pct(n: number) {
@@ -475,7 +478,9 @@ function Workshop({
   );
   const [split, setSplit] = useState(50);
   const [questions, setQuestions] = useState<Record<string, JevQuestion>>(() =>
-    boot ? structuredClone(boot.questions) : emptySnapshot().questions,
+    withPositionalChoiceKeys(
+      boot ? structuredClone(boot.questions) : emptySnapshot().questions,
+    ),
   );
   const [answers, setAnswers] = useState<Record<string, JevAnswer> | null>(() =>
     boot?.answers ? structuredClone(boot.answers) : null,
@@ -529,7 +534,7 @@ function Workshop({
     setState(copy.state);
     setIncludeChat(copy.includeChat);
     setMessages(copy.messages);
-    setQuestions(copy.questions);
+    setQuestions(withPositionalChoiceKeys(copy.questions));
     setAnswers(copy.answers);
     setJevMeta(copy.jevMeta);
     setBlankIdError(false);
@@ -719,7 +724,7 @@ function Workshop({
           }
           if (ev.type === "set_jev_questions") {
             appliedQs = Object.keys(ev.questions).length;
-            setQuestions(ev.questions);
+            setQuestions(withPositionalChoiceKeys(ev.questions));
             setBlankIdError(false);
             setAnswers(null);
             onToast(`Loaded ${appliedQs} proposed questions into Jev.`);
@@ -1053,7 +1058,7 @@ function Workshop({
           questions={questions}
           showBlankIdError={blankIdError}
           onChange={(next) => {
-            setQuestions(next);
+            setQuestions(withPositionalChoiceKeys(next));
             if (!blankQuestionKeys(next).length) setBlankIdError(false);
           }}
         />
@@ -1203,6 +1208,7 @@ function QuestionCard({
   storageKey,
   q,
   showBlankIdError,
+  autoFocusId,
   onRenameId,
   onChangeQ,
   onRemove,
@@ -1210,40 +1216,63 @@ function QuestionCard({
   storageKey: string;
   q: JevQuestion;
   showBlankIdError: boolean;
+  autoFocusId?: boolean;
   onRenameId: (nextId: string) => void;
   onChangeQ: (next: JevQuestion) => void;
   onRemove: () => void;
 }) {
-  const optionUids = useRef(new Map<string, string>());
+  const optionUids = useRef<string[]>([]);
+  const idInputRef = useRef<HTMLInputElement>(null);
+  const optionInputRefs = useRef(new Map<string, HTMLInputElement>());
+  const [focusOptionUid, setFocusOptionUid] = useState<string | null>(null);
 
-  const optionUid = (k: string) => {
-    const existing = optionUids.current.get(k);
-    if (existing) return existing;
-    const uid = nextStableUid();
-    optionUids.current.set(k, uid);
-    return uid;
+  const optionUidAt = (index: number) => {
+    while (optionUids.current.length <= index) {
+      optionUids.current.push(nextStableUid());
+    }
+    return optionUids.current[index];
   };
+
+  useEffect(() => {
+    if (!autoFocusId) return;
+    const frame = requestAnimationFrame(() => {
+      idInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [autoFocusId]);
+
+  useEffect(() => {
+    if (!focusOptionUid) return;
+    const uid = focusOptionUid;
+    const frame = requestAnimationFrame(() => {
+      optionInputRefs.current.get(uid)?.focus();
+      setFocusOptionUid(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusOptionUid]);
 
   return (
     <div className="q-card">
       <div className="q-row">
         <input
+          ref={idInputRef}
           className={
             showBlankIdError && isBlankQuestionId(storageKey)
               ? "id-input invalid"
               : "id-input"
           }
           value={questionIdValue(storageKey)}
-          onChange={(e) => onRenameId(e.target.value)}
+          onChange={(e) => onRenameId(spacesToSnake(e.target.value))}
           placeholder="question id"
           aria-label="Question id"
           aria-invalid={showBlankIdError && isBlankQuestionId(storageKey)}
         />
         <select
           value={q.type}
-          onChange={(e) =>
-            onChangeQ(emptyQuestion(e.target.value as QuestionType))
-          }
+          onChange={(e) => {
+            optionUids.current = [];
+            onChangeQ(emptyQuestion(e.target.value as QuestionType));
+          }}
           aria-label="Question type"
         >
           <option value="choice">choice</option>
@@ -1267,57 +1296,61 @@ function QuestionCard({
       />
       {q.type === "choice" ? (
         <div className="criteria">
-          {Object.entries(q.criteria).map(([k, v]) => (
-            <div className="crit-row" key={optionUid(k)}>
-              <input
-                value={k}
-                onChange={(e) => {
-                  const nextKey = e.target.value;
-                  if (nextKey === k) return;
-                  transferUid(optionUids.current, k, nextKey, optionUid);
-                  onChangeQ({
-                    ...q,
-                    criteria: renameRecordKey(q.criteria, k, nextKey),
-                  });
-                }}
-                aria-label="Option key"
-              />
-              <input
-                value={v}
-                onChange={(e) =>
-                  onChangeQ({
-                    ...q,
-                    criteria: { ...q.criteria, [k]: e.target.value },
-                  })
-                }
-                aria-label="Option description"
-              />
-              <button
-                type="button"
-                className="btn tiny"
-                onClick={() => {
-                  const criteria = { ...q.criteria };
-                  delete criteria[k];
-                  optionUids.current.delete(k);
-                  onChangeQ({ ...q, criteria });
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+          {Object.entries(q.criteria).map(([k, v], i) => {
+            const n = i + 1;
+            const uid = optionUidAt(i);
+            return (
+              <div className="crit-row choice-opt" key={uid}>
+                <span className="opt-num" aria-hidden="true">
+                  {n}
+                </span>
+                <input
+                  ref={(el) => {
+                    if (el) optionInputRefs.current.set(uid, el);
+                    else optionInputRefs.current.delete(uid);
+                  }}
+                  value={v}
+                  onChange={(e) =>
+                    onChangeQ({
+                      ...q,
+                      criteria: {
+                        ...q.criteria,
+                        [k]: spacesToSnake(e.target.value),
+                      },
+                    })
+                  }
+                  placeholder="Option description"
+                  aria-label={`Option ${n} description`}
+                />
+                <button
+                  type="button"
+                  className="btn tiny"
+                  aria-label={`Remove option ${n}`}
+                  onClick={() => {
+                    optionUids.current.splice(i, 1);
+                    onChangeQ({
+                      ...q,
+                      criteria: removeChoiceOption(q.criteria, k),
+                    });
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
           <button
             type="button"
             className="btn tiny"
-            onClick={() =>
+            onClick={() => {
+              const uid = nextStableUid();
+              optionUids.current.push(uid);
+              setFocusOptionUid(uid);
               onChangeQ({
                 ...q,
-                criteria: {
-                  ...q.criteria,
-                  [nextChoiceOptionKey(Object.keys(q.criteria))]: "",
-                },
-              })
-            }
+                criteria: addChoiceOption(q.criteria),
+              });
+            }}
           >
             Add option
           </button>
@@ -1405,6 +1438,9 @@ function QuestionEditor({
 }) {
   const entries = useMemo(() => Object.entries(questions), [questions]);
   const cardUids = useRef(new Map<string, string>());
+  const [focusNewQuestionKey, setFocusNewQuestionKey] = useState<string | null>(
+    null,
+  );
 
   const cardUid = (storageKey: string) => {
     const existing = cardUids.current.get(storageKey);
@@ -1442,6 +1478,7 @@ function QuestionEditor({
           storageKey={id}
           q={q}
           showBlankIdError={showBlankIdError}
+          autoFocusId={id === focusNewQuestionKey}
           onRenameId={(nextId) => setId(id, nextId)}
           onChangeQ={(next) => setQ(id, next)}
           onRemove={() => remove(id)}
@@ -1450,12 +1487,14 @@ function QuestionEditor({
       <button
         type="button"
         className="btn ghost"
-        onClick={() =>
+        onClick={() => {
+          const key = nextBlankQuestionKey();
+          setFocusNewQuestionKey(key);
           onChange({
             ...questions,
-            [nextBlankQuestionKey()]: emptyQuestion("noul"),
-          })
-        }
+            [key]: emptyQuestion("noul"),
+          });
+        }}
       >
         Add question
       </button>

@@ -11,7 +11,12 @@ export function questionIdValue(storageKey: string) {
   return isBlankQuestionId(storageKey) ? "" : storageKey;
 }
 
-/** Stable identity for a q-card or option row. Never the editable id / option key. */
+/** ASCII space → `_` for snake_case typing (question ids, choice option descriptions). */
+export function spacesToSnake(value: string) {
+  return value.replaceAll(" ", "_");
+}
+
+/** Stable identity for a q-card or option row. Never the question id or displayed option number. */
 export function nextStableUid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -41,28 +46,53 @@ export function blankQuestionKeys(questions: Record<string, JevQuestion>) {
   return Object.keys(questions).filter((id) => isBlankQuestionId(id));
 }
 
-/** 0 → a, 25 → z, 26 → aa, 27 → ab */
-function optionLetterSuffix(index: number): string {
-  let n = index;
-  let out = "";
-  do {
-    out = String.fromCharCode(97 + (n % 26)) + out;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
+/**
+ * Choice keys sent to Jev and shown on the card: "1", "2", "3", … (never 0).
+ * Visual/object order wins. Semantic LLM keys (refund/deny) are dropped as keys;
+ * their descriptions stay.
+ */
+export function toPositionalChoiceCriteria(
+  rec: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  let n = 1;
+  for (const value of Object.values(rec)) {
+    out[String(n)] = value;
+    n += 1;
+  }
   return out;
 }
 
-/**
- * Next unused choice option key on one question: option_a … option_z, then option_aa.
- * Skips keys already present. Does not mint random opt_* ids.
- */
-export function nextChoiceOptionKey(usedKeys: Iterable<string>): string {
-  const used = new Set(usedKeys);
-  for (let i = 0; i < Number.MAX_SAFE_INTEGER; i++) {
-    const key = `option_${optionLetterSuffix(i)}`;
-    if (!used.has(key)) return key;
+export function withPositionalChoiceKeys(
+  questions: Record<string, JevQuestion>,
+): Record<string, JevQuestion> {
+  const out: Record<string, JevQuestion> = {};
+  for (const [id, q] of Object.entries(questions)) {
+    out[id] =
+      q.type === "choice"
+        ? { ...q, criteria: toPositionalChoiceCriteria(q.criteria) }
+        : q;
   }
-  throw new Error("exhausted sequential option keys");
+  return out;
+}
+
+export function addChoiceOption(
+  criteria: Record<string, string>,
+): Record<string, string> {
+  const next = toPositionalChoiceCriteria(criteria);
+  next[String(Object.keys(next).length + 1)] = "";
+  return next;
+}
+
+export function removeChoiceOption(
+  criteria: Record<string, string>,
+  key: string,
+): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const [k, v] of Object.entries(criteria)) {
+    if (k !== key) next[k] = v;
+  }
+  return toPositionalChoiceCriteria(next);
 }
 
 export function emptyQuestion(type: QuestionType): JevQuestion {
@@ -70,7 +100,7 @@ export function emptyQuestion(type: QuestionType): JevQuestion {
     return {
       type: "choice",
       instructions: "",
-      criteria: { option_a: "", option_b: "" },
+      criteria: { "1": "", "2": "" },
     };
   }
   if (type === "score") {

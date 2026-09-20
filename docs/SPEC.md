@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.16 — 2026-09-20  
+**Status:** v0.17 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -196,11 +196,14 @@ Layout (desktop):
 - Keep **Ask Jev**
 - Question editor: add / remove questions
   - Fields: id, type (`choice` | `noul` | `score`), instructions
-  - **Add question** inserts a new card with an **empty id**. The user types the id. Do **not** auto-generate `q_*` / random suffixes. Only **user-added** cards start blank — presets keep their real ids (`wear_jacket`, business ids, and the rest in `src/samples.ts`).
+  - **Add question** inserts a new card with an **empty id**. The user types the id. Do **not** auto-generate `q_*` / random suffixes. Only **user-added** cards start blank — presets keep their real ids (`wear_jacket`, business ids, and the rest in `src/samples.ts`). After click, focus the new card’s **id** input (caret ready to type; `document.activeElement` is that field, not the Add question button). `useEffect` + `requestAnimationFrame` on the new card uid. First-open / New Case’s already-blank card does **not** steal focus on load.
   - Id input placeholder: `question id` (a hint, not a fake value). The field value stays empty until they type.
-  - Question **id** and choice **option key** are editable labels, not React identities. Each q-card and each option row keeps a **stable uid** as its React `key` so typing does not remount the input or steal focus (`document.activeElement` must stay the field). Renaming an id or option key updates that card/row **in place** — do not delete-and-insert under the new string (that remounts after one character). Blank **Add question** still starts with an empty id (internal map key may be `__blank__:uuid`). Sequential `option_a` / `option_b` / `option_c` defaults on add stay; those strings must not be used as React keys. Nater (2026-09-20): typing into `vendor_claim_valid` / `action` dropped focus after one character because `key={id}`.
-  - New-card defaults (empty editor UX): type `noul`, empty instructions, empty true/false criteria. Switching type to **choice** starts two rows keyed `option_a` and `option_b` (empty descriptions). Score stays Low / Medium / High. Noul stays empty true/false criteria.
-  - Choice: option key + description rows (add/remove). 1–255 options in spirit; UI allows at least 2. **Add option** mints the next unused sequential key **on that question**: `option_a`, `option_b`, `option_c`, … `option_z`, then `option_aa`, `option_ab`, … Skip keys already present (including custom keys like `pay`). Do **not** mint random `opt_*` suffixes. Empty/blank keys stay allowed if the operator clears a key field; the *default on add* is sequential `option_*`. Same class of bug as blank question ids: never invent random ids for typed Jev fields. Nater (2026-09-20): a third option showed `opt_c58rm` — it should have been `option_c`.
+  - Question **id** is an editable label, not a React identity. Each q-card keeps a **stable uid** as its React `key` so typing does not remount the input or steal focus (`document.activeElement` must stay the field). Renaming an id updates that card **in place** — do not delete-and-insert under the new string (that remounts after one character). Blank **Add question** still starts with an empty id (internal map key may be `__blank__:uuid`). Nater (2026-09-20): typing into `vendor_claim_valid` / `action` dropped focus after one character because `key={id}`.
+  - **Space → `_` (snake_case typing).** ASCII space in the question **id** input and in each choice **option description** input becomes `_` as you type (paste included). Instructions textarea stays **prose** (spaces stay spaces). Score level labels and noul true/false criteria stay prose. Nater (2026-09-20).
+  - **TypeSafe snapshot (`docs/jev`) — what actually has to be spaceless.** Question **ids** and Choice **option names** (criteria **keys**) are JSON map keys (`questions` / `criteria`). Examples are snake_case with no spaces (`department`, `is_urgent`, `returns`, `wear_jacket`). The autoresearch cookbook slugifies names to `[a-z0-9_]` because they become question ids. The SDK/API does **not** reject spaces in string **values**: `instructions` and option **descriptions** are typically prose (“Which team should handle this?”, “Exchanges, wrong or damaged items”). Workshop still snake-cases **option description** typing because there is no option-key box — the description field is what the operator types on each row. Positional keys `"1"`, `"2"`, … stay the keys sent to Jev.
+  - New-card defaults (empty editor UX): type `noul`, empty instructions, empty true/false criteria. Switching type to **choice** starts two rows numbered **1** and **2** (empty descriptions). Score stays Low / Medium / High. Noul stays empty true/false criteria.
+  - **Choice options: no option-key text box.** Do not mint `option_a` and do not type `1` into an input. Show a slick **1-based number to the left** of each option description (1, 2, 3, 4 — never 0). That number **is** the choice key passed to Jev (`"1"`, `"2"`, …). Users only fill the description. **Add option** appends a new numbered row; remove/reorder keeps numbers in visual order. Each option row keeps a **stable uid** as its React `key` (not the displayed number, not a typed key). LLM `set_jev_questions` may still emit semantic option keys (`refund` / `deny`, `pay` / `hold`); rewrite those to positional numbers **on the card** and **when sending to Jev**. No key field → nothing to steal focus. Nater (2026-09-20): option keys were a second focus-stealing field; positional numbers replace them.
+  - **Add option** after click: focus the **new** row’s description input (`document.activeElement` is `Option N description`, not the Add option button). `useEffect` + `requestAnimationFrame` on the new option uid. Nater (2026-09-20): Add option left focus on the button so he could not type immediately.
   - Score: ordered level lines (min 2)
   - Noul: optional true / false criteria
   - Blank id on **Ask Jev** (or sending the editor through the propose → ask flow): inline error on the card, do not call Jev, do not invent an id.
@@ -419,7 +422,7 @@ Workshop, not a generic AI dashboard.
 - Jev slip: blueprint `#C9DCE8`
 - Wire / pine: `#2F5D4A`
 - Probability fill: industrial orange `#E06B2A`
-- Type: **Bricolage Grotesque** (display), **Public Sans** (body), **Fragment Mono** (ids, JSON, meters)
+- Type: **Public Sans** (UI chrome, eyebrows, headings, body), **Fragment Mono** (ids, JSON, meters). **Never font:** Bricolage Grotesque (Nater 2026-09-20 — he despises it; no similar quirky/wonky display grotesques)
 
 Signature: **Jev’s case** as a physical slip the two instruments share. Probability is a filled bar, not a pie.
 
@@ -439,7 +442,7 @@ The LLM is told, every request:
 - Question ids are for code; put the full question in `instructions`. Never empty ids (`q_*` placeholders, `__blank__:`, or blank keys). Skip those entries — do not invent an id.
 - It has **tools**. Use them. Do **not** paste case JSON or a questions map into the chat as the product.
   1. **`set_jev_case`** — write Jev’s case (the ticket / `state` string).
-  2. **`set_jev_questions`** — replace typed questions. Shape matches `src/types.ts` / the editor: `choice` (option key → description), `noul` (optional true/false criteria), `score` (ordered legend strings). Real ids. Instructions on every kept question.
+  2. **`set_jev_questions`** — replace typed questions. Shape matches `src/types.ts` / the editor: `choice` (option description in visual order; keys become 1-based `"1"`, `"2"`, …), `noul` (optional true/false criteria), `score` (ordered legend strings). Real ids. Instructions on every kept question. Semantic choice keys (`refund`/`deny`) are rewritten to positional numbers on the card and when calling Jev.
   3. **`ask_jev`** — only if case + questions are **clean** (at least one real-id question, no blank ids in the payload). Calls existing `/api/jev` (OpenRouter Decisions). If not clean: tools 1–2 only, and tell the operator to click **Ask Jev**.
 - After tools: a **short confirmation**. The UI already shows the ticket and q-cards.
 - Never invent Jev probabilities. Only mention typed answers if `ask_jev` just returned them or Latest Jev answers are in this prompt.
@@ -484,7 +487,9 @@ OpenAI-style tools on the chat-completions call. The server executes them, then 
 }
 ```
 
-**`ask_jev`** — `{}`. Uses the working case + working questions from this request (after any `set_*` in the same loop). If not clean: `{ ok: false }` to the model; do not call Decisions; the operator clicks **Ask Jev**.
+Choice `criteria` in this example may use semantic keys (`pay` / `hold` / `reject`). The editor and the Decisions payload rewrite them to `"1"` / `"2"` / `"3"` in object order. Descriptions stay. The LLM does not need to number them and must not mint `option_a`.
+
+**`ask_jev`** — `{}`. Uses the working case + working questions from this request (after any `set_*` in the same loop). Choice keys in that call are the positional numbers. If not clean: `{ ok: false }` to the model; do not call Decisions; the operator clicks **Ask Jev**.
 
 ---
 
@@ -632,7 +637,7 @@ One pick from **Preset Cases** on **Jev’s case** **and** cards on **Use Cases*
 
 Nater (2026-09-19): weather is **literally one use case**. The other nine are **business / operator** snaps — real tickets and memos (amounts, SLA, customer tier, policy quotes), not lifestyle weather, not sports-weather, not “festival in the rain.” Mix Jev primitives **choice**, **noul**, and **score** across the set (not all noul). Cheap LLM can still draft; Jev returns probabilities.
 
-Each preset is a product contract: **id**, **short label**, **pitch**, **kind** (`business` | `weather`), **situation** (case text), **Jev questions** (2–4, with ids / types / option keys). Picking a **Preset Cases** item or a Use Cases card:
+Each preset is a product contract: **id**, **short label**, **pitch**, **kind** (`business` | `weather`), **situation** (case text), **Jev questions** (2–4, with ids / types / choice **descriptions**). Choice option keys at runtime are always 1-based positional strings (`"1"`, `"2"`, …) in visual order — never `option_a`, never a typed key field. Sample source may use semantic keys for authoring (`pay` / `hold`); they are rewritten before they reach the card or Jev. Picking a **Preset Cases** item or a Use Cases card:
 
 - Writes the situation into Jev’s case textarea (weather placeholder **only** on Jacket)
 - Replaces the Jev question editor
@@ -660,7 +665,7 @@ Each preset is a product contract: **id**, **short label**, **pitch**, **kind** 
 
 AP queue. INV-18442, Northwind Logistics LLC, Net-30, 3 years, no prior disputes. Invoice $18,640 vs PO-9921 $16,200 (+15.1%). Fuel surcharge $1,980 not on PO; pallet repair $460 with a carrier claim. Policy AP-4.2: auto-pay ≤ $250 or ≤ 2%; hold 2–5% or $250–$2,000; reject or amend above that. Fuel needs a signed addendum (none on file). Buyer: pay fuel if verbal winter band, do not pay pallet. Vendor dunning 8 days past terms. SLA: AP close Friday 5pm ET.
 
-- `action` **choice** — `pay` / `hold` / `reject`
+- `action` **choice** — `1` Pay the invoice as billed / `2` Hold for buyer / `3` Reject and require a corrected invoice
 - `within_policy` **noul** — Is paying this invoice as-is within AP-4.2? true: within policy; false: exception needs hold or reject
 - `exception_risk` **score** — Routine / Watch / Material
 
@@ -668,7 +673,7 @@ AP queue. INV-18442, Northwind Logistics LLC, Net-30, 3 years, no prior disputes
 
 Zendesk #482911, 14m old, Enterprise ARR $94k, first-response SLA 1h. Subject mixes production webhook 500s and a duplicate $2,400 invoice. Three similar 5xx tickets in 40m. Duplicate Stripe charge id. Sender matches account owner. Queues: billing / engineering / success / spam.
 
-- `queue` **choice** — `billing` / `engineering` / `success` / `spam`
+- `queue` **choice** — `1` billing / `2` engineering / `3` success / `4` spam
 - `urgent` **noul** — Does this need Sev-1 / immediate attention? true: production or enterprise-at-risk now; false: can wait the SLA
 - `severity` **score** — Low / Medium / Sev-1
 
@@ -676,7 +681,7 @@ Zendesk #482911, 14m old, Enterprise ARR $94k, first-response SLA 1h. Subject mi
 
 HubSpot D-44190. Harbor & Pine Credit Union, ~$2.1B assets, VP Operations, DNA core. Inbound: decision engine for loan exception queues, budget this FY, demo Thursday. ICP: CU/community bank $500M–$10B, ops/risk buyer, exception or KYC queues. They asked for on-prem; we are cloud + VPC only.
 
-- `disposition` **choice** — `book_demo` / `nurture` / `disqualify`
+- `disposition` **choice** — `1` book demo / `2` nurture / `3` disqualify
 - `icp_fit` **noul** — Does this account match ICP? true: ICP; false: out of ICP
 - `intent` **score** — Cold / Warm / Hot
 
@@ -684,7 +689,7 @@ HubSpot D-44190. Harbor & Pine Credit Union, ~$2.1B assets, VP Operations, DNA c
 
 Stripe $247 annual renewal, order ORD-77120, Maya Chen, 11 months, lifetime $1,104, two small prior refunds, risk 12/100. Renewed 19h ago; 3 logins this period. Policy R-3: full if unused or 14-day new-customer window (she is not new). Partial: unused months minus consumed month if cancel within 7 days of renewal. Deny: abuse, >2 refunds/year, or fully consumed. Chargeback threat is not itself a deny.
 
-- `decision` **choice** — `full` / `partial` / `deny`
+- `decision` **choice** — `1` full / `2` partial / `3` deny
 - `policy_allows_full` **noul** — Does R-3 allow a full refund here? true: full is in policy; false: it is not
 - `abuse_risk` **score** — Clean / Watch / Abuse
 
@@ -692,7 +697,7 @@ Stripe $247 annual renewal, order ORD-77120, Maya Chen, 11 months, lifetime $1,1
 
 SWE-II Decision Systems. Jordan Hale, 4.5 years, fintech routing rules (Rails), claims a “System-One-style classifier” but described sklearn + Slack bot. Comp $165k + 0.15% (band $140–170k, 0.08–0.20%). Musts: production backend, judgment-under-uncertainty, tradeoffs. Auto-pass: cannot discuss a real production system, or >$190k. Interviewer: strong communicator, light systems design.
 
-- `outcome` **choice** — `advance` / `hold` / `pass`
+- `outcome` **choice** — `1` advance / `2` hold / `3` pass
 - `meets_musts` **noul** — Do they meet the must-have scorecard? true: yes; false: no
 - `fit` **score** — Weak / Mixed / Strong
 
@@ -700,7 +705,7 @@ SWE-II Decision Systems. Jordan Hale, 4.5 years, fintech routing rules (Rails), 
 
 billing-vats 2.12.0, ship window today 16:00–18:00 ET, PDF engine for EU VAT invoices (~1,100 Friday). Open P1: umlauts as `?` on the tagged worker image; fix is on a newer untagged build. Rollback: feature flag off, tested <2m. Go: no P1 on the artifact we ship. Wait: retag. Rollback-plan: ship a known P1 only with a documented revert (legal has not asked).
 
-- `call` **choice** — `ship` / `wait` / `rollback_plan`
+- `call` **choice** — `1` ship / `2` wait / `3` rollback plan
 - `artifact_ready` **noul** — Is the tagged artifact ready to ship? true: the SHA/tag we would ship is clean of P1; false: it is not
 - `readiness` **score** — Blocked / Fragile / Ready
 
@@ -708,7 +713,7 @@ billing-vats 2.12.0, ship window today 16:00–18:00 ET, PDF engine for EU VAT i
 
 Stripe dispute $1,890, reason fraudulent, due 6 days. New account, 40-seat annual, CVV fail, no 3DS, Lagos datacenter ASN, data export 12k rows, then dispute. Policy: represent if strong fulfillment + real-org use; accept if CVV fail + new + export + no 3DS; block if scrape/fraud pattern.
 
-- `action` **choice** — `accept` / `represent` / `block`
+- `action` **choice** — `1` accept / `2` represent / `3` block
 - `fraud_likely` **noul** — Is this likely fraud rather than a confused customer? true: fraud pattern; false: could be a real dispute
 - `evidence_strength` **score** — Thin / Mixed / Strong
 
@@ -716,7 +721,7 @@ Stripe dispute $1,890, reason fraudulent, due 6 days. New account, 40-seat annua
 
 Northwind Observability, $86k year 1, auto-renew. Liability cap 3 months fees. They want unlimited indemnity from us on customer content. SOC 2 Type II expired 4 months, no bridge letter. Training-on-customer-data unless an unattached exhibit. PROC-9: no unlimited outbound indemnity; no expired SOC 2 without a bridge; training opt-out required in the DPA. Walk if two of three fail and spend >$50k.
 
-- `action` **choice** — `sign` / `redline` / `walk`
+- `action` **choice** — `1` sign / `2` redline / `3` walk
 - `policy_clear` **noul** — Can we sign this paper as-is under PROC-9? true: clear to sign; false: not clear
 - `risk` **score** — Acceptable / Elevated / Deal-breaker
 
@@ -724,7 +729,7 @@ Northwind Observability, $86k year 1, auto-renew. Liability cap 3 months fees. T
 
 Trust & Safety PUB-90331. Pro creator, 2 prior strikes (medical-misinfo + spam). 42s video: peptide stack “cured my cousin’s tumor,” sales link, stock-photo watermark. Policy P-4 Health: no unproven cancer-treatment claims; no sales links on health claims; first cancer-claim strike = kill + 7-day feature ban. SLA 15 minutes. Would run next to a hospital advertiser.
 
-- `action` **choice** — `go_live` / `edit` / `kill`
+- `action` **choice** — `1` go live / `2` edit / `3` kill
 - `policy_violation` **noul** — Does this violate P-4 Health as posted? true: violation; false: can stand
 - `harm` **score** — Low / Medium / Severe
 
@@ -733,9 +738,9 @@ Trust & Safety PUB-90331. Pro creator, 2 prior strikes (medical-misinfo + spam).
 15–20 minute outdoor errand (coffee / walk). Judge jacket vs no jacket from the weather block plus this outing. Not a packing essay. Situation includes the Open-Meteo placeholder; live weather is optional via **Load weather**.
 
 - `wear_jacket` **noul** — Should they wear a jacket for this outing given the weather? true: jacket is warranted; false: comfortable without one
-- `layer` **choice** — `tee` / `light_layer` / `insulated` / `rain_shell`
+- `layer` **choice** — `1` tee / `2` light layer / `3` insulated / `4` rain shell
 
-Each situation in `src/samples.ts` must match this contract (ids, types, option keys). Copy may be slightly warmer than this SPEC outline; question **ids** and **types** must not drift. Business situations must read like tickets/memos (enough state for Jev) and must **not** require live weather.
+Each situation in `src/samples.ts` must match this contract (ids, types, choice descriptions in this order). Copy may be slightly warmer than this SPEC outline; question **ids** and **types** must not drift. Choice keys on the card and in the Jev payload are `"1"`, `"2"`, … in that order. Business situations must read like tickets/memos (enough state for Jev) and must **not** require live weather.
 
 Use Cases (`/use-cases`) renders the same ten as cards. Workshop **Preset Cases** and Use Cases cards share this module.
 
@@ -779,7 +784,7 @@ Before calling Workshop done:
 31. `GET /api/settings` has `present` / `last4` only — no full key
 32. Chrome right-side has Tour / Update Jev docs only — **no** History, **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. **History** is on the Jev’s case row. Nav **Settings** and `/settings` remain the key home.
 33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
-34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`). Typing several characters into a blank or filled id (e.g. `action`, `vendor_claim_valid`) keeps focus — the field does not deselect after one character. **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled.
+34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`) and puts the caret in that id field. Typing several characters into a blank or filled id (e.g. `action`, `vendor_claim_valid`) keeps focus — the field does not deselect after one character. Space in the id field inserts `_` (`wear jacket` → `wear_jacket`). **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled. Instructions textarea still accepts spaces.
 35. Ticket label reads **Jev’s case** (not **Case**). Use Cases gallery title stays **Use Cases**.
 36. **Add .md** (or drop `.md` onto Jev’s case) inserts a marked attach block into the textarea; chips list the filename. Ask Jev / the LLM see that text as `state`.
 37. Drop a **mix** (`.md` + `.txt` or `.pdf`): markdown attaches on Workshop; the **Convert** tab (`/convert`) opens for the rest with per-file progress. A truly unsupported type shows an inline error on the ticket (no native `alert`). A huge markdown file (over the §15 cap) is rejected without freezing the UI.
@@ -795,7 +800,7 @@ Before calling Workshop done:
 47. Jev’s case tools are **New Case**, **Preset Cases**, **History** — not a row of ten sample chips. Chrome-right has no History button.
 48. **New Case** clears case text, strips attach chips, resets Jev questions to one blank-id card, clears Jev answers, empties the LLM thread, hides weather chrome, strips `?case=`, and leaves **Preset Cases** with none selected — it must **not** load Invoice exception. Opening **Preset Cases** lists all ten snaps; picking one loads like today. **History** on that row still opens the localStorage drawer.
 49. Jev pane heading reads **Jev’s Questions**; the model id is the subtitle/meta; **Ask Jev** remains.
-50. **Add option** on a choice card that already has `option_a` and `option_b` inserts `option_c` (not `opt_<random>`). Next unused letter on that question; after `option_z`, `option_aa`. Clearing a key field by hand is still allowed. Typing several characters into an option key keeps focus; sequential `option_*` strings are labels, not React keys.
+50. Choice card: slick **1-based** numbers (1, 2, 3) to the left of descriptions; **no** Option key input (do not mint `option_a`, do not type `1` into a box). **Add option** shows 4 and moves focus to **Option 4 description** (not the Add option button). Space in that description inserts `_`. **Ask Jev** payload uses those numeric keys (`"1"`, `"2"`, …). LLM semantic keys (`refund`/`deny`) rewrite to `"1"`/`"2"` on the card and in the Jev payload. Description typing keeps focus.
 51. Send a short prompt that should tool-call into Jev’s case (or **Propose Jev questions**): mill thinking shows while `/api/llm` is in flight; if OpenRouter streams reasoning, the Thoughts block is open and fills; `set_jev_case` / `set_jev_questions` appear as tool cards (Running then Done) and the ticket/q-cards update; the bubble’s prose is a short confirmation, not a markdown table of questions. Refresh restores thoughts + tool cards on that assistant turn. If the floor model has no reasoning channel, thinking still runs and Thoughts stays hidden.
 52. Docs Iframe: open Introduction (TypeSafe, `X-Frame-Options: DENY`): boxed-i is **hidden**; Nice (or Code) is the view; no mill “won’t embed” dead end. Open `primer.md`: Iframe is hidden (no source). A page that *can* embed still shows boxed-i and loads the live site. No keys in the iframe URL. No native resize grips. Rail chevron collapses/expands with animation; refresh keeps collapsed.
 
