@@ -2312,6 +2312,16 @@ select:focus-visible,
   font-size: 0.86rem;
 }
 
+.dev-call-title code {
+  margin-left: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.dev-col .eyebrow {
+  margin: 0;
+}
+
 .dev-call-stamp {
   font-family: var(--font-ui);
   font-size: 0.72rem;
