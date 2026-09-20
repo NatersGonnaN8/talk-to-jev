@@ -60,6 +60,7 @@ import { HistoryPanel } from "./HistoryPanel";
 import { TutorialOverlay } from "./TutorialOverlay";
 import { LlmBubble, ThinkingMill } from "./LlmBubble";
 import { MdProse } from "./MdProse";
+import { StateEditor } from "./StateEditor";
 import { AgenticLoopMenu } from "./AgenticLoopMenu";
 import {
   AGENTIC_LOOP_NEED_MILL,
@@ -1601,13 +1602,7 @@ function Workshop({
         {isWeatherSample(samplePresetId) && weatherLine ? (
           <p className="weather-status">{weatherLine}</p>
         ) : null}
-        <textarea
-          className="case"
-          value={state}
-          onChange={(e) => setState(e.target.value)}
-          placeholder="What Jev should judge"
-          rows={8}
-        />
+        <StateEditor value={state} onChange={setState} />
         <AttachBar
           names={attachedNames}
           error={attachError}
