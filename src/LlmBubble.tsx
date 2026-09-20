@@ -4,6 +4,8 @@ import { MdProse } from "./MdProse";
 
 const TOOL_LABEL: Record<string, string> = {
   read_jev_workshop: "Read pane",
+  read_jev_state: "Jev’s State",
+  read_jev_questions: "Jev’s Questions",
   set_jev_state: "Jev’s State",
   set_jev_questions: "Jev’s Questions",
   ask_jev: "Ask Jev",

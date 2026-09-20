@@ -6,6 +6,8 @@
 
 export const MILL_TOOLS = [
   "read_jev_workshop",
+  "read_jev_state",
+  "read_jev_questions",
   "set_jev_state",
   "set_jev_questions",
   "ask_jev",

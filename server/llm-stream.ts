@@ -222,6 +222,12 @@ export function summarizeToolArgs(name: string, args: Record<string, unknown>): 
   if (name === "ask_jev" || name === "read_jev_workshop") {
     return "Current state + questions";
   }
+  if (name === "read_jev_state") {
+    return "Current Jev’s State";
+  }
+  if (name === "read_jev_questions") {
+    return "Current Jev’s Questions";
+  }
   return "";
 }
 

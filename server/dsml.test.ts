@@ -76,6 +76,22 @@ Done.`;
   assert.equal(JSON.parse(parsed.calls[0]?.arguments ?? "{}").state, "Ticket text");
 });
 
+test("read_jev_state invoke is honored as a mill tool", () => {
+  const raw = `<|DSML|invoke name="read_jev_state"></|DSML|invoke>Hi`;
+  const parsed = parseDsml(raw);
+  assert.equal(stripDsml(raw), "Hi");
+  assert.equal(parsed.calls[0]?.name, "read_jev_state");
+  assert.equal(parsed.calls[0]?.arguments, "{}");
+});
+
+test("read_jev_questions invoke is honored as a mill tool", () => {
+  const raw = `<|DSML|invoke name="read_jev_questions"></|DSML|invoke>Hi`;
+  const parsed = parseDsml(raw);
+  assert.equal(stripDsml(raw), "Hi");
+  assert.equal(parsed.calls[0]?.name, "read_jev_questions");
+  assert.equal(parsed.calls[0]?.arguments, "{}");
+});
+
 test("unknown invoke is stripped and not honored as a mill tool", () => {
   const raw = `<|DSML|invoke name="launch_missiles"></|DSML|invoke>Hi`;
   const parsed = parseDsml(raw);

@@ -35,7 +35,25 @@ export const LLM_TOOLS = [
     function: {
       name: "read_jev_workshop",
       description:
-        "Return the current Jev’s State text and current questions map as the panes have them. Call this before set_jev_state or set_jev_questions. No args. Does not call Jev.",
+        "Return the current Jev’s State text and current questions map as the panes have them. Call this before a write that needs both sides. Or query one side with read_jev_state / read_jev_questions. No args. Does not call Jev.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "read_jev_state",
+      description:
+        "Query the current Jev’s State ticket only (the state string). No args. Does not return questions. Does not call Jev. Call this before set_jev_state when you only need the ticket.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "read_jev_questions",
+      description:
+        "Query the current Jev’s Questions cards only. No args. Does not return the ticket. Does not call Jev. Call this before set_jev_questions when you only need the cards.",
       parameters: { type: "object", properties: {} },
     },
   },
@@ -143,9 +161,9 @@ function modeBlock(mode: LlmMode) {
     return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Call read_jev_workshop first (empty or leftover is the check). (2) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_state. (3) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (free human text with spaces — do not snake_case them; keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. Do NOT call ask_jev. Asking Jev is the mill Ask Jev button. Do NOT invent probabilities. Do NOT reply with JSON only. After tools, one short confirmation, then stop. This is not the N-turn agentic loop.`;
   }
   if (mode === "agentic-loop") {
-    return `\n\nMode: agentic-loop. Use the CURRENT Jev’s State and current questions. Call read_jev_workshop before set_jev_state or set_jev_questions. Do NOT invent a new random scenario. Do NOT call set_jev_state to replace the ticket with fiction after a read. If questions are clean, you MUST call ask_jev. You may call set_jev_questions only if ids are dirty or you need a new option, then ask_jev. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation.`;
+    return `\n\nMode: agentic-loop. Use the CURRENT Jev’s State and current questions. Before set_jev_state or set_jev_questions, call read_jev_workshop, or read_jev_state / read_jev_questions for one side. Do NOT invent a new random scenario. Do NOT call set_jev_state to replace the ticket with fiction after a read. If questions are clean, you MUST call ask_jev. You may call set_jev_questions only if ids are dirty or you need a new option, then ask_jev. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation.`;
   }
-  return `\n\nMode: chat. Before set_jev_state or set_jev_questions, call read_jev_workshop in this turn (empty is the check). If the operator asks to write the state and/or propose Jev questions, call set_jev_state and/or set_jev_questions. Only call ask_jev when they want a snap now AND questions are clean. Otherwise leave Ask Jev as the click.`;
+  return `\n\nMode: chat. Before set_jev_state, call read_jev_workshop or read_jev_state in this turn (empty is the check). Before set_jev_questions, call read_jev_workshop or read_jev_questions. If the operator asks to write the state and/or propose Jev questions, call set_jev_state and/or set_jev_questions. Only call ask_jev when they want a snap now AND questions are clean. Otherwise leave Ask Jev as the click.`;
 }
 
 export type LlmSessionBody = {
@@ -265,10 +283,12 @@ A weather block in Jev’s State (<!-- weather:start --> or ## Weather) is obser
 You have tools that mutate the Workshop. USE THEM. Do not paste state JSON or a questions map into the chat — the UI already shows the ticket and q-cards. After tools, write one short confirmation.
 
 Tools:
-1. read_jev_workshop — no args. Returns the current Jev’s State text + current questions map as the panes have them. Call this BEFORE set_jev_state or set_jev_questions in this turn (empty New State invent: still call it; empty is the check). Does not call Jev. Does not mutate panes.
-2. set_jev_state — write the TypeSafe state (Jev’s State mill ticket). Not a case. Do not overwrite a current Agentic-loop ticket with fiction after a read.
-3. set_jev_questions — replace typed questions. Real snake_case ids. Types choice / noul / score. instructions hold the full question. choice criteria = option descriptions in visual order (free human text with spaces — do not snake_case descriptions; semantic keys like refund/deny are rewritten to "1","2",… on the card and when calling Jev; never mint option_a). score criteria = ordered level strings. noul criteria = optional {true, false}. Skip blank ids; never invent q_* or empty ids.
-4. ask_jev — call Jev only if the state + questions are clean. Do not invent probabilities. If not clean: write tools (in agentic-loop, keep going until ask_jev works). In random-case: do not call ask_jev.
+1. read_jev_workshop — no args. Returns the current Jev’s State text + current questions map as the panes have them. Combined check before a write that needs both sides (empty New State invent: still call it; empty is the check). Does not call Jev. Does not mutate panes.
+2. read_jev_state — no args. Query the current Jev’s State ticket only. Does not return questions. Does not call Jev. Does not mutate panes. Use this when you only need the ticket before set_jev_state.
+3. read_jev_questions — no args. Query the current Jev’s Questions cards only. Does not return the ticket. Does not call Jev. Does not mutate panes. Use this when you only need the cards before set_jev_questions.
+4. set_jev_state — write the TypeSafe state (Jev’s State mill ticket). Not a case. Do not overwrite a current Agentic-loop ticket with fiction after a read.
+5. set_jev_questions — replace typed questions. Real snake_case ids. Types choice / noul / score. instructions hold the full question. choice criteria = option descriptions in visual order (free human text with spaces — do not snake_case descriptions; semantic keys like refund/deny are rewritten to "1","2",… on the card and when calling Jev; never mint option_a). score criteria = ordered level strings. noul criteria = optional {true, false}. Skip blank ids; never invent q_* or empty ids.
+6. ask_jev — call Jev only if the state + questions are clean. Do not invent probabilities. If not clean: write tools (in agentic-loop, keep going until ask_jev works). In random-case: do not call ask_jev.
 
 Never fake Jev answers in chat unless ask_jev just ran or Latest Jev answers are in this prompt. Jev cannot invent answers that were not given. Choice = listed options only. Noul = P(true) in [0,1]. Score = one of the legend levels. A new option requires set_jev_questions then ask_jev again.
 
@@ -463,16 +483,24 @@ function toolCallsFromMessage(msg: {
 }
 
 function sortToolCalls(calls: OrToolCall[]) {
-  const rank = (name: string) =>
-    name === "read_jev_workshop"
-      ? 0
-      : name === "set_jev_state"
-        ? 1
-        : name === "set_jev_questions"
-          ? 2
-          : name === "ask_jev"
-            ? 3
-            : 4;
+  const rank = (name: string) => {
+    switch (name) {
+      case "read_jev_workshop":
+        return 0;
+      case "read_jev_state":
+        return 1;
+      case "read_jev_questions":
+        return 2;
+      case "set_jev_state":
+        return 3;
+      case "set_jev_questions":
+        return 4;
+      case "ask_jev":
+        return 5;
+      default:
+        return 6;
+    }
+  };
   return [...calls].sort((a, b) => rank(a.function.name) - rank(b.function.name));
 }
 
@@ -539,6 +567,40 @@ async function executeTool(
     return JSON.stringify({
       ok: true,
       state: work.state,
+      questions: work.questions,
+    });
+  }
+
+  if (name === "read_jev_state") {
+    const chars = work.state.length;
+    const resultSummary = !chars
+      ? "Current Jev’s State · empty"
+      : `Current Jev’s State · ${chars.toLocaleString()} chars`;
+    emit(res, {
+      type: "tool",
+      ...base,
+      ok: true,
+      resultSummary,
+    });
+    return JSON.stringify({
+      ok: true,
+      state: work.state,
+    });
+  }
+
+  if (name === "read_jev_questions") {
+    const count = Object.keys(work.questions).length;
+    const resultSummary = !count
+      ? "Current Jev’s Questions · empty"
+      : `Current Jev’s Questions · ${count} question${count === 1 ? "" : "s"}`;
+    emit(res, {
+      type: "tool",
+      ...base,
+      ok: true,
+      resultSummary,
+    });
+    return JSON.stringify({
+      ok: true,
       questions: work.questions,
     });
   }

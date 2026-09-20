@@ -153,7 +153,7 @@ export type LlmStreamEvent =
   | {
       type: "tool";
       id: string;
-      name: string; // read_jev_workshop | set_jev_state | set_jev_questions | ask_jev
+      name: string; // read_jev_workshop | read_jev_state | read_jev_questions | set_jev_state | set_jev_questions | ask_jev
       status: "running" | "done";
       ok?: boolean;
       argsSummary: string;
