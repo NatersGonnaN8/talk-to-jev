@@ -1108,6 +1108,20 @@ function Workshop({
     window.addEventListener("pointerup", up);
   }, []);
 
+  const feedNothing = !answers;
+  const feedJevButton = (
+    <button
+      type="button"
+      className="btn ghost"
+      data-tutorial="feed-jev"
+      disabled={feedNothing || locked}
+      title={feedNothing ? "Ask Jev first — nothing to feed." : undefined}
+      onClick={feedJev}
+    >
+      Feed Jev to LLM
+    </button>
+  );
+
   const llmJevBoard = (
     <>
       <article className="pane llm" data-tutorial="llm" style={{ flex: `${split} 1 0` }}>
@@ -1159,15 +1173,6 @@ function Workshop({
               onClick={() => void sendLlm("propose-questions")}
             >
               {busy === "propose" ? "Proposing…" : "Propose Jev questions"}
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              disabled={!answers || locked}
-              title={!answers ? "Ask Jev first — nothing to feed." : undefined}
-              onClick={feedJev}
-            >
-              Feed Jev to LLM
             </button>
             <FlipTip text="Always recording. Keys never appear here.">
               <button
@@ -1254,15 +1259,22 @@ function Workshop({
             <h2 className="pane-title">Jev’s Questions</h2>
             <code>{health?.jevModel ?? "typesafe/jev-1.13"}</code>
           </div>
-          <button
-            type="button"
-            className="btn solid"
-            data-tutorial="ask-jev"
-            disabled={locked}
-            onClick={() => void onAskJev()}
-          >
-            {busy === "jev" ? "Asking…" : "Ask Jev"}
-          </button>
+          <div className="row-actions">
+            {feedNothing ? (
+              <FlipTip text="Ask Jev first — nothing to feed.">{feedJevButton}</FlipTip>
+            ) : (
+              feedJevButton
+            )}
+            <button
+              type="button"
+              className="btn solid"
+              data-tutorial="ask-jev"
+              disabled={locked}
+              onClick={() => void onAskJev()}
+            >
+              {busy === "jev" ? "Asking…" : "Ask Jev"}
+            </button>
+          </div>
         </header>
         {blankIdError ? (
           <p className="inline-error" role="alert">

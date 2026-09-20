@@ -752,7 +752,7 @@ textarea.case {
   text-transform: none;
 }
 
-.pane.jev .pane-head > .btn {
+.pane.jev .pane-head .row-actions {
   margin-left: auto;
 }
 
@@ -1936,6 +1936,11 @@ select:focus-visible,
 .flip-host {
   position: relative;
   display: inline-flex;
+}
+
+/* Disabled buttons skip pointer events; the host still receives hover for FlipTip. */
+.flip-host .btn:disabled {
+  pointer-events: none;
 }
 
 .type-chip {

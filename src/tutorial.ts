@@ -66,15 +66,15 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "jev",
     title: "Jev’s Questions",
-    body: "Jev’s Questions: choice, noul, or score — not essays. Add questions, then Ask Jev. You get probabilities, not a paragraph.",
+    body: "Jev’s Questions: choice, noul, or score — not essays. Add questions, then Ask Jev. Feed Jev to LLM sits next to Ask Jev and sends typed answers to the LLM immediately. You get probabilities, not a paragraph.",
     page: "workshop",
-    hooks: ["jev", "ask-jev"],
+    hooks: ["jev", "ask-jev", "feed-jev"],
     selectors: [".pane.jev"],
   },
   {
     id: "wire",
     title: "Pass work across the wire",
-    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Agentic loop) invents a mill once. Agentic loop runs N LLM↔Jev turns on the current mill. After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.",
+    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Agentic loop) invents a mill once. Agentic loop runs N LLM↔Jev turns on the current mill. Inspector is on this mill row. Feed Jev to LLM lives on Jev’s Questions, next to Ask Jev — after Jev answers, it sends those typed results to the LLM immediately.",
     page: "workshop",
     hooks: ["wire"],
     selectors: [".pane.llm .row-actions"],
