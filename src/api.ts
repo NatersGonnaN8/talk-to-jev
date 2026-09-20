@@ -337,6 +337,7 @@ export async function streamLlm(
   let finished = false;
   let full = "";
   let thoughts = "";
+  let dsmlNote: unknown;
 
   const finish = (response?: unknown, error?: string) => {
     if (finished) return;
@@ -382,6 +383,9 @@ export async function streamLlm(
               title: ev.title || title,
               request: { ...clientBody, upstream: ev.sent },
             });
+          }
+          if (ev.channel === "llm" && ev.phase === "response" && ev.received) {
+            dsmlNote = ev.received;
           }
           if (ev.channel === "jev") {
             const jevReq = {
@@ -465,6 +469,7 @@ export async function streamLlm(
       reply: full,
       thoughtsChars: thoughts.length,
       tools,
+      ...(dsmlNote ? { dsml: dsmlNote } : {}),
       ...(streamError ? { error: streamError } : {}),
     }, streamError);
     return full;

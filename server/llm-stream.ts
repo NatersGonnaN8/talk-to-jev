@@ -1,4 +1,10 @@
 /** OpenRouter chat stream — thoughts, content, tool_calls. Never logs the key. */
+import {
+  hasDsml,
+  mergeDsmlCalls,
+  parseDsml,
+  stripDsml,
+} from "./dsml";
 import { openRouterHeaders } from "./openrouter";
 import {
   parseJevQuestions,
@@ -19,6 +25,7 @@ export type ChatOk = {
     reasoning?: string;
     reasoning_details?: unknown[];
   };
+  dsml?: { stripped: true; invokes: string[] };
 };
 
 export type ChatFail = {
@@ -45,7 +52,33 @@ export function newCallId() {
 }
 
 function looksLikeToolMarkup(text: string) {
-  return /<tool_call\b|<function=/i.test(text);
+  return /<tool_call\b|<function=/i.test(text) || hasDsml(text);
+}
+
+function applyDsml(ok: ChatOk): ChatOk {
+  const raw = ok.message.content || "";
+  const dsml = parseDsml(raw);
+  const official = ok.message.tool_calls ?? [];
+  const extras = mergeDsmlCalls(official, dsml.calls);
+  const tool_calls: OrToolCall[] = [
+    ...official,
+    ...extras.map((call) => ({
+      id: newCallId(),
+      type: "function" as const,
+      function: { name: call.name, arguments: call.arguments },
+    })),
+  ];
+  return {
+    ok: true,
+    message: {
+      ...ok.message,
+      content: stripDsml(raw) || null,
+      tool_calls: tool_calls.length ? tool_calls : undefined,
+    },
+    ...(dsml.stripped
+      ? { dsml: { stripped: true as const, invokes: dsml.invokes } }
+      : {}),
+  };
 }
 
 function contentPiece(delta: Record<string, unknown> | null): string {
@@ -340,12 +373,14 @@ export async function completeChat(opts: {
     const payload = (await upstream.json().catch(() => ({}))) as Record<string, unknown>;
     const parsed = messageFromNonStream(payload);
     if (parsed.ok) {
-      const thought = parsed.message.reasoning;
+      const applied = applyDsml(parsed);
+      const thought = applied.message.reasoning;
       if (thought) opts.onThought?.(thought);
-      const content = parsed.message.content;
-      if (content && shouldStreamContent(content, Boolean(parsed.message.tool_calls?.length))) {
+      const content = applied.message.content;
+      if (content && shouldStreamContent(content, Boolean(applied.message.tool_calls?.length))) {
         opts.onDelta?.(content);
       }
+      return applied;
     }
     return parsed;
   }
@@ -398,13 +433,14 @@ export async function completeChat(opts: {
     const piece = contentPiece(delta);
     if (piece) {
       contentAcc += piece;
+      const visible = parseDsml(contentAcc).text;
       if (
         !opts.deferContent &&
-        shouldStreamContent(contentAcc, sawTools) &&
-        streamedContent < contentAcc.length
+        shouldStreamContent(visible, sawTools) &&
+        streamedContent < visible.length
       ) {
-        const next = contentAcc.slice(streamedContent);
-        streamedContent = contentAcc.length;
+        const next = visible.slice(streamedContent);
+        streamedContent = visible.length;
         if (next) opts.onDelta?.(next);
       }
     }
@@ -412,24 +448,26 @@ export async function completeChat(opts: {
 
   if (fatal) return fatal;
 
-  const tool_calls = toolCallsFromMap(toolAcc);
-  if (
-    !opts.deferContent &&
-    !tool_calls.length &&
-    contentAcc &&
-    streamedContent < contentAcc.length &&
-    shouldStreamContent(contentAcc, false)
-  ) {
-    opts.onDelta?.(contentAcc.slice(streamedContent));
-  }
-
-  return {
+  const applied = applyDsml({
     ok: true,
     message: {
       content: contentAcc || null,
-      tool_calls: tool_calls.length ? tool_calls : undefined,
+      tool_calls: toolCallsFromMap(toolAcc),
       reasoning: thoughtAcc || undefined,
       reasoning_details: reasoningDetails.length ? reasoningDetails : undefined,
     },
-  };
+  });
+  const display = applied.message.content || "";
+  const tool_calls = applied.message.tool_calls ?? [];
+  if (
+    !opts.deferContent &&
+    !tool_calls.length &&
+    display &&
+    streamedContent < display.length &&
+    shouldStreamContent(display, false)
+  ) {
+    opts.onDelta?.(display.slice(streamedContent));
+  }
+
+  return applied;
 }

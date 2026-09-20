@@ -4,6 +4,7 @@
  */
 import type { ServerResponse } from "node:http";
 import { callJev } from "./jev";
+import { stripDsml } from "./dsml";
 import {
   completeChat as completeOpenRouterChat,
   isAbortError,
@@ -763,7 +764,7 @@ export async function runLlmSession(opts: {
       : "auto";
   let includeReasoning = true;
 
-  const runChat = async (choice: ToolChoice, streamed: { delta: boolean }) =>
+  const runChat = async (choice: ToolChoice, streamed: { delta: boolean; acc: string }) =>
     completeChat({
       apiKey: opts.env.OPENROUTER_API_KEY,
       model: opts.model,
@@ -781,6 +782,7 @@ export async function runLlmSession(opts: {
       onThought: (text) => emit(opts.res, { type: "thought", text }),
       onDelta: (text) => {
         streamed.delta = true;
+        streamed.acc += text;
         emit(opts.res, { type: "delta", text });
       },
       signal: abort.signal,
@@ -840,7 +842,7 @@ export async function runLlmSession(opts: {
         toolChoice = "required";
       }
 
-      const streamed = { delta: false };
+      const streamed = { delta: false, acc: "" };
       let result = await runChat(toolChoice, streamed);
 
       if (!result.ok && result.retryReasoning && includeReasoning) {
@@ -863,7 +865,23 @@ export async function runLlmSession(opts: {
       }
 
       const calls = sortToolCalls(toolCallsFromMessage(result.message));
-      const content = (result.message.content || "").trim();
+      const content = stripDsml(result.message.content || "");
+      if (result.dsml?.stripped) {
+        emit(opts.res, {
+          type: "inspect",
+          channel: "llm",
+          phase: "response",
+          title: "DSML stripped",
+          received: {
+            note: "Hid DeepSeek DSML fence from the mill pane.",
+            invokes: result.dsml.invokes,
+          },
+        });
+      }
+      if (streamed.delta && streamed.acc !== content) {
+        emit(opts.res, { type: "delta", text: content, replace: true });
+        streamed.acc = content;
+      }
 
       if (calls.length) {
         messages.push({
