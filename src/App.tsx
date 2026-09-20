@@ -442,6 +442,10 @@ export function App() {
         onDismiss={() => setTourOpen(false)}
         onGo={goTour}
       />
+      <DevInspector
+        open={inspectorOpen && page === "workshop"}
+        onClose={() => setInspectorOpen(false)}
+      />
     </div>
   );
 }
@@ -1153,10 +1157,6 @@ function Workshop({
             })
           )}
         </div>
-        <DevInspector
-          open={inspectorOpen}
-          onClose={() => onInspectorOpenChange(false)}
-        />
         <form
           className="composer"
           onSubmit={(e) => {
