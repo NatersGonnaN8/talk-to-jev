@@ -318,13 +318,19 @@ export async function streamLlm(
     jevAnswers?: unknown;
     includeTranscript?: boolean;
     mode?: "chat" | "propose-questions" | "random-case" | "agentic-loop";
+    model?: string;
   },
   onEvent: (ev: LlmStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<string> {
   const title = payload.mode || "chat";
   const instructions = readLlmInstructions();
-  const body = instructions ? { ...payload, instructions } : payload;
+  const model = payload.model?.trim();
+  const body = {
+    ...payload,
+    ...(model ? { model } : {}),
+    ...(instructions ? { instructions } : {}),
+  };
   const clientBody = {
     path: "/api/llm" as const,
     mode: payload.mode || "chat",
@@ -333,6 +339,7 @@ export async function streamLlm(
     jevAnswers: payload.jevAnswers,
     includeTranscript: payload.includeTranscript ?? false,
     messages: payload.messages,
+    ...(model ? { model } : {}),
     ...(instructions ? { instructions } : {}),
   };
   const logId = beginDevCall("llm", title, clientBody);

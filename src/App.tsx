@@ -63,6 +63,8 @@ import { LlmBubble, ThinkingMill } from "./LlmBubble";
 import { MdProse } from "./MdProse";
 import { StateEditor } from "./StateEditor";
 import { AgenticLoopMenu } from "./AgenticLoopMenu";
+import { LlmModelPicker } from "./LlmModelPicker";
+import { useLlmModel } from "./llmModel";
 import {
   AGENTIC_LOOP_NEED_MILL,
   agenticLoopContinuePrompt,
@@ -566,6 +568,9 @@ function Workshop({
     current: number;
     total: number;
   } | null>(null);
+  const [llmModel] = useLlmModel();
+  const llmModelRef = useRef(llmModel);
+  llmModelRef.current = llmModel;
   const agentLockRef = useRef(false);
   const onToastRef = useRef(onToast);
   onToastRef.current = onToast;
@@ -811,6 +816,7 @@ function Workshop({
           jevAnswers: answersRef.current ?? undefined,
           includeTranscript: includeChatRef.current,
           mode,
+          model: llmModelRef.current,
         },
         (ev) => {
           if (ev.type === "delta") {
@@ -1311,7 +1317,7 @@ function Workshop({
         <header className="pane-head">
           <div>
             <h2 className="pane-title">LLM</h2>
-            <code>{health?.llmModel ?? "deepseek/deepseek-v4-flash"}</code>
+            <code>{llmModel}</code>
           </div>
           <div className="row-actions" data-tutorial="wire">
             <div className="llm-mill-slot">
@@ -1429,6 +1435,13 @@ function Workshop({
               }
             }}
           />
+          <div className="composer-model-host">
+            <LlmModelPicker
+              className="composer-model"
+              disabled={locked}
+              extraId={health?.llmModel}
+            />
+          </div>
           {llmStreaming ? (
             <button
               className="btn solid composer-stop"

@@ -6,6 +6,7 @@ export function FlipTip({ text, children }: { text: string; children: ReactNode 
   const tip = useRef<HTMLSpanElement>(null);
   const [place, setPlace] = useState<"below" | "above">("below");
   const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [placed, setPlaced] = useState(false);
 
   const measure = () => {
     const t = tip.current;
@@ -29,14 +30,17 @@ export function FlipTip({ text, children }: { text: string; children: ReactNode 
     if (left < pad) left = pad;
     const top = below ? hr.bottom + 8 : Math.max(pad, hr.top - height - 8);
     setPos({ top, left });
+    setPlaced(true);
   };
+
+  const schedule = () => requestAnimationFrame(measure);
 
   return (
     <span
-      className="flip-host"
+      className={placed ? "flip-host is-placed" : "flip-host"}
       ref={host}
-      onMouseEnter={measure}
-      onFocus={measure}
+      onMouseEnter={schedule}
+      onFocusCapture={schedule}
     >
       {children}
       <span
@@ -50,3 +54,4 @@ export function FlipTip({ text, children }: { text: string; children: ReactNode 
     </span>
   );
 }
+

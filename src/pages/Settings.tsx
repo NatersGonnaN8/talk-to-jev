@@ -7,6 +7,7 @@ import {
 } from "../llmInstructions";
 import type { KeyStatus } from "../types";
 import { FlipTip } from "../FlipTip";
+import { LlmModelPicker } from "../LlmModelPicker";
 
 export function SettingsPage({
   onToast,
@@ -73,7 +74,8 @@ export function SettingsPage({
           Keys stay on this computer in gitignored <code>.env.local</code>. The
           browser never stores them. OpenRouter runs the LLM and Jev today. The
           other slots wait for search and direct models. Standing LLM
-          instructions live in this browser, not in that file.
+          instructions live in this browser, not in that file. The LLM chat
+          model is the composer picker — same persist here, not that file.
         </p>
       </section>
       {err ? <p className="empty">{err}</p> : null}
@@ -139,6 +141,17 @@ export function SettingsPage({
           </li>
         ))}
       </ul>
+      <section className="llm-model-card">
+        <header className="key-head">
+          <div>
+            <h2 className="pane-title">LLM model</h2>
+            <p className="key-why">
+              OpenRouter chat model for the Workshop LLM. Jev stays pinned.
+            </p>
+          </div>
+        </header>
+        <LlmModelPicker tip="OpenRouter chat model for the Workshop LLM. Jev stays typesafe/jev-1.13." />
+      </section>
       <section className="llm-instructions">
         <header className="key-head">
           <div>

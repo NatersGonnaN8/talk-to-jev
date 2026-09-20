@@ -15,6 +15,7 @@ import {
   upsertProviderValue,
 } from "./server/settings";
 import { DEFAULT_JEV, DEFAULT_LLM } from "./server/openrouter";
+import { resolveChatModel } from "./server/chatModel";
 import { callJev } from "./server/jev";
 import { runLlmSession } from "./server/llm";
 import { checkCatalogEmbed } from "./server/embedCheck";
@@ -345,7 +346,7 @@ function workshopApi(): Plugin {
             res.flushHeaders?.();
             await runLlmSession({
               env,
-              model: env.LLM_MODEL || DEFAULT_LLM,
+              model: resolveChatModel(body.model, env.LLM_MODEL || DEFAULT_LLM),
               jevModel: env.JEV_MODEL || DEFAULT_JEV,
               primer: primerText(),
               body: {
