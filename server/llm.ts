@@ -4,7 +4,13 @@
  */
 import type { ServerResponse } from "node:http";
 import { callJev } from "./jev";
-import { openRouterHeaders } from "./openrouter";
+import {
+  completeChat as completeOpenRouterChat,
+  newCallId,
+  summarizeToolArgs,
+  type OrToolCall,
+  type ToolChoice,
+} from "./llm-stream";
 import {
   parseJevQuestions,
   questionsAreClean,
@@ -16,7 +22,6 @@ import { sanitizePublicError } from "./settings";
 
 const MAX_ROUNDS = 8;
 const MAX_STATE_CHARS = 400_000;
-const OPENROUTER_CHAT = "https://openrouter.ai/api/v1/chat/completions";
 
 export const LLM_TOOLS = [
   {
@@ -76,24 +81,14 @@ export const LLM_TOOLS = [
   },
 ];
 
-type ToolChoice =
-  | "auto"
-  | "none"
-  | "required"
-  | { type: "function"; function: { name: string } };
-
-type OrToolCall = {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
-};
-
 type OrMessage =
   | { role: "system" | "user"; content: string }
   | {
       role: "assistant";
       content: string | null;
       tool_calls?: OrToolCall[];
+      reasoning?: string;
+      reasoning_details?: unknown[];
     }
   | { role: "tool"; tool_call_id: string; name: string; content: string };
 
@@ -253,10 +248,6 @@ function confirmationFor(work: Working): string {
   return "Done.";
 }
 
-function newCallId() {
-  return `call_${Math.random().toString(36).slice(2, 12)}`;
-}
-
 function extractXmlToolCalls(content: string): OrToolCall[] {
   const calls: OrToolCall[] = [];
   const blocks = content.matchAll(/<tool_call>([\s\S]*?)<\/tool_call>/gi);
@@ -322,61 +313,20 @@ async function completeChat(opts: {
   model: string;
   messages: OrMessage[];
   toolChoice: ToolChoice;
-}): Promise<{ ok: true; message: { content: string | null; tool_calls?: OrToolCall[] } } | { ok: false; status: number; retryTools: boolean; message: string }> {
-  const upstream = await fetch(OPENROUTER_CHAT, {
-    method: "POST",
-    headers: openRouterHeaders(opts.apiKey),
-    body: JSON.stringify({
-      model: opts.model,
-      stream: false,
-      tools: LLM_TOOLS,
-      tool_choice: opts.toolChoice,
-      messages: opts.messages,
-    }),
+  includeReasoning?: boolean;
+  onThought?: (text: string) => void;
+  onDelta?: (text: string) => void;
+}) {
+  return completeOpenRouterChat({
+    apiKey: opts.apiKey,
+    model: opts.model,
+    messages: opts.messages,
+    tools: LLM_TOOLS,
+    toolChoice: opts.toolChoice,
+    includeReasoning: opts.includeReasoning !== false,
+    onThought: opts.onThought,
+    onDelta: opts.onDelta,
   });
-  const payload = (await upstream.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!upstream.ok) {
-    const errMsg = String(payload.error ? JSON.stringify(payload.error) : payload.message ?? "");
-    const retryTools =
-      upstream.status === 400 &&
-      /tool[_ ]choice|tools|function/i.test(errMsg);
-    return {
-      ok: false,
-      status: upstream.status,
-      retryTools,
-      message: "LLM request failed (details omitted).",
-    };
-  }
-  const choices = payload.choices;
-  const first = Array.isArray(choices) ? asRecord(choices[0]) : null;
-  const message = first ? asRecord(first.message) : null;
-  if (!message) {
-    return { ok: false, status: 502, retryTools: false, message: "LLM request failed (details omitted)." };
-  }
-  const toolCallsRaw = message.tool_calls;
-  const tool_calls: OrToolCall[] = [];
-  if (Array.isArray(toolCallsRaw)) {
-    for (const item of toolCallsRaw) {
-      const rec = asRecord(item);
-      const fn = rec ? asRecord(rec.function) : null;
-      if (!rec || !fn || typeof fn.name !== "string") continue;
-      tool_calls.push({
-        id: typeof rec.id === "string" ? rec.id : newCallId(),
-        type: "function",
-        function: {
-          name: fn.name,
-          arguments: typeof fn.arguments === "string" ? fn.arguments : JSON.stringify(fn.arguments ?? {}),
-        },
-      });
-    }
-  }
-  return {
-    ok: true,
-    message: {
-      content: typeof message.content === "string" ? message.content : message.content == null ? null : String(message.content),
-      tool_calls: tool_calls.length ? tool_calls : undefined,
-    },
-  };
 }
 
 async function executeTool(
@@ -389,19 +339,28 @@ async function executeTool(
     transcript: Array<{ role: string; content: string }>;
     work: Working;
     res: ServerResponse;
+    callId: string;
+    argsSummary: string;
   },
 ): Promise<string> {
-  const { work, res } = ctx;
+  const { work, res, callId, argsSummary } = ctx;
+  const base = { id: callId, name, status: "done" as const, argsSummary };
   if (name === "set_jev_case") {
     const state = String(args.state ?? args.case ?? args.text ?? "");
     if (!state.trim()) {
       const payload = { ok: false, message: "state is required." };
-      emit(res, { type: "tool", name, ...payload });
+      emit(res, { type: "tool", ...base, ...payload, resultSummary: payload.message });
       return JSON.stringify(payload);
     }
     work.state = state.slice(0, MAX_STATE_CHARS);
     work.appliedCase = true;
-    emit(res, { type: "tool", name, ok: true, state: work.state });
+    emit(res, {
+      type: "tool",
+      ...base,
+      ok: true,
+      resultSummary: `Wrote ${work.state.length.toLocaleString()} characters`,
+      state: work.state,
+    });
     return JSON.stringify({ ok: true, chars: work.state.length });
   }
 
@@ -409,7 +368,7 @@ async function executeTool(
     const parsed = parseJevQuestions(questionsFromToolArgs(args) ?? args);
     if (!parsed.ok) {
       const payload = { ok: false, message: parsed.message, skipped: parsed.skipped };
-      emit(res, { type: "tool", name, ...payload });
+      emit(res, { type: "tool", ...base, ...payload, resultSummary: parsed.message });
       return JSON.stringify(payload);
     }
     work.questions = parsed.questions;
@@ -417,8 +376,9 @@ async function executeTool(
     work.questionCount = Object.keys(parsed.questions).length;
     emit(res, {
       type: "tool",
-      name,
+      ...base,
       ok: true,
+      resultSummary: `Loaded ${work.questionCount} question${work.questionCount === 1 ? "" : "s"}`,
       questions: parsed.questions,
       skipped: parsed.skipped,
     });
@@ -438,7 +398,7 @@ async function executeTool(
         message:
           "Questions are not clean (need real ids). Use set_jev_questions, then the operator clicks Ask Jev.",
       };
-      emit(res, { type: "tool", name, ...payload });
+      emit(res, { type: "tool", ...base, ...payload, resultSummary: payload.message });
       return JSON.stringify(payload);
     }
     const state =
@@ -452,14 +412,24 @@ async function executeTool(
       questions: clean,
     });
     if (!result.ok) {
-      emit(res, { type: "tool", name, ok: false, message: result.message });
+      emit(res, {
+        type: "tool",
+        ...base,
+        ok: false,
+        message: result.message,
+        resultSummary: result.message,
+      });
       return JSON.stringify({ ok: false, message: result.message });
     }
     work.askedJev = true;
+    const count = result.answers && typeof result.answers === "object"
+      ? Object.keys(result.answers as object).length
+      : 0;
     emit(res, {
       type: "tool",
-      name,
+      ...base,
       ok: true,
+      resultSummary: `Jev answered ${count} question${count === 1 ? "" : "s"}`,
       answers: result.answers,
       model: result.model,
       usage: result.usage,
@@ -472,7 +442,7 @@ async function executeTool(
   }
 
   const payload = { ok: false, message: `Unknown tool ${name}.` };
-  emit(res, { type: "tool", name, ...payload });
+  emit(res, { type: "tool", ...base, ...payload, resultSummary: payload.message });
   return JSON.stringify(payload);
 }
 
@@ -524,6 +494,46 @@ export async function runLlmSession(opts: {
     mode === "propose-questions"
       ? { type: "function", function: { name: "set_jev_questions" } }
       : "auto";
+  let includeReasoning = true;
+
+  const runChat = async (choice: ToolChoice, streamed: { delta: boolean }) =>
+    completeChat({
+      apiKey: opts.env.OPENROUTER_API_KEY,
+      model: opts.model,
+      messages,
+      toolChoice: choice,
+      includeReasoning,
+      onThought: (text) => emit(opts.res, { type: "thought", text }),
+      onDelta: (text) => {
+        streamed.delta = true;
+        emit(opts.res, { type: "delta", text });
+      },
+    });
+
+  const runTool = async (
+    name: string,
+    args: Record<string, unknown>,
+    callId: string,
+  ) => {
+    const argsSummary = summarizeToolArgs(name, args);
+    emit(opts.res, {
+      type: "tool",
+      id: callId,
+      name,
+      status: "running",
+      argsSummary,
+    });
+    return executeTool(name, args, {
+      env: opts.env,
+      jevModel: opts.jevModel,
+      includeTranscript,
+      transcript,
+      work,
+      res: opts.res,
+      callId,
+      argsSummary,
+    });
+  };
 
   try {
     for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -531,28 +541,19 @@ export async function runLlmSession(opts: {
       if (round === MAX_ROUNDS - 1) toolChoice = "none";
       else if (mode === "propose-questions" && work.appliedQuestions) toolChoice = "auto";
 
-      let result = await completeChat({
-        apiKey: opts.env.OPENROUTER_API_KEY,
-        model: opts.model,
-        messages,
-        toolChoice,
-      });
+      const streamed = { delta: false };
+      let result = await runChat(toolChoice, streamed);
+
+      if (!result.ok && result.retryReasoning && includeReasoning) {
+        includeReasoning = false;
+        result = await runChat(toolChoice, streamed);
+      }
 
       if (!result.ok && result.retryTools && toolChoice !== "auto") {
         toolChoice = toolChoice === "required" ? "auto" : "required";
-        result = await completeChat({
-          apiKey: opts.env.OPENROUTER_API_KEY,
-          model: opts.model,
-          messages,
-          toolChoice,
-        });
+        result = await runChat(toolChoice, streamed);
         if (!result.ok && result.retryTools && toolChoice !== "auto") {
-          result = await completeChat({
-            apiKey: opts.env.OPENROUTER_API_KEY,
-            model: opts.model,
-            messages,
-            toolChoice: "auto",
-          });
+          result = await runChat("auto", streamed);
         }
       }
 
@@ -570,17 +571,12 @@ export async function runLlmSession(opts: {
           role: "assistant",
           content: result.message.content,
           tool_calls: calls,
+          reasoning: result.message.reasoning,
+          reasoning_details: result.message.reasoning_details,
         });
         for (const call of calls) {
           const args = parseArgs(call.function.arguments);
-          const toolResult = await executeTool(call.function.name, args, {
-            env: opts.env,
-            jevModel: opts.jevModel,
-            includeTranscript,
-            transcript,
-            work,
-            res: opts.res,
-          });
+          const toolResult = await runTool(call.function.name, args, call.id);
           messages.push({
             role: "tool",
             tool_call_id: call.id,
@@ -594,14 +590,7 @@ export async function runLlmSession(opts: {
       if (mode === "propose-questions" && !work.appliedQuestions && content) {
         const salvaged = salvageQuestionsFromText(content);
         if (salvaged) {
-          await executeTool("set_jev_questions", { questions: salvaged }, {
-            env: opts.env,
-            jevModel: opts.jevModel,
-            includeTranscript,
-            transcript,
-            work,
-            res: opts.res,
-          });
+          await runTool("set_jev_questions", { questions: salvaged }, newCallId());
           emit(opts.res, { type: "delta", text: confirmationFor(work) });
           emit(opts.res, { type: "done" });
           return;
@@ -614,7 +603,9 @@ export async function runLlmSession(opts: {
       } else if (text && (work.appliedCase || work.appliedQuestions) && looksLikeJsonDump(text)) {
         text = confirmationFor(work);
       }
-      if (text) emit(opts.res, { type: "delta", text });
+      if (text && (!streamed.delta || text !== content)) {
+        emit(opts.res, { type: "delta", text });
+      }
       emit(opts.res, { type: "done" });
       return;
     }
@@ -624,14 +615,7 @@ export async function runLlmSession(opts: {
       const lastText = last && last.role === "assistant" ? String(last.content ?? "") : "";
       const salvaged = salvageQuestionsFromText(lastText);
       if (salvaged) {
-        await executeTool("set_jev_questions", { questions: salvaged }, {
-          env: opts.env,
-          jevModel: opts.jevModel,
-          includeTranscript,
-          transcript,
-          work,
-          res: opts.res,
-        });
+        await runTool("set_jev_questions", { questions: salvaged }, newCallId());
       }
     }
     emit(opts.res, {
