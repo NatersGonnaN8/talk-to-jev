@@ -1094,3 +1094,49 @@ Rough estimate: `ceil(chars / 4)`. Show estimated tokens on the Convert page for
 - New upload endpoint
 - Secrets in convert output or history
 
+---
+
+## Remaining (prototype)
+
+Not a new product contract — known leftover work as of **2026-09-20**. Core loop, ten snaps, Docs mill, Convert, and basic Settings are in. **Do not** treat DeepSeek empty mill prose / answers-in-Thoughts as an app bug.
+
+### Blocker for a public showcase tweet
+
+- **Mill-bar hover** — in flight (agent `1bdafcb2`). Overlay scrollbar hover/fade must be the **14px `.mill-bar` strip**, not the pane/modal. Do **not** edit `src/scrollbars.ts` / `src/scrollbars.css` / §8.1 hover paragraphs from another pass. Sign off after that landing.
+- **Nater walks the Tour** — agent-owned copy is in `src/tutorial.ts` + `docs/TOUR.md`. He will personally click through. Do not call the Tour “done” without him.
+
+### Should-do before a comfortable OSS demo
+
+- **Inspector overlay covers LLM Send.** Fixed bottom panel (`z-index: 40`, default height 280px) paints over the composer. Operator must **Close** first. SPEC §6.7 does not yet say the overlay must leave Send clickable; either raise the board bottom while open or shrink the default height.
+- **Docs first-paint race.** Rail shows **Loading snapshot…** and the reader **Pick a page** until `GET /api/docs` returns. `ready` avoids a false empty-catalog message; persisted type tags still drive **Clear** before files load. SPEC §6.2 already names the flash.
+- **Tour markdown vs live copy.** Welcome body in `docs/TOUR.md` is longer than `src/tutorial.ts` (live SoT). Nater picks copy on his walk; then 1:1 them.
+- **Open-source pre-flight re-run** before any “we’re clean” claim. **This session (2026-09-20):** no `.env*` ever tracked; HEAD key-shaped hits are scrub **regexes** only (SPEC / `devLog` / settings sanitizer / docsEmbed); `npm audit` **0**; live CSRF: cross-site `text/plain` POST `/api/settings` **403**, same-origin JSON POST **200**, header-less GET `/api/health` **200**, foreign `Host` **403**. Re-run before the next public claim — do not trust this paragraph forever.
+
+### Nater-owned
+
+- **Tour walk** (above) — his click-through, not an agent checkbox.
+- **Personal info in the public repo.** `docs/SPEC.md` line 5 folder path `C:\Users\uttle\…` (Windows username). Default weather **Columbus, OH** (`server/weather.ts`, `src/weather.ts`, §6.1 / §11 / §13). Do **not** scrub or change the city unless he says so. Cookbook emails inside `docs/jev/` are upstream TypeSafe examples, not his.
+
+### Nice-to-have / later
+
+- Search, direct OpenAI / Anthropic / Tavily / Brave calls — Settings **saves** those keys; MVP **does not call** them (already §2).
+- `SECURITY.md` / `CONTRIBUTING.md` / GitHub Actions `npm run build` already exist.
+- Inspector FlipTip can overlap **Jev’s Questions** while the toggle is focused.
+- Optional: same-origin JSON `Content-Type` on every POST including `/api/docs/update` (client now sends JSON; server still skips `jsonBody` on that route — do not fold this into the CSRF gate).
+
+### Explicitly not a gap
+
+- DeepSeek (or other floor models) putting reasoning in **Thoughts** and leaving the mill body thin — model channel, not our bug.
+- CSRF gate (`dbe5102`) — do not retouch.
+- Keys server-side in gitignored `.env.local`; health booleans; settings last-4.
+- Core Workshop loop (LLM tools + Ask Jev + Send answers to LLM).
+- Ten Example Uses / Preset States snaps (reviewed).
+- Convert tab (browser-only txt/html/docx/pdf).
+- Basic Settings (OpenRouter + unused slots + LLM instructions).
+- In-repo `docs/jev/` snapshot + Nice / Code / Iframe.
+- README (OSS prototype, `.env.local`, port 5182, Jev pin, Nathan Uttley).
+- **Update Jev docs** on the Docs page toolbar (not chrome-right). Chrome-right is **Tour** only.
+- `X-Title` OpenRouter header; **2 MiB** `readBody` cap / 413 in SPEC §7.
+- Never-font / never ALL CAPS: Public Sans + Fragment Mono only; `text-transform: none` on chrome (no Bricolage, no uppercase stamps).
+- DOMPurify on Docs Nice view.
+

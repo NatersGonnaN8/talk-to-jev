@@ -4,7 +4,7 @@
 
 ## What it is
 
-Two AIs through **one OpenRouter key**. LLM talks (`deepseek/deepseek-v4-flash`, chat/completions with tools). Jev judges (`typesafe/jev-1.13`, Decisions API — not an LLM). **Jev’s State** is Jev `state`; **Jev’s Questions** is the typed `questions` map. The LLM mutates both through tools and calls `ask_jev`; Jev returns probabilities; the answers round-trip into the next LLM turn. README “The loop” has the shape. SPEC §5 has the contract.
+Two AIs through **one OpenRouter key**. LLM talks (`deepseek/deepseek-v4-flash`, chat/completions with tools). Jev judges (`typesafe/jev-1.13`, Decisions API — not an LLM). **Jev’s State** is Jev `state`; **Jev’s Questions** is the typed `questions` map. The LLM mutates both through tools and calls `ask_jev`; Jev returns probabilities; the answers round-trip into the next LLM turn. README and SPEC §5 have the shape.
 
 ## Pages
 
@@ -34,7 +34,7 @@ Re-run those probes before any future security claim. Do not relax the gate or a
 - `npm run build` (typechecks both tsconfigs + Vite build) must be green before a commit that touches code. CI runs the same on push/PR.
 - `npm run dev` is usually already running in a Cursor terminal on 5182 (`strictPort`) — check before starting another.
 - Conventional commits, why-focused. Stage only your files; other agent sessions may have `docs/SPEC.md` dirty at the same time.
-- Refresh the third-party docs snapshot with **Update Jev docs** or `npm run update-jev-docs`; commit as `chore:`. `docs/jev/` is not MIT — see `docs/jev/README.md`.
+- Refresh the third-party docs snapshot with **Update Jev docs** on the **Docs** page (not the header) or `npm run update-jev-docs`; commit as `chore:`. `docs/jev/` is not MIT — see `docs/jev/README.md`.
 - Pin Jev 1.13 unless Nater asks for latest. Slow models only for subagents (Grok 4.6 extra high, Fast off).
 
 ## Open decisions (Nater’s call)
