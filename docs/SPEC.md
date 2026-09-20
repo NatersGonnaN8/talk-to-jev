@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.13 — 2026-09-20  
+**Status:** v0.14 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -198,6 +198,7 @@ Layout (desktop):
   - Fields: id, type (`choice` | `noul` | `score`), instructions
   - **Add question** inserts a new card with an **empty id**. The user types the id. Do **not** auto-generate `q_*` / random suffixes. Only **user-added** cards start blank — presets keep their real ids (`wear_jacket`, business ids, and the rest in `src/samples.ts`).
   - Id input placeholder: `question id` (a hint, not a fake value). The field value stays empty until they type.
+  - Question **id** and choice **option key** are editable labels, not React identities. Each q-card and each option row keeps a **stable uid** as its React `key` so typing does not remount the input or steal focus (`document.activeElement` must stay the field). Renaming an id or option key updates that card/row **in place** — do not delete-and-insert under the new string (that remounts after one character). Blank **Add question** still starts with an empty id (internal map key may be `__blank__:uuid`). Sequential `option_a` / `option_b` / `option_c` defaults on add stay; those strings must not be used as React keys. Nater (2026-09-20): typing into `vendor_claim_valid` / `action` dropped focus after one character because `key={id}`.
   - New-card defaults (empty editor UX): type `noul`, empty instructions, empty true/false criteria. Switching type to **choice** starts two rows keyed `option_a` and `option_b` (empty descriptions). Score stays Low / Medium / High. Noul stays empty true/false criteria.
   - Choice: option key + description rows (add/remove). 1–255 options in spirit; UI allows at least 2. **Add option** mints the next unused sequential key **on that question**: `option_a`, `option_b`, `option_c`, … `option_z`, then `option_aa`, `option_ab`, … Skip keys already present (including custom keys like `pay`). Do **not** mint random `opt_*` suffixes. Empty/blank keys stay allowed if the operator clears a key field; the *default on add* is sequential `option_*`. Same class of bug as blank question ids: never invent random ids for typed Jev fields. Nater (2026-09-20): a third option showed `opt_c58rm` — it should have been `option_c`.
   - Score: ordered level lines (min 2)
@@ -236,11 +237,27 @@ Layout:
 
 ```
 [ chrome ]
-[ search + file list | document ]
+[ search + sort + type chips + file list | document ]
 ```
 
 - Left: filterable list from `GET /api/docs` (path, title, source, fetched_at)
 - Right: the selected file (`GET /api/docs/file?path=`)
+- First paint may flash empty until `GET /api/docs` returns. Empty snapshot (after that fetch): explain **Update Jev docs** / `npm run update-jev-docs`.
+
+**Rail sort + type tags (2026-09-20).** Nater: the Docs rail needs ascending/descending **and** filter tags per doc type — not only Search snapshot plus a flat list.
+
+- **Sort:** custom control (not a native resize grip, not a native `<select>`). Toggles **A→Z** / **Z→A** by **title**, with **path** as the tiebreak. Default A→Z. The list is the sorted result of the current search+tag filter.
+- **Type tags:** chips above the list (slick mill/pine — manila/pine ink, not candy). One chip per type that appears in the loaded snapshot, A→Z by type id, with a readable count of pages of that type that also match the current search. Clicking a chip **toggles** it. **Multi-select OR** of types: a page shows if its type is in the active set. Empty tag set = all types. A **Clear** control (only when any tag is on) turns that set empty.
+- **Search** still **AND**-filters the visible list (path / title / source) after the type OR.
+- **Types are derived from snapshot paths** — do **not** invent a second catalog or hand-maintained map. Rules:
+  - Root `primer.md` → `primer`
+  - Root `INDEX.md` / `README*` / `manifest.json` → `snapshot`
+  - Any path segment `cookbooks` → `cookbook`
+  - Any path segment `sdk`, or basename `sdk.md` → `sdk`
+  - Otherwise the **first path segment** (`cloudflare`, `openrouter`, `typesafe`, `jevai`, `pydantic`, `typesafe-site`, …)
+- **Selected page vs filter:** if the open page still matches search+tags, it stays selected and listed. If the operator filters it out, **keep it in the reader** (do not unload) but **do not list it in the rail** — the list is the filter, not a ghost selected row. Clearing search/tags restores the row, still selected. Clicking another listed page replaces the selection as usual.
+- **Persist** this browser: `localStorage["talk-to-jev:docs-rail"]` = `{ v: 1, sort: "asc"|"desc", tags: string[] }`. Reload keeps sort + active tags. Never store keys. Corrupt JSON → A→Z and no tags. Do not prune persisted tags against an empty first-paint catalog (wait until `GET /api/docs` has files).
+- Keep `.doc-link` rows in `aside.doc-rail`. No native textarea/pane resize on this page. If a tip is added on the rail, it must be opaque and fully on-screen (FlipTip); prefer labeled controls over tips that would clip inside the scrolling rail.
 - **View overlay** (sticky, top-right of the document pane — not a second chrome bar): two icon buttons
   - **Eyeball** — nice view: rendered Markdown (strip YAML frontmatter; GFM tables/code). Default for `.md`
   - **Code** — source view: raw file in `Fragment Mono`
@@ -468,6 +485,9 @@ OpenAI-style tools on the chat-completions call. The server executes them, then 
 
 **Key:** `talk-to-jev:tutorial-done`  
 **Shape:** `"1"` after Skip or Done on the coach overlay. Absent = first-run. Restart via chrome **Tour**. Never stores keys.
+
+**Key:** `talk-to-jev:docs-rail`  
+**Shape:** `{ v: 1, sort: "asc"|"desc", tags: string[] }` for the Docs page rail (title sort + type chips). Browser only. Never stores keys. Corrupt / missing → `sort: "asc"`, `tags: []`.
 
 ```
 {
@@ -715,7 +735,7 @@ Before calling Workshop done:
 3. Pick **Invoice exception** from **Preset Cases**; Ask Jev; three answers render (choice / noul / score)
 4. **Propose Jev questions** (and chat that asks to send to case / propose) uses **tools**: Jev’s case and/or q-cards update immediately; the LLM thread is a short confirmation, **not** a JSON dump
 5. Feed Jev → LLM injects a visible note
-6. Docs page lists snapshot files; open one
+6. Docs page lists snapshot files; open one. Type chips appear (from snapshot paths). Toggle A→Z / Z→A; click a type (e.g. `cloudflare`) and `cloudflare/jev.md` stays selectable. Search still AND-filters. Reload keeps sort + tags (`talk-to-jev:docs-rail`). Filtering out the open page keeps the reader, hides that row.
 7. Update Jev docs button completes and the list refreshes; if a page was open, that page’s markdown reloads (same path) or the empty picker if the path is gone. Tour overlay still reloads the doc behind it.
 8. Splitter drags; textareas have no native corner grip. Splitter reads as a thin quiet seam (not a dashed orange candy-cane stripe); hover/drag shows a slightly wider pine handle
 9. `/docs` deep link works after refresh

@@ -1066,6 +1066,73 @@ textarea.case {
   padding: 0;
 }
 
+.doc-rail-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+}
+
+.doc-sort,
+.doc-tag-clear {
+  border: 1px solid var(--line);
+  background: #fffdf8;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.18rem 0.65rem;
+  font-family: "Fragment Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.doc-sort[aria-pressed="true"] {
+  background: var(--pine);
+  color: #f3e7d3;
+  border-color: var(--pine);
+}
+
+.doc-tag-clear {
+  margin-left: auto;
+}
+
+.doc-type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  margin: 0.5rem 0 0;
+}
+
+.doc-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  border: 1px solid var(--line);
+  background: #fffdf8;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  font-family: "Fragment Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.doc-type-chip.on {
+  background: var(--pine);
+  color: #f3e7d3;
+  border-color: var(--pine);
+}
+
+.doc-type-n {
+  font-size: 0.62rem;
+  color: var(--mute);
+}
+
+.doc-type-chip.on .doc-type-n {
+  color: #d5e4d8;
+}
+
 .doc-link {
   width: 100%;
   text-align: left;
