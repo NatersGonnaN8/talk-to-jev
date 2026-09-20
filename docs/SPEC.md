@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.28 — 2026-09-20  
+**Status:** v0.30 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -217,12 +217,13 @@ Layout (desktop):
 
 - Heading: `h2.pane-title` **LLM** (acronym as written) — **same size as Jev’s Questions** (1.05rem / 16.8px, weight 650, letter-spacing 0.01em). Model id is subtitle/meta (`code`), not a second heading.
 - Scrollable transcript (user / assistant) lives in `.thread` — **that** is the pane scroller, not the window. Composer stays under the thread. Assistant turns are **agentic**, not a single JSON dump in the bubble.
+- **LLM thread scroll while streaming (2026-09-20).** Nater: “make it so that the LLM, when it streams, doesn't force the scroll to the bottom. Make it so that we can scroll separately from it streaming.” Scroll root is `article.pane.llm` → `div.thread` (`overflow-y: auto`). The pane itself is overflow hidden; `html` / `body` overflow hidden. **Do not** yank `scrollTop` to `scrollHeight` on every stream token, thought, tool card, or content update. **Do not** `scrollIntoView` the last bubble. **Do not** scroll the window. **Sticky follow:** if the operator is already at/near the bottom (distance-from-bottom ≤ **40px**), following new tokens is OK and slick. If they have scrolled up (not near bottom), leave their `scrollTop` alone until they return near the bottom (that re-pins). Same rule when Thoughts expand/collapse during a stream — those height changes must not yank the thread if they are reading above. Starting a new LLM turn (Send / Feed / Propose / Random state / an Agentic loop turn) may pin **once** so the new You + assistant pair is in view; after that, only sticky follow. Overlay mill-green scrollbars (`.mill-bar` / `is-on` / `is-fade`) stay. Jev `.jev-scroll` is unchanged. No CSS `resize`. No native grips.
 - Composer: textarea (`resize: none`) + **Send**
 - Secondary mill row: **Random state**, **Agentic loop**, **Propose Jev questions**, **Inspector** (§6.7). **No** Feed Jev on this pane. Public Sans like `.nav-btn`. Pane-title size only on headers. Mixed case, never ALL CAPS CSS.
 - **Random state:** click runs the invent one-shot (§5.1). No popover.
 - **Agentic loop** mill popover: **How many turns do you want to do?** Options **3–10**, default **3**. Confirm starts; Cancel aborts. No ALL CAPS. Opaque, flip, fully on-screen, high z-index. See §5.2. Disabled / mill-warn when the mill has no state or no real-id questions.
 - Empty: “Draft the state, or ask how to phrase a Jev question.”
-- **Send** streams `/api/llm` SSE into the open assistant turn. Keep the user + assistant pair on screen. History persist / preset reload must not wipe an in-flight or just-finished turn. **Feed Jev to LLM** uses this same stream.
+- **Send** streams `/api/llm` SSE into the open assistant turn. A new turn may pin the thread once so the new pair is in view; streaming tokens must **not** keep forcing the thread to the bottom (sticky follow only — see the scroll contract above). History persist / preset reload must not wipe an in-flight or just-finished turn. **Feed Jev to LLM** uses this same stream.
   - `{ type: "thought", text }` — incremental **actual** reasoning from OpenRouter (`reasoning`, `reasoning_content`, or `reasoning_details` text/summary). Accumulate `text`. Never invent thoughts. Encrypted / `[REDACTED]` chunks are not thoughts.
   - `{ type: "delta", text, replace? }` — incremental assistant prose. Accumulate `text` (this is **not** OpenAI `choices[0].delta.content`). If `replace` is true, that turn’s prose becomes `text` (used when a question-list dump is swapped for a short confirmation).
   - `{ type: "tool", id, name, status: "running"|"done", ok?, argsSummary, resultSummary?, ... }` — apply immediately. On `done` + `ok`, `set_jev_case` / `set_jev_questions` / `ask_jev` still update the ticket, q-cards, or Jev answers. The **transcript** shows a tool card, not the JSON.
@@ -931,6 +932,7 @@ Before calling Workshop done:
 55. Load Workshop: LLM pane-head shows **Inspector** (mixed case). Panel is off (no request JSON on screen). Toggle on: bottom overlay, two columns **To LLM** / **To Jev**, Fragment Mono JSON. Tip opaque and on-screen. Toggle off. Send a short LLM message **or** Ask Jev (or a tool `ask_jev`): `localStorage["talk-to-jev:dev-logs"]` grows even while closed. Refresh: toggle still off; opening it shows the last calls. No API key / last-4 / `sk-or-` in the panel or that key. Settings has no inspector. Chrome-right has no Inspector. `ask_jev` tool card args read **Current state + questions**. Workshop panes still fill the viewport (overlay is not a flex sibling).
 56. Nav **Example Uses** (not Use Cases). Ticket **Jev’s State**, **New State**, **Preset States**. LLM mill row **Random state**, **Agentic loop**, Propose, Inspector. **Feed Jev to LLM** on Jev’s Questions, left of **Ask Jev**. Convert **Add to Jev’s State**.
 57. Overflow scrollers (Jev’s State textarea, `.thread`, `.jev-scroll`, Docs `.doc-list` / Nice view, Convert, History, Inspector JSON, and the rest in §8.1) show **no white native track**. Hover the region: mill-green thumb + arrows fully opaque. Leave: stay opaque **1.0s**, then fade **1.0s**. Idle: opacity 0. No reserved white gutter. Native `resize` still `none`.
+58. Send a long LLM stream. While Thinking… / tokens arrive, scroll `.thread` **up**. `scrollTop` **stays** (does not snap to `scrollHeight` as thoughts / deltas land). If left at/near the bottom, the thread may still follow. Collapsing or expanding Thoughts mid-stream must not yank an unpinned thread. Jev `.jev-scroll` is unchanged. Window `scrollY` stays ~0. Overlay mill bars still work on `.thread`. No native `resize` grip.
 
 ---
 
