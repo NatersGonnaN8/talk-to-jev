@@ -25,7 +25,7 @@ export type SampleCase = {
   questions: Record<string, JevQuestion>;
 };
 
-/** First-open / New Case. A business snap — not Jacket. */
+/** First catalog preset (Invoice exception). Not loaded by New Case or first-open. */
 export const LANDING_SAMPLE_ID: SampleId = "invoice";
 
 /** The one weather case. Open-Meteo row is visible only here. */

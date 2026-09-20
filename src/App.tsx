@@ -17,13 +17,18 @@ import type {
 } from "./types";
 import { toNiceHtml } from "./markdown";
 import {
-  DEFAULT_QUESTIONS,
-  DEFAULT_STATE,
-  LANDING_SAMPLE_ID,
   cloneSample,
   isWeatherSample,
   type SampleId,
 } from "./samples";
+import {
+  BLANK_QUESTION_KEY_PREFIX,
+  blankQuestionKeys,
+  emptyQuestion,
+  isBlankQuestionId,
+  nextBlankQuestionKey,
+  questionIdValue,
+} from "./jevQuestions";
 import { DEFAULT_LOCATION_QUERY, mergeWeatherIntoCase } from "./weather";
 import {
   MAX_ATTACH_CHARS,
@@ -78,30 +83,8 @@ function newId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** Map key for a user-added card whose id field is still empty. Never shown, never sent to Jev. */
-const BLANK_QUESTION_KEY_PREFIX = "__blank__:";
 const BLANK_QUESTION_ID_ERROR =
   "Type a question id before asking Jev. We will not invent one.";
-
-function isBlankQuestionId(id: string) {
-  return !id.trim() || id.startsWith(BLANK_QUESTION_KEY_PREFIX);
-}
-
-function questionIdValue(storageKey: string) {
-  return isBlankQuestionId(storageKey) ? "" : storageKey;
-}
-
-function nextBlankQuestionKey() {
-  const suffix =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-  return `${BLANK_QUESTION_KEY_PREFIX}${suffix}`;
-}
-
-function blankQuestionKeys(questions: Record<string, JevQuestion>) {
-  return Object.keys(questions).filter((id) => isBlankQuestionId(id));
-}
 
 function questionsForJev(questions: Record<string, JevQuestion>) {
   const out: Record<string, JevQuestion> = {};
@@ -193,24 +176,6 @@ function summarizeAnswers(answers: Record<string, JevAnswer>) {
   }
   lines.push("Use these as signals. A typed answer can still be wrong.");
   return lines.join("\n");
-}
-
-function emptyQuestion(type: QuestionType): JevQuestion {
-  if (type === "choice") {
-    return {
-      type: "choice",
-      instructions: "",
-      criteria: { option_a: "", option_b: "" },
-    };
-  }
-  if (type === "score") {
-    return { type: "score", instructions: "", criteria: ["Low", "Medium", "High"] };
-  }
-  return {
-    type: "noul",
-    instructions: "",
-    criteria: { true: "", false: "" },
-  };
 }
 
 export function App() {
@@ -506,7 +471,7 @@ function Workshop({
 }) {
   const [store, setStore] = useState<ChatStore>(() => loadStore());
   const boot = activeThread(store);
-  const [state, setState] = useState(() => boot?.state ?? DEFAULT_STATE);
+  const [state, setState] = useState(() => boot?.state ?? "");
   const [includeChat, setIncludeChat] = useState(() => boot?.includeChat ?? true);
   const [messages, setMessages] = useState<ChatMessage[]>(
     () => boot?.messages ?? [],
@@ -517,7 +482,7 @@ function Workshop({
   );
   const [split, setSplit] = useState(50);
   const [questions, setQuestions] = useState<Record<string, JevQuestion>>(
-    () => boot?.questions ?? DEFAULT_QUESTIONS,
+    () => boot?.questions ?? emptySnapshot().questions,
   );
   const [answers, setAnswers] = useState<Record<string, JevAnswer> | null>(
     () => boot?.answers ?? null,
@@ -525,7 +490,7 @@ function Workshop({
   const [jevMeta, setJevMeta] = useState(() => boot?.jevMeta ?? "");
   const [blankIdError, setBlankIdError] = useState(false);
   const [samplePresetId, setSamplePresetId] = useState<string | null>(
-    () => boot?.samplePresetId ?? LANDING_SAMPLE_ID,
+    () => boot?.samplePresetId ?? null,
   );
   const [locationQuery, setLocationQuery] = useState(DEFAULT_LOCATION_QUERY);
   const [weatherLine, setWeatherLine] = useState("");
@@ -1028,7 +993,7 @@ function Workshop({
           </label>
         </div>
         <div className="case-tools" role="group" aria-label="Case session">
-          <FlipTip text="Clears the case, attachments, questions, answers, and LLM chat.">
+          <FlipTip text="Starts a blank workshop — not a preset. Saves the open thread if it is worth keeping.">
             <button
               type="button"
               className="sample-chip"

@@ -4,7 +4,7 @@
 
 ## What it is
 
-Two AIs through **OpenRouter**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`. Ten snaps: **nine operator decisions** plus **Jacket** (Open-Meteo, the one weather case). Workshop lands on **Invoice exception**.
+Two AIs through **OpenRouter**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`. Ten snaps: **nine operator decisions** plus **Jacket** (Open-Meteo, the one weather case). Workshop first-open and **New Case** are an **empty** Workshop — Invoice is a Preset Cases pick.
 
 ## Keys (BYOK)
 
@@ -25,7 +25,7 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 ## How to try
 
 1. Open `http://127.0.0.1:5182/settings`. OpenRouter should show **Key ready** (not the secret).
-2. Workshop lands on **Invoice exception**. **Preset Cases** holds the operator snaps; **Jacket** is the weather case (**Load weather** → **Ask Jev**). **New Case** resets the workshop. **History** is on that row.
+2. Workshop first-open is **empty** (no Invoice). **Preset Cases** holds the operator snaps; **Jacket** is the weather case (**Load weather** → **Ask Jev**). **New Case** starts a blank workshop. **History** is on that row.
 3. Docs overlay still on `/docs`. History is local-only (Jev’s case row). Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
 
 ## How to start the tour

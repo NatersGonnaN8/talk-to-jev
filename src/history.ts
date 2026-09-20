@@ -4,6 +4,10 @@ import {
   DEFAULT_STATE,
   LANDING_SAMPLE_ID,
 } from "./samples";
+import {
+  blankWorkshopQuestions,
+  questionsAreBlankWorkshop,
+} from "./jevQuestions";
 
 export const STORAGE_KEY = "talk-to-jev:chats";
 export const STORE_VERSION = 1;
@@ -39,12 +43,12 @@ const SECRET_FIELD =
 export function emptySnapshot(): WorkshopSnapshot {
   return {
     messages: [],
-    state: DEFAULT_STATE,
+    state: "",
     includeChat: true,
-    questions: structuredClone(DEFAULT_QUESTIONS),
+    questions: blankWorkshopQuestions(),
     answers: null,
     jevMeta: "",
-    samplePresetId: LANDING_SAMPLE_ID,
+    samplePresetId: null,
   };
 }
 
@@ -77,12 +81,18 @@ export function snapshotWorthSaving(snap: WorkshopSnapshot, titleLocked = false)
   if (snap.answers && Object.keys(snap.answers).length) return true;
   if (snap.jevMeta.trim()) return true;
   if (snap.includeChat === false) return true;
-  const landing =
-    snap.samplePresetId == null || snap.samplePresetId === LANDING_SAMPLE_ID;
-  if (!landing) return true;
+  if (isEmptyWorkshop(snap)) return false;
+  const invoiceLanding = snap.samplePresetId === LANDING_SAMPLE_ID;
+  if (!invoiceLanding) return true;
   if (snap.state.trim() !== DEFAULT_STATE.trim()) return true;
   if (stableJson(snap.questions) !== stableJson(DEFAULT_QUESTIONS)) return true;
   return false;
+}
+
+function isEmptyWorkshop(snap: WorkshopSnapshot) {
+  if (snap.samplePresetId != null) return false;
+  if (snap.state.trim()) return false;
+  return questionsAreBlankWorkshop(snap.questions);
 }
 
 export function loadStore(): ChatStore {
@@ -275,7 +285,7 @@ function normalizeThread(raw: unknown): ChatThread | null {
   if (typeof rec.id !== "string") return null;
   const messages = normalizeMessages(rec.messages);
   const questions = normalizeQuestions(rec.questions);
-  const state = typeof rec.state === "string" ? rec.state : DEFAULT_STATE;
+  const state = typeof rec.state === "string" ? rec.state : "";
   const titleLocked = Boolean(rec.titleLocked);
   const createdAt = num(rec.createdAt) ?? Date.now();
   const updatedAt = num(rec.updatedAt) ?? createdAt;
@@ -315,13 +325,13 @@ function normalizeMessages(raw: unknown): ChatMessage[] {
 }
 
 function normalizeQuestions(raw: unknown): Record<string, JevQuestion> {
-  if (!raw || typeof raw !== "object") return structuredClone(DEFAULT_QUESTIONS);
+  if (!raw || typeof raw !== "object") return blankWorkshopQuestions();
   const out: Record<string, JevQuestion> = {};
   for (const [id, q] of Object.entries(raw as Record<string, unknown>)) {
     const parsed = asQuestion(q);
     if (parsed) out[id] = parsed;
   }
-  return Object.keys(out).length ? out : structuredClone(DEFAULT_QUESTIONS);
+  return Object.keys(out).length ? out : blankWorkshopQuestions();
 }
 
 function asQuestion(raw: unknown): JevQuestion | null {

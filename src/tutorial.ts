@@ -50,7 +50,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "case",
     title: "Jev’s case is Jev state",
-    body: "This slip is Jev state. New Case wipes the workshop. Preset Cases loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.",
+    body: "This slip is Jev state. New Case starts a blank workshop — not a preset. Preset Cases loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.",
     page: "workshop",
     hooks: ["case"],
     selectors: [".ticket"],

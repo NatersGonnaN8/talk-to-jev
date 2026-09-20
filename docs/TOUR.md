@@ -46,7 +46,7 @@ Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRou
 - **hooks:** `case`
 - **selectors:** `.ticket`
 
-This slip is Jev state. New Case wipes the workshop. Preset Cases loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.
+This slip is Jev state. New Case starts a blank workshop — not a preset. Preset Cases loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.
 
 ### 3. The LLM pane talks
 
