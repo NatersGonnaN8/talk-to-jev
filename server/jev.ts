@@ -10,6 +10,7 @@ export async function callJev(opts: {
   model: string;
   state: unknown;
   questions: Record<string, unknown>;
+  signal?: AbortSignal;
 }): Promise<JevCallResult> {
   const questions = rewriteChoiceKeysInQuestions(opts.questions);
   const upstream = await fetch("https://openrouter.ai/api/alpha/decisions", {
@@ -20,6 +21,7 @@ export async function callJev(opts: {
       state: opts.state,
       questions,
     }),
+    signal: opts.signal,
   });
   const payload = (await upstream.json().catch(() => ({}))) as Record<string, unknown>;
   if (!upstream.ok) {

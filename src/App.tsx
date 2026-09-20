@@ -3,6 +3,7 @@ import {
   askJev,
   fetchWeather,
   getHealth,
+  isAbortError,
   streamLlm,
   updateDocs,
 } from "./api";
@@ -549,6 +550,8 @@ function Workshop({
   const persistReady = useRef(false);
   const skipFirstPersist = useRef(true);
   const streamLockRef = useRef(false);
+  const llmAbortRef = useRef<AbortController | null>(null);
+  const llmStopRef = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
   const questionsRef = useRef(questions);
@@ -741,6 +744,17 @@ function Workshop({
   };
 
   const locked = health?.hasKey === false || busy !== null;
+  const llmStreaming = busy === "llm" || busy === "propose";
+
+  const stopLlm = () => {
+    if (llmStopRef.current) {
+      llmAbortRef.current?.abort();
+      return;
+    }
+    llmStopRef.current = true;
+    llmAbortRef.current?.abort();
+    onToast("Stopped.");
+  };
 
   type LlmClientMode = "chat" | "propose-questions" | "random-case" | "agentic-loop";
 
@@ -748,9 +762,12 @@ function Workshop({
     mode: LlmClientMode,
     content: string,
     opts?: { keepBusy?: boolean; clearDraft?: boolean },
-  ): Promise<{ askedJev: boolean; failed: boolean }> => {
+  ): Promise<{ askedJev: boolean; failed: boolean; aborted: boolean }> => {
+    if (llmStopRef.current) {
+      return { askedJev: false, failed: false, aborted: true };
+    }
     if (mode === "chat" && !content.trim()) {
-      return { askedJev: false, failed: false };
+      return { askedJev: false, failed: false, aborted: false };
     }
     const nextUser: ChatMessage =
       mode === "propose-questions"
@@ -765,6 +782,8 @@ function Workshop({
       ...history,
       { role: "assistant", content: "" },
     ];
+    const ac = new AbortController();
+    llmAbortRef.current = ac;
     streamLockRef.current = true;
     stickToBottomRef.current = true;
     messagesRef.current = nextMessages;
@@ -868,6 +887,7 @@ function Workshop({
           setJevMeta(bits.join(" · "));
           onToast("Jev answered.");
         },
+        ac.signal,
       );
       if (!full.trim() && appliedQs && mode === "propose-questions") {
         setMessages((m) => {
@@ -878,8 +898,11 @@ function Workshop({
           return next;
         });
       }
-      return { askedJev, failed: false };
+      return { askedJev, failed: false, aborted: false };
     } catch (err) {
+      if (isAbortError(err) || llmStopRef.current || ac.signal.aborted) {
+        return { askedJev, failed: false, aborted: true };
+      }
       const message = err instanceof Error ? err.message : "LLM failed";
       onToast(message);
       setMessages((m) => {
@@ -887,14 +910,17 @@ function Workshop({
         messagesRef.current = next;
         return next;
       });
-      return { askedJev, failed: true };
+      return { askedJev, failed: true, aborted: false };
     } finally {
+      if (llmAbortRef.current === ac) llmAbortRef.current = null;
       streamLockRef.current = false;
       if (!opts?.keepBusy) setBusy(null);
     }
   };
 
   const sendLlm = async (mode: "chat" | "propose-questions", extra?: string) => {
+    if (streamLockRef.current) return;
+    llmStopRef.current = false;
     const content = extra ?? draft.trim();
     if (mode === "chat" && !content) return;
     await runLlmTurn(mode, content, { clearDraft: !extra });
@@ -902,6 +928,7 @@ function Workshop({
 
   const runRandomState = async () => {
     if (health?.hasKey === false || busy !== null || agentLockRef.current) return;
+    llmStopRef.current = false;
     agentLockRef.current = true;
     setAgentRun(null);
     setBusy("llm");
@@ -912,7 +939,7 @@ function Workshop({
       const first = await runLlmTurn("random-case", randomStateInventPrompt(), {
         keepBusy: true,
       });
-      if (first.failed) return;
+      if (first.failed || first.aborted) return;
       const note = answersRef.current
         ? summarizeAnswers(answersRef.current)
         : "";
@@ -922,7 +949,7 @@ function Workshop({
           randomStateAnalysisPrompt(note),
           { keepBusy: true },
         );
-        if (analysis.failed) return;
+        if (analysis.failed || analysis.aborted) return;
       }
       onToast("Random state done.");
     } finally {
@@ -941,6 +968,7 @@ function Workshop({
       return;
     }
     const { total } = agenticLoopSessionCount(rawTurns);
+    llmStopRef.current = false;
     agentLockRef.current = true;
     setAgentRun({ current: 1, total });
     setBusy("llm");
@@ -950,8 +978,9 @@ function Workshop({
         agenticLoopFirstPrompt(total),
         { keepBusy: true },
       );
-      if (first.failed) return;
+      if (first.failed || first.aborted) return;
       for (let t = 2; t <= total; t++) {
+        if (llmStopRef.current) return;
         setAgentRun({ current: t, total });
         const note = answersRef.current
           ? summarizeAnswers(answersRef.current)
@@ -961,7 +990,7 @@ function Workshop({
           agenticLoopContinuePrompt(t, total, note),
           { keepBusy: true },
         );
-        if (next.failed) return;
+        if (next.failed || next.aborted) return;
       }
       onToast(
         `Agentic loop · ${total === 1 ? "1 turn" : `${total} turns`} done.`,
@@ -1377,6 +1406,7 @@ function Workshop({
           className="composer"
           onSubmit={(e) => {
             e.preventDefault();
+            if (llmStreaming) return;
             void sendLlm("chat");
           }}
         >
@@ -1388,13 +1418,39 @@ function Workshop({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
+                if (llmStreaming) return;
                 void sendLlm("chat");
               }
             }}
           />
-          <button className="btn solid" type="submit" disabled={locked || !draft.trim()}>
-            {busy === "llm" ? "Thinking…" : "Send"}
-          </button>
+          {llmStreaming ? (
+            <button
+              className="btn solid composer-stop"
+              type="button"
+              aria-label="Stop"
+              title="Stop"
+              onClick={stopLlm}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect
+                  x="7"
+                  y="7"
+                  width="10"
+                  height="10"
+                  rx="1.5"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          ) : (
+            <button
+              className="btn solid"
+              type="submit"
+              disabled={locked || !draft.trim()}
+            >
+              Send
+            </button>
+          )}
         </form>
       </article>
 

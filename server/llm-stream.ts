@@ -153,6 +153,15 @@ function shouldStreamContent(acc: string, sawTools: boolean) {
   return !looksLikeDumpInProgress(acc);
 }
 
+export function isAbortError(err: unknown): boolean {
+  return Boolean(
+    err &&
+      typeof err === "object" &&
+      "name" in err &&
+      (err as { name?: string }).name === "AbortError",
+  );
+}
+
 export function summarizeToolArgs(name: string, args: Record<string, unknown>): string {
   if (name === "set_jev_case") {
     const state = String(args.state ?? args.case ?? args.text ?? "");
@@ -298,6 +307,7 @@ export async function completeChat(opts: {
   deferContent?: boolean;
   onThought?: (text: string) => void;
   onDelta?: (text: string) => void;
+  signal?: AbortSignal;
 }): Promise<ChatOk | ChatFail> {
   const body: Record<string, unknown> = {
     model: opts.model,
@@ -315,6 +325,7 @@ export async function completeChat(opts: {
     method: "POST",
     headers: openRouterHeaders(opts.apiKey),
     body: JSON.stringify(body),
+    signal: opts.signal,
   });
 
   const ctype = upstream.headers.get("content-type") || "";
@@ -346,6 +357,17 @@ export async function completeChat(opts: {
   let fatal: ChatFail | null = null;
 
   for await (const payload of iterateUpstreamSse(upstream.body)) {
+    if (opts.signal?.aborted) {
+      try {
+        await upstream.body.cancel();
+      } catch {
+        /* */
+      }
+      if (opts.signal.reason instanceof Error) throw opts.signal.reason;
+      const stop = new Error("Stopped.");
+      stop.name = "AbortError";
+      throw stop;
+    }
     if (payload.error) {
       fatal = failFromPayload(502, payload);
       break;

@@ -277,6 +277,15 @@ export function eventsFromPayload(json: SsePayload): LlmStreamEvent[] {
   return out;
 }
 
+export function isAbortError(err: unknown): boolean {
+  return Boolean(
+    err &&
+      typeof err === "object" &&
+      "name" in err &&
+      (err as { name?: string }).name === "AbortError",
+  );
+}
+
 export function eventFromPayload(json: SsePayload): LlmStreamEvent | null {
   const all = eventsFromPayload(json);
   return (
@@ -303,6 +312,7 @@ export async function streamLlm(
     mode?: "chat" | "propose-questions" | "random-case" | "agentic-loop";
   },
   onEvent: (ev: LlmStreamEvent) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   const title = payload.mode || "chat";
   const instructions = readLlmInstructions();
@@ -321,6 +331,8 @@ export async function streamLlm(
   const tools: Array<{ name: string; status: string; ok?: boolean; argsSummary?: string; resultSummary?: string }> = [];
   let jevInspectId: string | null = null;
   let finished = false;
+  let full = "";
+  let thoughts = "";
 
   const finish = (response?: unknown, error?: string) => {
     if (finished) return;
@@ -334,6 +346,7 @@ export async function streamLlm(
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify(body),
+      signal,
     });
     if (!res.ok) {
       let message = "LLM request failed";
@@ -353,8 +366,6 @@ export async function streamLlm(
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    let full = "";
-    let thoughts = "";
     let streamError: string | undefined;
 
     const handleFrame = (frame: string) => {
@@ -454,6 +465,15 @@ export async function streamLlm(
     }, streamError);
     return full;
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      finish({
+        reply: full,
+        thoughtsChars: thoughts.length,
+        tools,
+        stopped: true,
+      });
+      throw err;
+    }
     finish(
       undefined,
       err instanceof Error ? err.message : "LLM request failed",

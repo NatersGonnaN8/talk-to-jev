@@ -6,6 +6,7 @@ import type { ServerResponse } from "node:http";
 import { callJev } from "./jev";
 import {
   completeChat as completeOpenRouterChat,
+  isAbortError,
   newCallId,
   summarizeToolArgs,
   type OrToolCall,
@@ -257,9 +258,36 @@ ${opts.primer.slice(0, 40_000)}
 ${propose}`;
 }
 
+function clientGone(res: ServerResponse): boolean {
+  const req = res.req;
+  return (
+    res.writableEnded ||
+    res.destroyed ||
+    !res.writable ||
+    Boolean(req?.destroyed)
+  );
+}
+
+function wireClientAbort(res: ServerResponse): AbortController {
+  const abort = new AbortController();
+  const onClose = () => {
+    if (!abort.signal.aborted) abort.abort();
+  };
+  res.on("close", onClose);
+  abort.signal.addEventListener("abort", () => {
+    res.off("close", onClose);
+  });
+  if (clientGone(res)) abort.abort();
+  return abort;
+}
+
 function emit(res: ServerResponse, obj: unknown) {
-  if (res.writableEnded) return;
-  res.write(`data: ${JSON.stringify(obj)}\n\n`);
+  if (clientGone(res)) return;
+  try {
+    res.write(`data: ${JSON.stringify(obj)}\n\n`);
+  } catch {
+    /* client gone */
+  }
 }
 
 function clipText(s: string, max: number) {
@@ -417,6 +445,7 @@ async function completeChat(opts: {
   deferContent?: boolean;
   onThought?: (text: string) => void;
   onDelta?: (text: string) => void;
+  signal?: AbortSignal;
 }) {
   return completeOpenRouterChat({
     apiKey: opts.apiKey,
@@ -428,6 +457,7 @@ async function completeChat(opts: {
     deferContent: opts.deferContent,
     onThought: opts.onThought,
     onDelta: opts.onDelta,
+    signal: opts.signal,
   });
 }
 
@@ -444,6 +474,7 @@ async function executeTool(
     callId: string;
     argsSummary: string;
     mode: LlmMode;
+    signal?: AbortSignal;
   },
 ): Promise<string> {
   const { work, res, callId, argsSummary } = ctx;
@@ -532,6 +563,7 @@ async function executeTool(
       model: ctx.jevModel,
       state,
       questions: clean,
+      signal: ctx.signal,
     });
     if (!result.ok) {
       emit(res, {
@@ -633,6 +665,8 @@ export async function runLlmSession(opts: {
     ...transcript.map((m) => ({ role: m.role, content: m.content })),
   ];
 
+  const abort = wireClientAbort(opts.res);
+
   emit(opts.res, {
     type: "inspect",
     channel: "llm",
@@ -680,6 +714,7 @@ export async function runLlmSession(opts: {
         streamed.delta = true;
         emit(opts.res, { type: "delta", text });
       },
+      signal: abort.signal,
     });
 
   const runTool = async (
@@ -705,12 +740,13 @@ export async function runLlmSession(opts: {
       callId,
       argsSummary,
       mode,
+      signal: abort.signal,
     });
   };
 
   try {
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      if (opts.res.writableEnded) return;
+      if (abort.signal.aborted || clientGone(opts.res)) return;
       if (round === MAX_ROUNDS - 1) toolChoice = "none";
       else if (mode === "propose-questions" && work.appliedQuestions) toolChoice = "auto";
       else if (modeKeepsAsking(mode) && work.askedJev) toolChoice = "auto";
@@ -757,6 +793,7 @@ export async function runLlmSession(opts: {
           reasoning_details: result.message.reasoning_details,
         });
         for (const call of calls) {
+          if (abort.signal.aborted || clientGone(opts.res)) return;
           const args = parseArgs(call.function.arguments);
           const toolResult = await runTool(call.function.name, args, call.id);
           messages.push({
@@ -830,6 +867,9 @@ export async function runLlmSession(opts: {
     });
     emit(opts.res, { type: "done" });
   } catch (err) {
+    if (isAbortError(err) || abort.signal.aborted || clientGone(opts.res)) {
+      return;
+    }
     const message = sanitizePublicError(err instanceof Error ? err.message : "LLM failed");
     emit(opts.res, { type: "error", message });
     emit(opts.res, { type: "done" });

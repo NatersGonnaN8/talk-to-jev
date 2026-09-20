@@ -1116,6 +1116,26 @@ textarea.case {
   align-items: end;
 }
 
+.composer-stop {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  border-radius: 999px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.composer-stop svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
 .jev-scroll {
   flex: 1 1 auto;
   min-height: 0;
