@@ -257,44 +257,98 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     }
   }
 
-  function pointerOnStrip(bar: AxisEls): boolean {
+  function pointInStripRect(bar: AxisEls, x: number, y: number): boolean {
     if (!barIsShown(bar)) return false;
-    if (!Number.isFinite(lastPtrX) || !Number.isFinite(lastPtrY)) return false;
-    const top = document.elementFromPoint(lastPtrX, lastPtrY);
-    return nodeOnBar(bar, top);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const r = bar.root.getBoundingClientRect();
+    return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
   }
 
-  function leaveStrip(ctl: HostCtl, axis: Axis): void {
+  // Stay host is the 14px box, not elementFromPoint (can lag) and not bar.hover.
+  function pointerOnStrip(
+    bar: AxisEls,
+    x: number = lastPtrX,
+    y: number = lastPtrY,
+  ): boolean {
+    return pointInStripRect(bar, x, y);
+  }
+
+  function axisHeld(ctl: HostCtl, axis: Axis): boolean {
+    return ctl.dragging?.axis === axis || ctl.pressAxis === axis;
+  }
+
+  function hideArmed(bar: AxisEls): boolean {
+    return bar.holdTimer != null || bar.fadeTimer != null;
+  }
+
+  function barLit(bar: AxisEls): boolean {
+    return (
+      bar.root.classList.contains("is-on") ||
+      bar.root.classList.contains("is-fade")
+    );
+  }
+
+  function eventOnStrip(
+    bar: AxisEls,
+    target: EventTarget | null,
+    x: number,
+    y: number,
+  ): boolean {
+    return nodeOnBar(bar, target) && pointInStripRect(bar, x, y);
+  }
+
+  // 3ade3c2 failed here: leaveStrip no-op'd when hover was already false, and
+  // scheduleHide aborted while lastPtr still sat on the gutter. A trusted pane
+  // click then left is-on with no hold/fade. Unpin looks at is-on, not hover.
+  function unpinAxis(
+    ctl: HostCtl,
+    axis: Axis,
+    opts?: { force?: boolean },
+  ): void {
     const bar = ctl[axis];
-    if (!bar.hover) return;
     bar.hover = false;
-    if (ctl.dragging?.axis === axis || ctl.pressAxis === axis) return;
-    scheduleHide(ctl, axis);
+    if (axisHeld(ctl, axis)) return;
+    if (!opts?.force && pointerOnStrip(bar)) return;
+    if (hideArmed(bar)) return;
+    if (!barLit(bar)) return;
+    scheduleHide(ctl, axis, { force: true });
   }
 
-  function syncHoverFromPointer(x: number, y: number): void {
+  function reconcileFromPoint(
+    x: number,
+    y: number,
+    target: EventTarget | null,
+    opts?: { forceOff?: boolean },
+  ): void {
     lastPtrX = x;
     lastPtrY = y;
-    const top = document.elementFromPoint(x, y);
     for (const ctl of hosts.values()) {
       for (const axis of ["y", "x"] as const) {
-        const inside = barIsShown(ctl[axis]) && nodeOnBar(ctl[axis], top);
+        const bar = ctl[axis];
+        const inside = opts?.forceOff
+          ? eventOnStrip(bar, target, x, y)
+          : pointerOnStrip(bar, x, y);
         if (inside) {
-          ctl[axis].hover = true;
+          bar.hover = true;
           reveal(ctl, axis);
         } else {
-          leaveStrip(ctl, axis);
+          unpinAxis(ctl, axis, { force: opts?.forceOff });
         }
       }
     }
   }
 
-  function axisBusy(ctl: HostCtl, axis: Axis): boolean {
-    return (
-      pointerOnStrip(ctl[axis]) ||
-      ctl.dragging?.axis === axis ||
-      ctl.pressAxis === axis
-    );
+  function reconcileFromTarget(target: EventTarget | null): void {
+    for (const ctl of hosts.values()) {
+      for (const axis of ["y", "x"] as const) {
+        if (nodeOnBar(ctl[axis], target)) {
+          ctl[axis].hover = true;
+          reveal(ctl, axis);
+        } else {
+          unpinAxis(ctl, axis, { force: true });
+        }
+      }
+    }
   }
 
   function setBar(bar: AxisEls, on: boolean, fade: boolean): void {
@@ -308,19 +362,38 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     setBar(bar, true, false);
   }
 
+  function stillOnStrip(ctl: HostCtl, axis: Axis): boolean {
+    return ctl[axis].hover && pointerOnStrip(ctl[axis]);
+  }
+
   function startFade(ctl: HostCtl, axis: Axis): void {
-    if (axisBusy(ctl, axis)) return;
+    if (axisHeld(ctl, axis)) return;
+    // Hover is the live pin. Do not let a gutter lastPtr abort fade after a
+    // pane click (that was 3ade3c2's leftover stick).
+    if (stillOnStrip(ctl, axis)) {
+      reveal(ctl, axis);
+      return;
+    }
     const bar = ctl[axis];
     setBar(bar, false, true);
     bar.fadeTimer = window.setTimeout(() => {
       bar.fadeTimer = null;
-      if (axisBusy(ctl, axis)) return;
+      if (axisHeld(ctl, axis)) return;
+      if (stillOnStrip(ctl, axis)) {
+        reveal(ctl, axis);
+        return;
+      }
       setBar(bar, false, false);
     }, FADE_MS);
   }
 
-  function scheduleHide(ctl: HostCtl, axis: Axis): void {
-    if (axisBusy(ctl, axis)) return;
+  function scheduleHide(
+    ctl: HostCtl,
+    axis: Axis,
+    opts?: { force?: boolean },
+  ): void {
+    if (axisHeld(ctl, axis)) return;
+    if (!opts?.force && pointerOnStrip(ctl[axis])) return;
     const bar = ctl[axis];
     clearHide(bar);
     bar.holdTimer = window.setTimeout(() => {
@@ -333,7 +406,8 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     for (const axis of ["y", "x"] as const) {
       if (!barIsShown(ctl[axis])) continue;
       reveal(ctl, axis);
-      if (!axisBusy(ctl, axis)) scheduleHide(ctl, axis);
+      if (axisHeld(ctl, axis) || stillOnStrip(ctl, axis)) continue;
+      scheduleHide(ctl, axis, { force: true });
     }
   }
 
@@ -414,20 +488,25 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     };
     const onBarLeave = (e: PointerEvent): void => {
       if (stillInsideBar(els.root, e.relatedTarget)) return;
-      leaveStrip(ctl, axis);
+      lastPtrX = e.clientX;
+      lastPtrY = e.clientY;
+      // Leave is proof the pointer is off this strip, even if clientX/Y sits
+      // on the boundary or lastPtr still points at the gutter.
+      unpinAxis(ctl, axis, { force: true });
     };
     // Stay host is this 14px strip only — never the overflow pane / Inspector body.
-    // pointermove / pointerdown also reconcile so a lost leave cannot pin is-on.
     els.root.addEventListener("pointerenter", onBarEnter);
     els.root.addEventListener("pointerleave", onBarLeave);
     els.root.addEventListener(
       "wheel",
       (e) => {
+        lastPtrX = e.clientX;
+        lastPtrY = e.clientY;
+        els.hover = true;
         e.preventDefault();
         host.scrollTop += e.deltaY;
         host.scrollLeft += e.deltaX;
         reveal(ctl, axis);
-        if (!axisBusy(ctl, axis)) scheduleHide(ctl, axis);
       },
       { passive: false },
     );
@@ -580,12 +659,21 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
   };
 
   const onPointerDownDoc = (e: PointerEvent): void => {
-    // Click in the pane must not pin. Live hit-test the 14px strip only.
-    syncHoverFromPointer(e.clientX, e.clientY);
+    // Trusted click: e.target is the pane or the 14px strip — not a leftover
+    // hover flag, not lastPtr still parked on the gutter.
+    reconcileFromPoint(e.clientX, e.clientY, e.target, { forceOff: true });
+  };
+
+  const onClickDoc = (e: MouseEvent): void => {
+    reconcileFromPoint(e.clientX, e.clientY, e.target, { forceOff: true });
+  };
+
+  const onFocusInDoc = (e: FocusEvent): void => {
+    reconcileFromTarget(e.target);
   };
 
   const onPointerMove = (e: PointerEvent): void => {
-    syncHoverFromPointer(e.clientX, e.clientY);
+    reconcileFromPoint(e.clientX, e.clientY, e.target);
     if (!dragging?.dragging) return;
     const d = dragging.dragging;
     const delta =
@@ -601,7 +689,12 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
 
   const onPointerUp = (e: PointerEvent): void => {
     const ctl = armed ?? dragging;
-    if (!ctl) return;
+    lastPtrX = e.clientX;
+    lastPtrY = e.clientY;
+    if (!ctl) {
+      reconcileFromPoint(e.clientX, e.clientY, e.target, { forceOff: true });
+      return;
+    }
     const axis = ctl.dragging?.axis ?? ctl.pressAxis;
     clearPress(ctl);
     ctl.pressAxis = null;
@@ -610,11 +703,9 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     dragging = null;
     if (!axis) return;
     const bar = ctl[axis];
-    lastPtrX = e.clientX;
-    lastPtrY = e.clientY;
     bar.hover = pointerOnStrip(bar);
     if (bar.hover) reveal(ctl, axis);
-    else scheduleHide(ctl, axis);
+    else unpinAxis(ctl, axis, { force: true });
   };
 
   const mo = new MutationObserver(() => requestScan());
@@ -628,9 +719,11 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
   window.addEventListener("scroll", onWinScroll, true);
   window.addEventListener("resize", requestLayout);
   window.addEventListener("pointerdown", onPointerDownDoc, true);
-  window.addEventListener("pointermove", onPointerMove);
-  window.addEventListener("pointerup", onPointerUp);
-  window.addEventListener("pointercancel", onPointerUp);
+  window.addEventListener("click", onClickDoc, true);
+  window.addEventListener("focusin", onFocusInDoc, true);
+  window.addEventListener("pointermove", onPointerMove, true);
+  window.addEventListener("pointerup", onPointerUp, true);
+  window.addEventListener("pointercancel", onPointerUp, true);
   window.addEventListener("lostpointercapture", onPointerUp);
   window.visualViewport?.addEventListener("resize", requestLayout);
   window.visualViewport?.addEventListener("scroll", requestLayout);
@@ -642,9 +735,11 @@ export function startMillScrollbars(layer: HTMLElement): () => void {
     window.removeEventListener("scroll", onWinScroll, true);
     window.removeEventListener("resize", requestLayout);
     window.removeEventListener("pointerdown", onPointerDownDoc, true);
-    window.removeEventListener("pointermove", onPointerMove);
-    window.removeEventListener("pointerup", onPointerUp);
-    window.removeEventListener("pointercancel", onPointerUp);
+    window.removeEventListener("click", onClickDoc, true);
+    window.removeEventListener("focusin", onFocusInDoc, true);
+    window.removeEventListener("pointermove", onPointerMove, true);
+    window.removeEventListener("pointerup", onPointerUp, true);
+    window.removeEventListener("pointercancel", onPointerUp, true);
     window.removeEventListener("lostpointercapture", onPointerUp);
     window.visualViewport?.removeEventListener("resize", requestLayout);
     window.visualViewport?.removeEventListener("scroll", requestLayout);
