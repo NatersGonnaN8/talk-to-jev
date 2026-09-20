@@ -10,7 +10,6 @@ export function openRouterHeaders(apiKey: string) {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
     "HTTP-Referer": OPENROUTER_REFERER,
-    "X-OpenRouter-Title": OPENROUTER_TITLE,
     "X-Title": OPENROUTER_TITLE,
   };
 }
