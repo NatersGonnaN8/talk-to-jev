@@ -187,9 +187,12 @@ textarea {
   gap: 0.75rem;
   padding: 0.85rem;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .ticket {
+  flex: 0 0 auto;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 4px 18px 4px 4px;
@@ -203,8 +206,8 @@ textarea {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-  position: sticky;
-  top: 0;
+  flex: 0 0 auto;
+  position: relative;
   z-index: 2;
 }
 
@@ -447,17 +450,20 @@ textarea.case {
 .board {
   display: flex;
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
   align-items: stretch;
+  overflow: hidden;
 }
 
 .pane {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line);
   padding: 0.7rem;
   gap: 0.55rem;
+  overflow: hidden;
 }
 
 .pane.llm {
@@ -690,12 +696,14 @@ textarea.case {
 }
 
 .thread {
-  flex: 1;
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  min-height: 12rem;
 }
 
 .bubble pre {
@@ -962,18 +970,28 @@ textarea.case {
 }
 
 .composer {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0.45rem;
   align-items: end;
 }
 
+.jev-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
 .q-list {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  overflow: auto;
-  max-height: 42vh;
 }
 
 .q-card {
@@ -1038,7 +1056,6 @@ textarea.case {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  overflow: auto;
 }
 
 .answer {
@@ -1102,12 +1119,16 @@ textarea.case {
 }
 
 html:has(.docs),
-body:has(.docs) {
+body:has(.docs),
+html:has(.page-mount:not([hidden]) > .workshop),
+body:has(.page-mount:not([hidden]) > .workshop) {
   height: 100%;
   overflow: hidden;
 }
 
-.app:has(> .docs) {
+.app:has(> .docs),
+.app:has(> .page-mount:not([hidden]) > .workshop) {
+  min-height: 0;
   height: 100vh;
   height: 100dvh;
   max-height: 100dvh;
@@ -1575,7 +1596,10 @@ select:focus-visible,
     display: none;
   }
   .pane.llm,
-  .pane.jev,
+  .pane.jev {
+    border-radius: 10px;
+    min-height: 0;
+  }
   .convert-rail,
   .convert-stage,
   .board-rest {
@@ -1601,9 +1625,6 @@ select:focus-visible,
   }
   .chrome {
     flex-wrap: wrap;
-  }
-  .q-list {
-    max-height: none;
   }
   .weather-row {
     flex-wrap: wrap;

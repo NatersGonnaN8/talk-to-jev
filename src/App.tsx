@@ -1062,28 +1062,30 @@ function Workshop({
             {BLANK_QUESTION_ID_ERROR}
           </p>
         ) : null}
-        <QuestionEditor
-          questions={questions}
-          showBlankIdError={blankIdError}
-          onChange={(next) => {
-            setQuestions(withPositionalChoiceKeys(next));
-            if (!blankQuestionKeys(next).length) setBlankIdError(false);
-          }}
-        />
-        <div className="answers">
-          {!answers ? (
-            <p className="empty">Define questions, then ask Jev.</p>
-          ) : (
-            Object.entries(answers).map(([id, a]) => (
-              <AnswerCard
-                key={id}
-                id={id}
-                answer={a}
-                question={questions[id]}
-              />
-            ))
-          )}
-          {jevMeta ? <p className="meta">{jevMeta}</p> : null}
+        <div className="jev-scroll">
+          <QuestionEditor
+            questions={questions}
+            showBlankIdError={blankIdError}
+            onChange={(next) => {
+              setQuestions(withPositionalChoiceKeys(next));
+              if (!blankQuestionKeys(next).length) setBlankIdError(false);
+            }}
+          />
+          <div className="answers">
+            {!answers ? (
+              <p className="empty">Define questions, then ask Jev.</p>
+            ) : (
+              Object.entries(answers).map(([id, a]) => (
+                <AnswerCard
+                  key={id}
+                  id={id}
+                  answer={a}
+                  question={questions[id]}
+                />
+              ))
+            )}
+            {jevMeta ? <p className="meta">{jevMeta}</p> : null}
+          </div>
         </div>
       </article>
     </>

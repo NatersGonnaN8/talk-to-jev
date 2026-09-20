@@ -154,6 +154,8 @@ Layout (desktop):
   [ LLM pane | splitter | Jev’s Questions pane ]
 ```
 
+- **Viewport panes (2026-09-20).** Nater selected `article.pane.llm` (measured ~2086px tall vs vh 1243, `overflow: visible`, `maxHeight: none`; window/page grew with the thread). Chrome stays. **Jev’s case** ticket stays **above**. `.board` fills the **remaining viewport** (`100dvh` minus chrome minus ticket) — **not** document-tall. Each pane is a column: **pane-head stays put**. LLM **thread** is the scroller (`overflow-y: auto`). Jev **q-list + answers** share one inner scroller (`.jev-scroll`, `overflow-y: auto`). Window `scrollY` stays ~0 while those lists scroll. Custom panes — no native `resize` grips. Same pattern as Docs `.doc-list`.
+
 **Jev’s case** (the state ticket — **not** Use Cases cards)
 
 - Label: **Jev’s case** (this is Jev’s `state`). Ticket heading is `h2.pane-title` — **same size as Jev’s Questions** (1.05rem / 16.8px, weight 650, letter-spacing 0.01em, mixed case). **Not** an uppercase wide-tracking stamp (`JEV’S CASE`). Nater (2026-09-20): he despises that blocky look. Same day: match pane-title size for same-tier headers.
@@ -175,7 +177,7 @@ Layout (desktop):
 **LLM pane** (manila / prose)
 
 - Heading: `h2.pane-title` **LLM** (acronym as written) — **same size as Jev’s Questions** (1.05rem / 16.8px, weight 650, letter-spacing 0.01em). Model id is subtitle/meta (`code`), not a second heading.
-- Scrollable transcript (user / assistant). Assistant turns are **agentic**, not a single JSON dump in the bubble.
+- Scrollable transcript (user / assistant) lives in `.thread` — **that** is the pane scroller, not the window. Composer stays under the thread. Assistant turns are **agentic**, not a single JSON dump in the bubble.
 - Composer: textarea (`resize: none`) + **Send**
 - Secondary: **Propose Jev questions**
 - After Jev has answered: **Feed Jev to LLM**. Click builds the Jev-answers user message and **immediately POSTs** `/api/llm` (same `sendLlm` / SSE path as **Send**). The composer may stay empty; **Send** stays disabled until they type. Show the You bubble, then mill thinking / streamed assistant reply. Do **not** wait for a second click. Do **not** insert a canned “Got Jev’s typed answers…” assistant line. If there are no Jev answers yet, keep the button disabled (do not fake a send).
@@ -194,6 +196,7 @@ Layout (desktop):
 - Heading: **Jev’s Questions** (not all-caps `JEV`)
 - Subtitle / meta: model id (`typesafe/jev-1.13` by default). Keep it as meta, not a second heading.
 - Keep **Ask Jev**
+- Question cards + answers scroll together in `.jev-scroll` under the pane-head (Ask Jev stays put). Do **not** grow `article.pane.jev` past the board.
 - Question editor: add / remove questions
   - Fields: id, type (`choice` | `noul` | `score`), instructions
   - **Add question** inserts a new card with an **empty id**. The user types the id. Do **not** auto-generate `q_*` / random suffixes. Only **user-added** cards start blank — presets keep their real ids (`wear_jacket`, business ids, and the rest in `src/samples.ts`). After click, focus the new card’s **id** input (caret ready to type; `document.activeElement` is that field, not the Add question button). `useEffect` + `requestAnimationFrame` on the new card uid. First-open / New Case’s already-blank card does **not** steal focus on load.
@@ -812,6 +815,7 @@ Before calling Workshop done:
 50. Choice card: slick **1-based** numbers (1, 2, 3) to the left of descriptions; **no** Option key input (do not mint `option_a`, do not type `1` into a box). **Add option** shows 4 and moves focus to **Option 4 description** (not the Add option button). Space in that description inserts `_`. **Ask Jev** payload uses those numeric keys with the **description as the value** (`"1": "papaya"`, not `"1": "1"`). LLM semantic keys (`refund`/`deny`) rewrite to `"1"`/`"2"` on the card and in the Jev payload; descriptions stay. Choice answer bars read `1 papaya` (number + description), matching score `0 Low`. Description typing keeps focus.
 51. Send a short prompt that should tool-call into Jev’s case (or **Propose Jev questions**): mill thinking shows while `/api/llm` is in flight; if OpenRouter streams reasoning, the Thoughts block is open and fills; `set_jev_case` / `set_jev_questions` appear as tool cards (Running then Done) and the ticket/q-cards update; the bubble’s prose is a short confirmation, not a markdown table of questions. Refresh restores thoughts + tool cards on that assistant turn. If the floor model has no reasoning channel, thinking still runs and Thoughts stays hidden.
 52. Docs Iframe: open Introduction (TypeSafe, `X-Frame-Options: DENY`): boxed-i is **hidden**; Nice (or Code) is the view; no mill “won’t embed” dead end. Open `primer.md`: Iframe is hidden (no source). A page that *can* embed still shows boxed-i and loads the live site. No keys in the iframe URL. No native resize grips. Rail chevron collapses/expands with animation; refresh keeps collapsed.
+53. Workshop with a long LLM thread **and** several q-cards: `article.pane.llm` and `article.pane.jev` stay inside the viewport (pane `bottom` ≤ `innerHeight`; document does **not** grow to ~2000px). Pane-heads stay put. `.thread` and `.jev-scroll` each have `overflow-y: auto` and scroll independently. Window `scrollY` stays ~0. No native `resize` grips.
 
 ---
 
