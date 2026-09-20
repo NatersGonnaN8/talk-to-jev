@@ -76,7 +76,7 @@ export const LLM_TOOLS = [
     function: {
       name: "ask_jev",
       description:
-        "Call Jev (Decisions API) with the current state + questions if they are clean (real ids). Do not invent probabilities. Jev cannot invent answers that were not given: choice = listed options only, noul = P(true), score = a legend level. If you need a new option, set_jev_questions first then ask_jev again. If questions are not clean, use set_jev_questions. In random-case and agentic-loop modes you MUST call this after questions are clean. Do not use this for the Propose Jev questions button.",
+        "Call Jev (Decisions API) with the current state + questions if they are clean (real ids). Do not invent probabilities. Jev cannot invent answers that were not given: choice = listed options only, noul = P(true), score = a legend level. If you need a new option, set_jev_questions first then ask_jev again. If questions are not clean, use set_jev_questions. In agentic-loop mode you MUST call this after questions are clean. Do not use this for Propose Jev questions or Random state.",
       parameters: { type: "object", properties: {} },
     },
   },
@@ -106,8 +106,19 @@ function parseLlmMode(raw: unknown): LlmMode {
   return "chat";
 }
 
-function modeKeepsAsking(mode: LlmMode) {
-  return mode === "random-case" || mode === "agentic-loop";
+function modeMustAskJev(mode: LlmMode) {
+  return mode === "agentic-loop";
+}
+
+function modeMustInvent(mode: LlmMode) {
+  return mode === "random-case";
+}
+
+function toolsForMode(mode: LlmMode) {
+  if (mode === "random-case") {
+    return LLM_TOOLS.filter((t) => t.function.name !== "ask_jev");
+  }
+  return LLM_TOOLS;
 }
 
 function modeBlock(mode: LlmMode) {
@@ -115,7 +126,7 @@ function modeBlock(mode: LlmMode) {
     return `\n\nMode: propose-questions. You MUST call set_jev_questions with a complete valid map (typically 2–4 atomic questions). Do NOT call ask_jev. Do NOT reply with JSON only. After the tool, one short confirmation.`;
   }
   if (mode === "random-case") {
-    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_case. (2) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. (3) Call ask_jev once questions are clean. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation — analysis is a separate Send answers to LLM turn, then stop. This is not the N-turn agentic loop.`;
+    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_case. (2) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. Do NOT call ask_jev. Asking Jev is the mill Ask Jev button. Do NOT invent probabilities. Do NOT reply with JSON only. After tools, one short confirmation, then stop. This is not the N-turn agentic loop.`;
   }
   if (mode === "agentic-loop") {
     return `\n\nMode: agentic-loop. Use the CURRENT Jev’s State and current questions. Do NOT invent a new random scenario. Do NOT call set_jev_case to replace the ticket with fiction. If questions are clean, you MUST call ask_jev. You may call set_jev_questions only if ids are dirty or you need a new option, then ask_jev. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation.`;
@@ -141,6 +152,10 @@ type Working = {
   askedJev: boolean;
   questionCount: number;
 };
+
+function millInventDone(work: Working) {
+  return work.appliedCase && work.appliedQuestions;
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -237,7 +252,7 @@ You have tools that mutate the Workshop. USE THEM. Do not paste state JSON or a 
 Tools:
 1. set_jev_case — write Jev’s State (the ticket / state).
 2. set_jev_questions — replace typed questions. Real ids. Types choice / noul / score. instructions hold the full question. choice criteria = option descriptions in visual order (semantic keys like refund/deny are rewritten to "1","2",… on the card and when calling Jev; never mint option_a). score criteria = ordered level strings. noul criteria = optional {true, false}. Skip blank ids; never invent q_* or empty ids.
-3. ask_jev — call Jev only if the state + questions are clean. Do not invent probabilities. If not clean: tools 1–2 (in random-case and agentic-loop, keep going until ask_jev works).
+3. ask_jev — call Jev only if the state + questions are clean. Do not invent probabilities. If not clean: tools 1–2 (in agentic-loop, keep going until ask_jev works). In random-case: tools 1–2 only — do not call ask_jev.
 
 Never fake Jev answers in chat unless ask_jev just ran or Latest Jev answers are in this prompt. Jev cannot invent answers that were not given. Choice = listed options only. Noul = P(true) in [0,1]. Score = one of the legend levels. A new option requires set_jev_questions then ask_jev again.
 
@@ -305,7 +320,7 @@ function inspectLlmSent(opts: {
     model: opts.model,
     mode: opts.mode,
     ...(instructions ? { instructions } : {}),
-    tools: LLM_TOOLS.map((t) => t.function.name),
+    tools: toolsForMode(opts.mode).map((t) => t.function.name),
     messages: opts.messages.map((m) => {
       if (m.role === "system") {
         const c = typeof m.content === "string" ? m.content : "";
@@ -440,6 +455,7 @@ async function completeChat(opts: {
   model: string;
   messages: OrMessage[];
   toolChoice: ToolChoice;
+  tools?: unknown;
   includeReasoning?: boolean;
   deferContent?: boolean;
   onThought?: (text: string) => void;
@@ -450,7 +466,7 @@ async function completeChat(opts: {
     apiKey: opts.apiKey,
     model: opts.model,
     messages: opts.messages,
-    tools: LLM_TOOLS,
+    tools: opts.tools ?? LLM_TOOLS,
     toolChoice: opts.toolChoice,
     includeReasoning: opts.includeReasoning !== false,
     deferContent: opts.deferContent,
@@ -524,12 +540,20 @@ async function executeTool(
   }
 
   if (name === "ask_jev") {
+    if (ctx.mode === "random-case") {
+      const payload = {
+        ok: false,
+        message: "Do not call ask_jev in random-case. Leave Ask Jev as the mill click.",
+      };
+      emit(res, { type: "tool", ...base, ...payload, resultSummary: payload.message });
+      return JSON.stringify(payload);
+    }
     const clean = stripBlankQuestions(work.questions);
     if (!questionsAreClean(clean) || !Object.keys(clean).length) {
       const payload = {
         ok: false,
         message:
-          modeKeepsAsking(ctx.mode)
+          modeMustAskJev(ctx.mode)
             ? "Questions are not clean (need real ids). Call set_jev_questions, then ask_jev."
             : "Questions are not clean (need real ids). Use set_jev_questions, then the operator clicks Ask Jev.",
       };
@@ -665,6 +689,7 @@ export async function runLlmSession(opts: {
   ];
 
   const abort = wireClientAbort(opts.res);
+  const millTools = toolsForMode(mode);
 
   emit(opts.res, {
     type: "inspect",
@@ -700,11 +725,13 @@ export async function runLlmSession(opts: {
       apiKey: opts.env.OPENROUTER_API_KEY,
       model: opts.model,
       messages,
+      tools: millTools,
       toolChoice: choice,
       includeReasoning,
       deferContent:
         mode === "propose-questions" ||
-        modeKeepsAsking(mode) ||
+        modeMustAskJev(mode) ||
+        modeMustInvent(mode) ||
         work.appliedCase ||
         work.appliedQuestions ||
         work.askedJev,
@@ -748,7 +775,8 @@ export async function runLlmSession(opts: {
       if (abort.signal.aborted || clientGone(opts.res)) return;
       if (round === MAX_ROUNDS - 1) toolChoice = "none";
       else if (mode === "propose-questions" && work.appliedQuestions) toolChoice = "auto";
-      else if (modeKeepsAsking(mode) && work.askedJev) toolChoice = "auto";
+      else if (modeMustAskJev(mode) && work.askedJev) toolChoice = "auto";
+      else if (modeMustInvent(mode) && millInventDone(work)) toolChoice = "auto";
       else if (
         mode === "agentic-loop" &&
         round === 0 &&
@@ -756,7 +784,10 @@ export async function runLlmSession(opts: {
         Object.keys(stripBlankQuestions(work.questions)).length
       ) {
         toolChoice = { type: "function", function: { name: "ask_jev" } };
-      } else if (modeKeepsAsking(mode) && round > 0) toolChoice = "required";
+      } else if (modeMustAskJev(mode) && round > 0) toolChoice = "required";
+      else if (modeMustInvent(mode) && round > 0 && !millInventDone(work)) {
+        toolChoice = "required";
+      }
 
       const streamed = { delta: false };
       let result = await runChat(toolChoice, streamed);
@@ -815,15 +846,22 @@ export async function runLlmSession(opts: {
         }
       }
 
-      if (modeKeepsAsking(mode) && !work.askedJev && round < MAX_ROUNDS - 1) {
-        if (mode === "random-case" && content && !work.appliedQuestions) {
+      if (modeMustAskJev(mode) && !work.askedJev && round < MAX_ROUNDS - 1) {
+        toolChoice = "required";
+        continue;
+      }
+
+      if (modeMustInvent(mode) && !millInventDone(work) && round < MAX_ROUNDS - 1) {
+        if (content && !work.appliedQuestions) {
           const salvaged = salvageQuestionsFromText(content);
           if (salvaged) {
             await runTool("set_jev_questions", { questions: salvaged }, newCallId());
           }
         }
-        toolChoice = "required";
-        continue;
+        if (!millInventDone(work)) {
+          toolChoice = "required";
+          continue;
+        }
       }
 
       let text = content;

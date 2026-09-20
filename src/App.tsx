@@ -66,10 +66,7 @@ import {
   agenticLoopSessionCount,
   millReadyForAgenticLoop,
 } from "./agenticLoop";
-import {
-  randomStateAnalysisPrompt,
-  randomStateInventPrompt,
-} from "./randomState";
+import { randomStateInventPrompt } from "./randomState";
 import { isTutorialDone, TUTORIAL_UI, type TutorialPage } from "./tutorial";
 import {
   activeThread,
@@ -940,17 +937,6 @@ function Workshop({
         keepBusy: true,
       });
       if (first.failed || first.aborted) return;
-      const note = answersRef.current
-        ? summarizeAnswers(answersRef.current)
-        : "";
-      if (note.trim()) {
-        const analysis = await runLlmTurn(
-          "chat",
-          randomStateAnalysisPrompt(note),
-          { keepBusy: true },
-        );
-        if (analysis.failed || analysis.aborted) return;
-      }
       onToast("Random state done.");
     } finally {
       agentLockRef.current = false;
