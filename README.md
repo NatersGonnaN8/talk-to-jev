@@ -29,10 +29,11 @@ Weather is **one** example (Jacket + free Open-Meteo). Nine of the ten snaps are
 
 ## The loop
 
-The LLM never answers a Jev question itself. It has three tools, and the server refuses to let it fake the third:
+The LLM never answers a Jev question itself. It has tools to **read** the current pane, write state/questions, and ask Jev — and the server refuses to let it fake Jev’s answers:
 
 | Tool | Does |
 |---|---|
+| `read_jev_workshop` | Returns the current **Jev’s State** text + current questions map (same shapes the write tools consume). Call this **before** writing. No args. Does not call Jev. |
 | `set_jev_state` | Writes **Jev’s State** — the TypeSafe `state` Jev judges (not a “case”). |
 | `set_jev_questions` | Replaces the typed questions. Real snake_case ids only. `choice` options become `"1"`, `"2"`, … with descriptions as values; `score` is an ordered legend; `noul` is optional `{ true, false }`. Blank ids are dropped, never invented. |
 | `ask_jev` | `POST /api/alpha/decisions` with the current state + questions. Only runs when every id is real. Returns probabilities, not prose. |
@@ -40,7 +41,8 @@ The LLM never answers a Jev question itself. It has three tools, and the server 
 **Agentic loop** (LLM pane) runs *N* turns on the current state:
 
 ```text
-turn 1     LLM ─set_jev_questions─▶ editor
+turn 1     LLM ─read_jev_workshop─▶ current pane (before any write)
+           LLM ─set_jev_questions─▶ editor
            LLM ─ask_jev───────────▶ Jev ─answers + probabilities─▶ LLM     (forced: tool_choice=ask_jev, then "required" until Jev has answered)
 turn 2…N   typed answers are summarized into the next You bubble ─▶ LLM reasons, may re-ask Jev
 last turn  LLM writes the operator analysis from Jev’s numbers — it may not invent probabilities

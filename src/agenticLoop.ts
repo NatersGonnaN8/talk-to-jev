@@ -35,13 +35,13 @@ export function millReadyForAgenticLoop(state: string, realQuestionCount: number
 }
 
 const AWARENESS =
-  "Jev cannot invent answers that were not given. Choice = listed options only (mill numbers + those descriptions). Noul = P(true). Score = a legend level. If you need a new option, call set_jev_questions then ask_jev again. Do not invent a new random state.";
+  "Jev cannot invent answers that were not given. Choice = listed options only (mill numbers + those descriptions). Noul = P(true). Score = a legend level. If you need a new option, call read_jev_workshop then set_jev_questions then ask_jev again. Do not invent a new random state.";
 
 /** Visible You-bubble for turn 1. Full contract lives in server agentic-loop mode. */
 export function agenticLoopFirstPrompt(total: number) {
   const n = clampAgenticLoopTurns(total);
   const count = n === 1 ? "1 turn" : `${n} turns`;
-  return `Agentic loop · ${count}. Use the current Jev’s State and current questions. Do not invent a new random state. Call ask_jev. Do not paste JSON in the chat. Do not wait for me.`;
+  return `Agentic loop · ${count}. Use the current Jev’s State and current questions. Do not invent a new random state. Call ask_jev. If you change questions, call read_jev_workshop first. Do not paste JSON in the chat. Do not wait for me.`;
 }
 
 /** Later turns: Send answers to LLM send-now note + agent instruction. */
@@ -55,7 +55,7 @@ export function agenticLoopContinuePrompt(
   const last = t === n;
   const instruction = last
     ? `Agent turn ${t} of ${n} — last turn. Write analysis for the operator from Jev’s typed answers. Do not invent probabilities. Do not invent a new random state. Prefer not to call ask_jev unless there are still no answers. ${AWARENESS}`
-    : `Agent turn ${t} of ${n}. Continue the agentic loop on the current mill. You may update questions (set_jev_questions) then ask_jev if you need a new snap. Do not invent a new random state. Reason about the probabilities. Do not wait for the operator. ${AWARENESS}`;
+    : `Agent turn ${t} of ${n}. Continue the agentic loop on the current pane. You may update questions (read_jev_workshop then set_jev_questions) then ask_jev if you need a new snap. Do not invent a new random state. Reason about the probabilities. Do not wait for the operator. ${AWARENESS}`;
   const feed = answersNote.trim();
   return feed ? `${feed}\n\n${instruction}` : instruction;
 }

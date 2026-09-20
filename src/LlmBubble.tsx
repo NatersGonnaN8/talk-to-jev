@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ChatMessage, ChatToolCall } from "./types";
 
 const TOOL_LABEL: Record<string, string> = {
+  read_jev_workshop: "Read pane",
   set_jev_state: "Jev’s State",
   set_jev_questions: "Jev’s Questions",
   ask_jev: "Ask Jev",
