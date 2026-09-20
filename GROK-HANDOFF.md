@@ -19,17 +19,15 @@
 
 ## Uncommitted work on disk — item 0, do this first
 
-The prior session left the **New Case / Preset Cases / History** row (SPEC §6.1 "Case tools") implemented but uncommitted:
+The **New Case / Preset Cases / History** row is already committed and pushed (`63e5029`, `3dabc98`). What remains dirty:
 
-- `src/PresetCasesMenu.tsx` — **untracked**, new dropdown component
-- `src/App.tsx`, `src/styles.css` — modified (sample chip row → three controls; History moved off chrome-right)
-- `docs/jev/**` — 117 files with a refreshed `fetched_at` (snapshot re-run, content mostly identical)
+- `docs/jev/**` — 120 files with a refreshed `fetched_at` (snapshot re-run 22:40Z; content mostly identical)
 
 Steps:
 
 1. Run `npm run build` (typechecks both tsconfigs + Vite build). Fix anything red.
-2. Browser-check Workshop at `http://127.0.0.1:5182/`: **New Case**, **Preset Cases** (opens, opaque, flips on-screen, picking a preset loads case + questions), **History** on the case row, and confirm chrome-right has only **Tour** / **Update Jev docs**. SPEC §13 items 47–48.
-3. Commit in two commits: `feat: replace sample chip row with New Case / Preset Cases / History` (the three src files) and `chore: refresh Jev docs snapshot` (docs/jev).
+2. Quick browser sanity on Workshop `http://127.0.0.1:5182/`: **New Case**, **Preset Cases**, **History** on the case row; chrome-right is only **Tour** / **Update Jev docs**. SPEC §13 items 47–48.
+3. Commit the snapshot: `chore: refresh Jev docs snapshot` (docs/jev only).
 
 ## Items to do (in order)
 
