@@ -46,7 +46,7 @@ Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRou
 - **hooks:** `case`
 - **selectors:** `.ticket`
 
-This slip is what Jev judges. The LLM can draft it. Operator snaps, local .md you drop in, converted files you add from the Convert tab, and (on Jacket) weather all live here as state — not as a chat with Jev.
+This slip is Jev state. New Case wipes the workshop. Preset Cases loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.
 
 ### 3. The LLM pane talks
 
@@ -82,7 +82,7 @@ Propose Jev questions asks the LLM for a JSON question map. After Jev answers, F
 - **hooks:** `use-cases`, `use-cases-page`
 - **texts:** Use Cases
 
-Nine operator snaps plus Jacket — the same list as the Workshop chips. Open a card to load the case and Jev questions.
+Nine operator snaps plus Jacket — the same list as Workshop Preset Cases. Open a card to load the case and Jev questions.
 
 ### 7. Docs: eyeball vs code
 
@@ -119,7 +119,7 @@ Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev
 - **hooks:** `history`
 - **texts:** History
 
-Threads live in this browser’s localStorage. Refresh restores them. Keys are never stored here.
+History lives on Jev’s case, not in the header. Threads stay in this browser’s localStorage. Refresh restores them. Keys are never stored here.
 
 ### 11. Load weather
 

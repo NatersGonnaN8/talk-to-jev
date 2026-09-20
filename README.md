@@ -39,14 +39,14 @@ Weather is **Open-Meteo** input (free, no key) on the **Jacket** preset only —
 
 | Page | Path | What it is |
 |---|---|---|
-| **Workshop** | `/` | **Jev’s case** + LLM pane + Jev pane. Lands on **Invoice exception**. Sample chips (9 business + Jacket). **Load weather** on Jacket only. **Ask Jev**, **Propose Jev questions**, **Feed Jev to LLM**. Drop `.md` into Jev’s case; other files open the **Convert** tab. |
-| **Use Cases** | `/use-cases` (`/cases`) | Same ten snaps as the Workshop chips: nine operator cases plus Jacket. |
+| **Workshop** | `/` | **Jev’s case** + LLM pane + Jev pane. Lands on **Invoice exception**. **New Case**, **Preset Cases** (9 business + Jacket), **History** on that row. **Load weather** on Jacket only. **Ask Jev**, **Propose Jev questions**, **Feed Jev to LLM**. Drop `.md` into Jev’s case; other files open the **Convert** tab. |
+| **Use Cases** | `/use-cases` (`/cases`) | Same ten snaps as Workshop **Preset Cases**: nine operator cases plus Jacket. |
 | **Docs** | `/docs` | In-repo Jev snapshot. Eyeball = nice Markdown; code icon = raw source. |
 | **Settings** | `/settings` | BYOK. Paste keys; they stay in `.env.local` on this machine. |
 | **Convert** | `/convert` | Convert txt / html / docx / pdf to markdown in this browser. Add to the LLM, add to Jev’s case, download, or save as MD. |
-| **History** | Workshop chrome | Local threads in `localStorage` (this browser only). Not a server. |
+| **History** | Jev’s case row | Local threads in `localStorage` (this browser only). Not a server. Not in the header. |
 
-Chrome **Tour** restarts the coach overlay. **Update Jev docs** refreshes `docs/jev/`.
+Chrome **Tour** restarts the coach overlay. **Update Jev docs** refreshes `docs/jev/`. History is on **Jev’s case**, not next to Tour.
 
 ---
 

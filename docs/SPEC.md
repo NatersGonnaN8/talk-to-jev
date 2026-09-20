@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.9 — 2026-09-19  
+**Status:** v0.10 — 2026-09-19  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -114,11 +114,12 @@ Shared **Jev’s case** (the Jev `state`) sits in a ticket strip at the top. Bot
 | **Propose questions** | LLM is asked to return a JSON `questions` map for this case. Valid maps replace (or merge into) the Jev editor. Invalid JSON stays in chat as prose. Skip entries with a blank id — do not mint a placeholder id for them. If the user then **Ask Jev** with a still-blank id, same inline error as above. |
 | **Feed Jev → LLM** | Inject a user-visible note into the LLM thread summarizing typed answers (choice / noul / score / confidence). Next LLM turn sees it. |
 | **Load weather** | **Jacket preset only.** Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on Jev’s case. Does not call Jev or the LLM. Hidden on business presets. |
-| **Sample case** | One click (Workshop chip **or** Use Cases card) loads the same `src/samples.ts` preset: Jev’s case situation (weather placeholder **only** on Jacket), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
+| **Sample case** | One pick (**Preset Cases** menu **or** Use Cases card) loads the same `src/samples.ts` preset: Jev’s case situation (weather placeholder **only** on Jacket), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
+| **New Case** | Full Workshop reset. Saves the open thread if it is worth keeping, then loads the **default-empty** landing (Invoice exception + its questions). Clears Jev’s case text (replaced by landing), attached `.md` chips, Jev answers, and the LLM thread. Not History **Clear current**. |
 
 Code owns routing. The UI shows probabilities; it does not pretend a typed answer is “correct.”
 
-**Landing preset (first-open and New chat):** **Invoice exception** (`invoice`) — a business chip. Not Jacket. Not the old one-line “My card was charged twice” demo. That chip is visually on. See §12.
+**Landing preset (first-open and New Case):** **Invoice exception** (`invoice`) — a business snap. Not Jacket. Not the old one-line “My card was charged twice” demo. **Preset Cases** marks that item selected. See §12.
 
 ---
 
@@ -129,7 +130,8 @@ Global chrome (all pages):
 - Left: product name **Talk to Jev** (links home Workshop)
 - Nav: **Workshop** | **Use Cases** | **Docs** | **Settings** | **Convert**
 - **Convert** sits **after** Settings. Visible label **Convert**; `title` and accessible name **Convert to Markdown**. Route `/convert`.
-- Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), **Update Jev docs**
+- Right: **Tour** (Help — restarts the first-run coach overlay), **Update Jev docs**
+- **History is not in chrome-right.** It lives on the **Jev’s case** row only (Workshop). Same local-thread drawer. Tour / Update Jev docs stay in the header.
 - **No chrome key-status pill** (no Key ready / Need key / Checking…). Keys live in **Settings** (nav tab + `/settings`). `/api/health` still runs so Ask buttons can lock when OpenRouter is missing. Never show the full key.
 - No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch).
 - No native `<dialog>` / iframe for the coach. See §6.4.
@@ -143,8 +145,8 @@ Layout (desktop):
 ```
 [ chrome ]
 [ JEV’S CASE TICKET ]
-  [ samples: 10 chips — 9 business + Jacket ]
-  [ location field + Load weather ]   ← Jacket only; hidden on business chips
+  [ New Case | Preset Cases | History ]
+  [ location field + Load weather ]   ← Jacket only; hidden on business presets
   [ include-chat checkbox ]
   [ Add .md + attached-file chips ]
   [ shared state textarea ]
@@ -156,7 +158,10 @@ Layout (desktop):
 
 - Label: **Jev’s case** (this is Jev’s `state`)
 - Checkbox **Include LLM chat in Jev state** (default on)
-- **Samples** row: ten one-click chips (see §12). Active chip is visually on. **First-open** and **New chat** load **Invoice exception** (`invoice`) — a business snap — not Jacket.
+- **Case tools** row — **three** controls. **Do not** show the ten snaps as a chip row. Nater (2026-09-19): scribble on the Invoice exception … Jacket? pills; replace them.
+  1. **New Case** — full reset of the Workshop: Jev’s case text, attached `.md` chips, Jev questions, Jev answers, LLM chat. Save the open thread if it is worth keeping, then load the **default-empty** landing (**Invoice exception** + its questions, include-chat on, weather row hidden). Not a half-reset. Not a blank textarea — landing copy is the empty session. History **Clear current** still only empties the LLM thread and last Jev answers.
+  2. **Preset Cases** — one pill that opens a list (opaque dropdown / popover — slick, usable, flip fully on-screen). The ten snaps still exist (9 business + Jacket) in `src/samples.ts`. Picking one loads case + questions like today (clears answers + LLM thread, marks that preset selected). Use Cases stays the gallery; both stay in sync via that module.
+  3. **History** — opens the local thread drawer. **Only** on this row. Not duplicated top-right.
 - **Weather row:** shown **only** when the active preset is **Jacket?** (`jacket`). Location field (default **Columbus, OH**) + **Load weather**. **Hide** the row on the nine business presets (do not leave a disabled weather form that still makes the Workshop look like a weather app). Accepts a city / “City, ST” (Open-Meteo geocoding) or `lat, lon`. Loading does not require the OpenRouter key.
 - Textarea, `resize: none`, fills the ticket. **Load weather** (Jacket only) replaces the marked weather block (or prepends one).
 - **Add .md** (file picker, `accept=".md,.markdown,text/markdown"`, multiple): local user markdown is inserted into Jev’s case as `state`. Official `docs/jev/` snapshot stays in Docs; do not auto-insert it. There is **no** Convert to Markdown button on this ticket — that UI lives on the **Convert** tab (§6.6 / §16).
@@ -200,9 +205,10 @@ Layout (desktop):
 
 **History** (local threads, overlay drawer — not a permanent sidebar):
 
-- Chrome **History** opens a left drawer over the Workshop (sage mill, like the Docs rail). Backdrop click or Escape closes it. No native resize grips.
-- **New chat** — save the open thread if it has anything worth keeping, then start the landing workshop (**Invoice exception** + its questions, empty LLM thread, no Jev answers, that chip on).
-- **Clear current** — empty the open LLM thread and last Jev answers; keep the case ticket, include-chat checkbox, and question editor.
+- **Jev’s case row History** opens a left drawer over the Workshop (sage mill, like the Docs rail). Backdrop click or Escape closes it. No native resize grips. Drawer behavior (localStorage) is unchanged; only the **opener** moved off chrome-right.
+- Chrome-right stays **Tour** / **Update Jev docs**. Do not duplicate History there.
+- Drawer **New chat** — same full reset as row **New Case**: save the open thread if it has anything worth keeping, then start the landing workshop (**Invoice exception** + its questions, empty LLM thread, no Jev answers, that preset selected in **Preset Cases**).
+- **Clear current** — empty the open LLM thread and last Jev answers; keep the case ticket, include-chat checkbox, and question editor. This is the half-reset. **New Case** is not this.
 - Click a past thread to restore it: LLM messages, case text, include-chat, Jev questions, last Jev answers (if any), and selected sample preset id.
 - Title: auto from the first user line, else the case’s first line, else “Untitled case”. Optional rename (pencil); a renamed title stays until the user edits it again.
 - Each row shows the title plus a timestamp (`updatedAt`).
@@ -245,11 +251,11 @@ Layout:
 [ 10 case cards ]
 ```
 
-Intro slip: nine operator snaps plus one weather case. Same list as the Workshop chips. Jev returns `choice` / `noul` / `score` — not a chatbot. Open-Meteo is optional input on Jacket only.
+Intro slip: nine operator snaps plus one weather case. Same list as the Workshop **Preset Cases** menu. Jev returns `choice` / `noul` / `score` — not a chatbot. Open-Meteo is optional input on Jacket only.
 
-Each card: **label** (same as the Workshop chip), one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). The Jacket card may stamp **weather**; business cards do not. Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads **the same preset** as the Workshop chip: situation + questions, clear answers + LLM thread, mark that sample active. Workshop with no `?case=` still lands on **Invoice exception**.
+Each card: **label** (same as the Preset Cases item), one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). The Jacket card may stamp **weather**; business cards do not. Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads **the same preset** as the menu: situation + questions, clear answers + LLM thread, mark that sample selected. Workshop with no `?case=` still lands on **Invoice exception**.
 
-The ten ids, labels, and question maps **are §12**. This page is the gallery; Workshop chips are the compact picker. One module: `src/samples.ts`.
+The ten ids, labels, and question maps **are §12**. This page is the gallery; Workshop **Preset Cases** is the compact picker. One module: `src/samples.ts`.
 
 Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usable. Tips (type-chip explanations) are **opaque**, stay fully on-screen, and **flip** (below if there is room; above if the card is low — never under sticky chrome). No native resize on this page.
 
@@ -280,11 +286,11 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 3. **LLM pane** — prose / draft / chat.
 4. **Jev pane** — typed `choice` / `noul` / `score` + **Ask Jev**.
 5. **Propose Jev questions** / **Feed Jev to LLM** if those buttons exist.
-6. **Use Cases** — nine operator snaps plus one weather case (Jacket), same list as Workshop chips.
+6. **Use Cases** — nine operator snaps plus one weather case (Jacket), same list as Workshop **Preset Cases**.
 7. **Docs** — eyeball (nice Markdown) vs code (raw snapshot). May navigate to `/docs`.
 8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
 9. **Convert** — chrome **Convert** tab (`/convert`). Drop txt / html / docx / pdf here, or onto Jev’s case (that still opens this tab). Files stay in the browser.
-10. **History** if the chrome control exists.
+10. **History** if the Jev’s case row control exists (not chrome-right).
 11. **Load weather** if that control is **visible** (Jacket preset only; Open-Meteo input, not a third model). Skip when the weather row is hidden on a business preset.
 
 **Code:** `src/tutorial.ts` (step list + storage helpers) and `src/TutorialOverlay.tsx`. Hook live controls with `data-tutorial` attributes. Overlay may switch Workshop ↔ Docs for those steps, then continue.
@@ -521,22 +527,22 @@ Over-cap files are skipped with an inline error. Remaining valid files still ins
 
 ## 12. Ten sample cases (Workshop presets)
 
-One-click chips on **Jev’s case** **and** cards on **Use Cases**. Same ten. One module: `src/samples.ts`. Do not fork a second catalog.
+One pick from **Preset Cases** on **Jev’s case** **and** cards on **Use Cases**. Same ten. One module: `src/samples.ts`. Do not fork a second catalog. Do **not** show the ten as a Workshop chip row — that row is **New Case / Preset Cases / History**.
 
 Nater (2026-09-19): weather is **literally one use case**. The other nine are **business / operator** snaps — real tickets and memos (amounts, SLA, customer tier, policy quotes), not lifestyle weather, not sports-weather, not “festival in the rain.” Mix Jev primitives **choice**, **noul**, and **score** across the set (not all noul). Cheap LLM can still draft; Jev returns probabilities.
 
-Each preset is a product contract: **id**, **short label**, **pitch**, **kind** (`business` | `weather`), **situation** (case text), **Jev questions** (2–4, with ids / types / option keys). Clicking a chip or a Use Cases card:
+Each preset is a product contract: **id**, **short label**, **pitch**, **kind** (`business` | `weather`), **situation** (case text), **Jev questions** (2–4, with ids / types / option keys). Picking a **Preset Cases** item or a Use Cases card:
 
 - Writes the situation into Jev’s case textarea (weather placeholder **only** on Jacket)
 - Replaces the Jev question editor
 - Clears last Jev answers and the LLM thread (the previous case must not leak if “Include LLM chat” is on)
-- Marks that chip active
+- Marks that preset selected in the menu
 - Shows or hides the weather row from **kind** (Jacket only)
 - Does **not** fetch weather until **Load weather** on Jacket (offline-safe; live weather is the upgrade)
 
-**Landing:** first-open Workshop and New chat load **Invoice exception** (`invoice`). That chip is on. Jacket remains available as one chip/card.
+**Landing:** first-open Workshop and **New Case** load **Invoice exception** (`invoice`). That item is selected in **Preset Cases**. Jacket remains available in the menu and as a Use Cases card.
 
-| # | id | Chip | Kind | Mix |
+| # | id | Label | Kind | Mix |
 |---|---|---|---|---|
 | 1 | `invoice` | Invoice exception | business | AP. Pay / hold / reject. choice + noul + score. **Landing.** |
 | 2 | `ticket` | Ticket route | business | Queue. billing / engineering / success / spam. |
@@ -630,7 +636,7 @@ Trust & Safety PUB-90331. Pro creator, 2 prior strikes (medical-misinfo + spam).
 
 Each situation in `src/samples.ts` must match this contract (ids, types, option keys). Copy may be slightly warmer than this SPEC outline; question **ids** and **types** must not drift. Business situations must read like tickets/memos (enough state for Jev) and must **not** require live weather.
 
-Use Cases (`/use-cases`) renders the same ten as cards. Workshop chips and Use Cases cards share this module.
+Use Cases (`/use-cases`) renders the same ten as cards. Workshop **Preset Cases** and Use Cases cards share this module.
 
 
 ---
@@ -655,12 +661,12 @@ Before calling Workshop done:
 14. Tips on Use Cases cards stay fully visible (flip, opaque)
 15. Send an LLM message, refresh: the thread is still in History and the transcript restores
 16. Click a past thread to restore case + questions + last Jev answers
-17. New chat returns to Invoice exception; the previous thread remains in the list
+17. **New Case** (and drawer New chat) returns to Invoice exception; the previous thread remains in the list
 18. Delete one thread; it is gone after refresh
 19. `localStorage["talk-to-jev:chats"]` has no API key
-20. First-open Workshop: **Invoice exception** chip is on; weather row is **hidden**. Jacket chip shows the weather row; switching back to a business chip hides it again
+20. First-open Workshop: **Invoice exception** is selected in **Preset Cases**; weather row is **hidden**. Jacket from the menu shows the weather row; switching back to a business preset hides it again
 21. On Jacket: **Load weather** (default Columbus, OH) fills Jev’s case weather block; status line shows place + now; no OpenRouter key required
-22. Pick at least two **business** chips plus Jacket: Jev’s case + Jev questions swap; Ask Jev returns typed answers
+22. Pick at least two **business** presets plus Jacket from **Preset Cases**: Jev’s case + Jev questions swap; Ask Jev returns typed answers
 23. On Jacket: changing the location field and loading again replaces the weather block without wiping the Situation
 24. `/docs` overlay still works after the Workshop weather work
 25. First visit (or clear `talk-to-jev:tutorial-done`): coach overlay appears on Workshop; card fully on-screen and opaque
@@ -670,7 +676,7 @@ Before calling Workshop done:
 29. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
 30. Saving an empty unused key (e.g. OpenAI) does not echo a full key in the UI or JSON
 31. `GET /api/settings` has `present` / `last4` only — no full key
-32. Chrome right-side has Tour / History (Workshop) / Update Jev docs only — **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. Nav **Settings** and `/settings` remain the key home.
+32. Chrome right-side has Tour / Update Jev docs only — **no** History, **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. **History** is on the Jev’s case row. Nav **Settings** and `/settings` remain the key home.
 33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`). Typing an id works. **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled.
 35. Ticket label reads **Jev’s case** (not **Case**). Use Cases gallery title stays **Use Cases**.
@@ -685,6 +691,8 @@ Before calling Workshop done:
 44. Convert page shows Jev token copy from TypeSafe (`docs/jev/typesafe/models.md`): **~64,000 tokens per request**; **32k** for state + longest question. Warn if converted MD would blow 32k; block **Add to Jev’s case** if it would blow 64k. Download / Save still work.
 45. Convert page textareas `resize: none`. Tips opaque and fully on-screen. Workshop still has the quiet LLM \| Jev splitter (not candy-cane). Convert page uses the same quiet splitter between file list and preview.
 46. Jev’s case toolbar has **Add .md** only — no Convert to Markdown chrome button in that row. `.md` drop stays on Workshop (attach chips).
+47. Jev’s case tools are **New Case**, **Preset Cases**, **History** — not a row of ten sample chips. Chrome-right has no History button.
+48. **New Case** replaces case text with the Invoice exception landing, strips attach chips, resets Jev questions to that preset, clears Jev answers, and empties the LLM thread. Opening **Preset Cases** lists all ten snaps; picking one loads like today. **History** on that row still opens the localStorage drawer.
 
 ---
 

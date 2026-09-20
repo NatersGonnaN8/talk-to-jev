@@ -25,8 +25,8 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 ## How to try
 
 1. Open `http://127.0.0.1:5182/settings`. OpenRouter should show **Key ready** (not the secret).
-2. Workshop lands on **Invoice exception**. Other chips are operator snaps; **Jacket** is the weather case (**Load weather** → **Ask Jev**).
-3. Docs overlay still on `/docs`. History is local-only. Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
+2. Workshop lands on **Invoice exception**. **Preset Cases** holds the operator snaps; **Jacket** is the weather case (**Load weather** → **Ask Jev**). **New Case** resets the workshop. **History** is on that row.
+3. Docs overlay still on `/docs`. History is local-only (Jev’s case row). Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
 
 ## How to start the tour
 
@@ -46,4 +46,4 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 - Search / direct OpenAI / Anthropic / Tavily / Brave are **not** wired yet — Settings is the home.
 - Pin Jev 1.13 unless Nate asks for latest.
 
-SPEC: `docs/SPEC.md` (v0.5) §3, §6.5, §7, §12, §14.
+SPEC: `docs/SPEC.md` (v0.10) §6.1 case tools, §12, §14.
