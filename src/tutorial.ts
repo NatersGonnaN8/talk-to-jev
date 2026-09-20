@@ -50,7 +50,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "case",
     title: "Jev’s case is Jev state",
-    body: "This slip is what Jev judges. The LLM can draft it. Operator snaps, local .md you drop in, converted files you add from the Convert tab, and (on Jacket) weather all live here as state — not as a chat with Jev.",
+    body: "This slip is Jev state. New Case wipes the workshop. Preset Cases loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.",
     page: "workshop",
     hooks: ["case"],
     selectors: [".ticket"],
@@ -82,7 +82,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "use-cases",
     title: "Use Cases",
-    body: "Nine operator snaps plus Jacket — the same list as the Workshop chips. Open a card to load the case and Jev questions.",
+    body: "Nine operator snaps plus Jacket — the same list as Workshop Preset Cases. Open a card to load the case and Jev questions.",
     page: "use-cases",
     hooks: ["use-cases", "use-cases-page"],
     texts: ["Use Cases"],
@@ -115,7 +115,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "history",
     title: "History stays on this machine",
-    body: "Threads live in this browser’s localStorage. Refresh restores them. Keys are never stored here.",
+    body: "History lives on Jev’s case, not in the header. Threads stay in this browser’s localStorage. Refresh restores them. Keys are never stored here.",
     page: "workshop",
     hooks: ["history"],
     texts: ["History"],

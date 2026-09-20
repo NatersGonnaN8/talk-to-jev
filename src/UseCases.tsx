@@ -19,8 +19,8 @@ export function UseCasesPage({
         <span className="eyebrow">Ten snaps</span>
         <h1>Use Cases</h1>
         <p>
-          Nine operator snaps plus one weather case — the same list as the
-          Workshop chips. Click a card to load the case and Jev questions.
+          Nine operator snaps plus one weather case — the same list as
+          Workshop Preset Cases. Click a card to load the case and Jev questions.
           Jev is not a chatbot — it returns choice, noul, and score. Open-Meteo
           is optional input on Jacket only, not a third model.
         </p>

@@ -20,7 +20,6 @@ import {
   DEFAULT_QUESTIONS,
   DEFAULT_STATE,
   LANDING_SAMPLE_ID,
-  SAMPLE_CASES,
   cloneSample,
   isWeatherSample,
   type SampleId,
@@ -36,6 +35,8 @@ import {
   stripAttachFromCase,
 } from "./attach";
 import { AttachBar } from "./AttachBar";
+import { FlipTip } from "./FlipTip";
+import { PresetCasesMenu } from "./PresetCasesMenu";
 import { ConvertPane } from "./ConvertPane";
 import { partitionDroppedFiles } from "./convert/formats";
 import { UseCasesPage } from "./UseCases";
@@ -393,18 +394,6 @@ export function App() {
           >
             {TUTORIAL_UI.chromeLabel}
           </button>
-          {page === "workshop" ? (
-            <button
-              className={historyOpen ? "btn ghost on" : "btn ghost"}
-              type="button"
-              data-tutorial="history"
-              aria-expanded={historyOpen}
-              aria-controls="workshop-history"
-              onClick={() => setHistoryOpen((open) => !open)}
-            >
-              History
-            </button>
-          ) : null}
           <button
             className="btn ghost"
             type="button"
@@ -450,7 +439,10 @@ export function App() {
           presetId={caseId}
           presetNonce={presetNonce}
           onOpenSample={(id: SampleId) => go("workshop", id)}
-          onBlankWorkshop={() => go("workshop")}
+          onBlankWorkshop={() => {
+            window.history.pushState({}, "", "/");
+            setCaseId(null);
+          }}
           onQueueConvert={queueConvertFiles}
           onCaseText={setConvertCaseText}
           convertAddToCase={convertAddToCase}
@@ -626,11 +618,12 @@ function Workshop({
     );
   }, [presetId, presetNonce, onToast]);
 
-  const onNewChat = () => {
+  const onNewCase = () => {
     setStore(startNewChat(storeRef.current, snapRef.current));
     applySnapshot(emptySnapshot());
     onBlankWorkshop();
     onHistoryOpenChange(false);
+    onToast("New case.");
   };
 
   const onClearCurrent = () => {
@@ -1009,7 +1002,7 @@ function Workshop({
         open={historyOpen}
         onClose={() => onHistoryOpenChange(false)}
         store={store}
-        onNew={onNewChat}
+        onNew={onNewCase}
         onClear={onClearCurrent}
         onSelect={onSelectChat}
         onRename={onRenameChat}
@@ -1034,18 +1027,38 @@ function Workshop({
             Include LLM chat in Jev state
           </label>
         </div>
-        <div className="samples" role="list" aria-label="Sample cases">
-          {SAMPLE_CASES.map((s) => (
+        <div className="case-tools" role="group" aria-label="Case session">
+          <FlipTip text="Clears the case, attachments, questions, answers, and LLM chat.">
             <button
-              key={s.id}
               type="button"
-              className={samplePresetId === s.id ? "sample-chip on" : "sample-chip"}
+              className="sample-chip"
+              data-tutorial="new-case"
               disabled={busy !== null}
-              onClick={() => onOpenSample(s.id)}
+              onClick={onNewCase}
             >
-              {s.label}
+              New Case
             </button>
-          ))}
+          </FlipTip>
+          <PresetCasesMenu
+            currentId={samplePresetId}
+            disabled={busy !== null}
+            onPick={(id) => {
+              onHistoryOpenChange(false);
+              onOpenSample(id);
+            }}
+          />
+          <FlipTip text="This browser only — local threads.">
+            <button
+              type="button"
+              className={historyOpen ? "sample-chip on" : "sample-chip"}
+              data-tutorial="history"
+              aria-expanded={historyOpen}
+              aria-controls="workshop-history"
+              onClick={() => onHistoryOpenChange(!historyOpen)}
+            >
+              History
+            </button>
+          </FlipTip>
         </div>
         {isWeatherSample(samplePresetId) ? (
           <div className="weather-row" data-tutorial="weather">

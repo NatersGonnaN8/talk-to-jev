@@ -25,7 +25,7 @@ export type SampleCase = {
   questions: Record<string, JevQuestion>;
 };
 
-/** First-open / New chat. A business snap — not Jacket. */
+/** First-open / New Case. A business snap — not Jacket. */
 export const LANDING_SAMPLE_ID: SampleId = "invoice";
 
 /** The one weather case. Open-Meteo row is visible only here. */
@@ -488,7 +488,7 @@ Regional: US + UK inventory. Brand safety: this would run next to a live hospita
   ),
 ];
 
-/** Alias for Workshop chips — same ten as Use Cases. Do not fork this list. */
+/** Alias for Workshop Preset Cases — same ten as Use Cases. Do not fork this list. */
 export const SAMPLE_CASES = SAMPLES;
 
 export const SAMPLE_BY_ID: Record<SampleId, SampleCase> = Object.fromEntries(
