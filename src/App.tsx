@@ -27,7 +27,9 @@ import {
   isBlankQuestionId,
   nextBlankQuestionKey,
   nextChoiceOptionKey,
+  nextStableUid,
   questionIdValue,
+  renameRecordKey,
 } from "./jevQuestions";
 import { DEFAULT_LOCATION_QUERY, mergeWeatherIntoCase } from "./weather";
 import {
@@ -48,7 +50,7 @@ import { UseCasesPage } from "./UseCases";
 import { SettingsPage } from "./pages/Settings";
 import { HistoryPanel } from "./HistoryPanel";
 import { TutorialOverlay } from "./TutorialOverlay";
-import { LlmBubble } from "./LlmBubble";
+import { LlmBubble, ThinkingMill } from "./LlmBubble";
 import { isTutorialDone, TUTORIAL_UI, type TutorialPage } from "./tutorial";
 import {
   activeThread,
@@ -542,7 +544,13 @@ function Workshop({
 
   useEffect(() => {
     const el = threadRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    const id = window.requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+      const last = el.querySelector(".bubble:last-child");
+      last?.scrollIntoView({ block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(id);
   }, [messages, busy]);
 
   useEffect(() => {
@@ -929,6 +937,11 @@ function Workshop({
           <div>
             <span className="eyebrow">LLM</span>
             <code>{health?.llmModel ?? "deepseek/deepseek-v4-flash"}</code>
+            {busy === "llm" || busy === "propose" ? (
+              <ThinkingMill
+                label={busy === "propose" ? "Proposing" : "Thinking"}
+              />
+            ) : null}
           </div>
           <div className="row-actions" data-tutorial="wire">
             <button
@@ -1174,6 +1187,213 @@ function Workshop({
   );
 }
 
+function transferUid(
+  map: Map<string, string>,
+  oldKey: string,
+  newKey: string,
+  mint: (storageKey: string) => string,
+) {
+  const uid = map.get(oldKey) ?? mint(oldKey);
+  if (oldKey !== newKey) map.delete(oldKey);
+  map.set(newKey, uid);
+  return uid;
+}
+
+function QuestionCard({
+  storageKey,
+  q,
+  showBlankIdError,
+  onRenameId,
+  onChangeQ,
+  onRemove,
+}: {
+  storageKey: string;
+  q: JevQuestion;
+  showBlankIdError: boolean;
+  onRenameId: (nextId: string) => void;
+  onChangeQ: (next: JevQuestion) => void;
+  onRemove: () => void;
+}) {
+  const optionUids = useRef(new Map<string, string>());
+
+  const optionUid = (k: string) => {
+    const existing = optionUids.current.get(k);
+    if (existing) return existing;
+    const uid = nextStableUid();
+    optionUids.current.set(k, uid);
+    return uid;
+  };
+
+  return (
+    <div className="q-card">
+      <div className="q-row">
+        <input
+          className={
+            showBlankIdError && isBlankQuestionId(storageKey)
+              ? "id-input invalid"
+              : "id-input"
+          }
+          value={questionIdValue(storageKey)}
+          onChange={(e) => onRenameId(e.target.value)}
+          placeholder="question id"
+          aria-label="Question id"
+          aria-invalid={showBlankIdError && isBlankQuestionId(storageKey)}
+        />
+        <select
+          value={q.type}
+          onChange={(e) =>
+            onChangeQ(emptyQuestion(e.target.value as QuestionType))
+          }
+          aria-label="Question type"
+        >
+          <option value="choice">choice</option>
+          <option value="noul">noul</option>
+          <option value="score">score</option>
+        </select>
+        <button type="button" className="btn tiny" onClick={onRemove}>
+          Remove
+        </button>
+      </div>
+      {showBlankIdError && isBlankQuestionId(storageKey) ? (
+        <p className="inline-error" role="alert">
+          {BLANK_QUESTION_ID_ERROR}
+        </p>
+      ) : null}
+      <textarea
+        value={q.instructions}
+        onChange={(e) => onChangeQ({ ...q, instructions: e.target.value })}
+        placeholder="Instructions (the full question)"
+        rows={2}
+      />
+      {q.type === "choice" ? (
+        <div className="criteria">
+          {Object.entries(q.criteria).map(([k, v]) => (
+            <div className="crit-row" key={optionUid(k)}>
+              <input
+                value={k}
+                onChange={(e) => {
+                  const nextKey = e.target.value;
+                  if (nextKey === k) return;
+                  transferUid(optionUids.current, k, nextKey, optionUid);
+                  onChangeQ({
+                    ...q,
+                    criteria: renameRecordKey(q.criteria, k, nextKey),
+                  });
+                }}
+                aria-label="Option key"
+              />
+              <input
+                value={v}
+                onChange={(e) =>
+                  onChangeQ({
+                    ...q,
+                    criteria: { ...q.criteria, [k]: e.target.value },
+                  })
+                }
+                aria-label="Option description"
+              />
+              <button
+                type="button"
+                className="btn tiny"
+                onClick={() => {
+                  const criteria = { ...q.criteria };
+                  delete criteria[k];
+                  optionUids.current.delete(k);
+                  onChangeQ({ ...q, criteria });
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn tiny"
+            onClick={() =>
+              onChangeQ({
+                ...q,
+                criteria: {
+                  ...q.criteria,
+                  [nextChoiceOptionKey(Object.keys(q.criteria))]: "",
+                },
+              })
+            }
+          >
+            Add option
+          </button>
+        </div>
+      ) : null}
+      {q.type === "score" ? (
+        <div className="criteria">
+          {q.criteria.map((level, i) => (
+            <div className="crit-row" key={i}>
+              <span className="lvl">{i}</span>
+              <input
+                value={level}
+                onChange={(e) => {
+                  const criteria = [...q.criteria];
+                  criteria[i] = e.target.value;
+                  onChangeQ({ ...q, criteria });
+                }}
+                aria-label={`Score level ${i}`}
+              />
+              <button
+                type="button"
+                className="btn tiny"
+                onClick={() =>
+                  onChangeQ({
+                    ...q,
+                    criteria: q.criteria.filter((_, j) => j !== i),
+                  })
+                }
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn tiny"
+            onClick={() => onChangeQ({ ...q, criteria: [...q.criteria, ""] })}
+          >
+            Add level
+          </button>
+        </div>
+      ) : null}
+      {q.type === "noul" ? (
+        <div className="criteria">
+          <div className="crit-row">
+            <span className="lvl">true</span>
+            <input
+              value={q.criteria?.true ?? ""}
+              onChange={(e) =>
+                onChangeQ({
+                  ...q,
+                  criteria: { ...q.criteria, true: e.target.value },
+                })
+              }
+              placeholder="What yes means"
+            />
+          </div>
+          <div className="crit-row">
+            <span className="lvl">false</span>
+            <input
+              value={q.criteria?.false ?? ""}
+              onChange={(e) =>
+                onChangeQ({
+                  ...q,
+                  criteria: { ...q.criteria, false: e.target.value },
+                })
+              }
+              placeholder="What no means"
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function QuestionEditor({
   questions,
   onChange,
@@ -1184,19 +1404,25 @@ function QuestionEditor({
   showBlankIdError: boolean;
 }) {
   const entries = useMemo(() => Object.entries(questions), [questions]);
+  const cardUids = useRef(new Map<string, string>());
+
+  const cardUid = (storageKey: string) => {
+    const existing = cardUids.current.get(storageKey);
+    if (existing) return existing;
+    const uid = isBlankQuestionId(storageKey) ? storageKey : nextStableUid();
+    cardUids.current.set(storageKey, uid);
+    return uid;
+  };
 
   const setId = (oldKey: string, nextId: string) => {
     const trimmed = nextId.trim();
-    const uid = oldKey.startsWith(BLANK_QUESTION_KEY_PREFIX)
+    const blankSuffix = oldKey.startsWith(BLANK_QUESTION_KEY_PREFIX)
       ? oldKey.slice(BLANK_QUESTION_KEY_PREFIX.length)
-      : typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-    const newKey = trimmed || `${BLANK_QUESTION_KEY_PREFIX}${uid}`;
+      : nextStableUid();
+    const newKey = trimmed || `${BLANK_QUESTION_KEY_PREFIX}${blankSuffix}`;
     if (newKey === oldKey) return;
-    const next: Record<string, JevQuestion> = {};
-    for (const [k, v] of entries) next[k === oldKey ? newKey : k] = v;
-    onChange(next);
+    transferUid(cardUids.current, oldKey, newKey, cardUid);
+    onChange(renameRecordKey(questions, oldKey, newKey));
   };
 
   const setQ = (id: string, q: JevQuestion) => onChange({ ...questions, [id]: q });
@@ -1204,174 +1430,22 @@ function QuestionEditor({
   const remove = (id: string) => {
     const next = { ...questions };
     delete next[id];
+    cardUids.current.delete(id);
     onChange(next);
   };
 
   return (
     <div className="q-list">
       {entries.map(([id, q]) => (
-        <div className="q-card" key={id}>
-          <div className="q-row">
-            <input
-              className={
-                showBlankIdError && isBlankQuestionId(id)
-                  ? "id-input invalid"
-                  : "id-input"
-              }
-              value={questionIdValue(id)}
-              onChange={(e) => setId(id, e.target.value)}
-              placeholder="question id"
-              aria-label="Question id"
-              aria-invalid={showBlankIdError && isBlankQuestionId(id)}
-            />
-            <select
-              value={q.type}
-              onChange={(e) =>
-                setQ(id, emptyQuestion(e.target.value as QuestionType))
-              }
-              aria-label="Question type"
-            >
-              <option value="choice">choice</option>
-              <option value="noul">noul</option>
-              <option value="score">score</option>
-            </select>
-            <button type="button" className="btn tiny" onClick={() => remove(id)}>
-              Remove
-            </button>
-          </div>
-          {showBlankIdError && isBlankQuestionId(id) ? (
-            <p className="inline-error" role="alert">
-              {BLANK_QUESTION_ID_ERROR}
-            </p>
-          ) : null}
-          <textarea
-            value={q.instructions}
-            onChange={(e) => setQ(id, { ...q, instructions: e.target.value })}
-            placeholder="Instructions (the full question)"
-            rows={2}
-          />
-          {q.type === "choice" ? (
-            <div className="criteria">
-              {Object.entries(q.criteria).map(([k, v]) => (
-                <div className="crit-row" key={k}>
-                  <input
-                    value={k}
-                    onChange={(e) => {
-                      const criteria = { ...q.criteria };
-                      delete criteria[k];
-                      criteria[e.target.value || k] = v;
-                      setQ(id, { ...q, criteria });
-                    }}
-                    aria-label="Option key"
-                  />
-                  <input
-                    value={v}
-                    onChange={(e) =>
-                      setQ(id, {
-                        ...q,
-                        criteria: { ...q.criteria, [k]: e.target.value },
-                      })
-                    }
-                    aria-label="Option description"
-                  />
-                  <button
-                    type="button"
-                    className="btn tiny"
-                    onClick={() => {
-                      const criteria = { ...q.criteria };
-                      delete criteria[k];
-                      setQ(id, { ...q, criteria });
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="btn tiny"
-                onClick={() =>
-                  setQ(id, {
-                    ...q,
-                    criteria: {
-                      ...q.criteria,
-                      [nextChoiceOptionKey(Object.keys(q.criteria))]: "",
-                    },
-                  })
-                }
-              >
-                Add option
-              </button>
-            </div>
-          ) : null}
-          {q.type === "score" ? (
-            <div className="criteria">
-              {q.criteria.map((level, i) => (
-                <div className="crit-row" key={i}>
-                  <span className="lvl">{i}</span>
-                  <input
-                    value={level}
-                    onChange={(e) => {
-                      const criteria = [...q.criteria];
-                      criteria[i] = e.target.value;
-                      setQ(id, { ...q, criteria });
-                    }}
-                    aria-label={`Score level ${i}`}
-                  />
-                  <button
-                    type="button"
-                    className="btn tiny"
-                    onClick={() =>
-                      setQ(id, {
-                        ...q,
-                        criteria: q.criteria.filter((_, j) => j !== i),
-                      })
-                    }
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="btn tiny"
-                onClick={() => setQ(id, { ...q, criteria: [...q.criteria, ""] })}
-              >
-                Add level
-              </button>
-            </div>
-          ) : null}
-          {q.type === "noul" ? (
-            <div className="criteria">
-              <div className="crit-row">
-                <span className="lvl">true</span>
-                <input
-                  value={q.criteria?.true ?? ""}
-                  onChange={(e) =>
-                    setQ(id, {
-                      ...q,
-                      criteria: { ...q.criteria, true: e.target.value },
-                    })
-                  }
-                  placeholder="What yes means"
-                />
-              </div>
-              <div className="crit-row">
-                <span className="lvl">false</span>
-                <input
-                  value={q.criteria?.false ?? ""}
-                  onChange={(e) =>
-                    setQ(id, {
-                      ...q,
-                      criteria: { ...q.criteria, false: e.target.value },
-                    })
-                  }
-                  placeholder="What no means"
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
+        <QuestionCard
+          key={cardUid(id)}
+          storageKey={id}
+          q={q}
+          showBlankIdError={showBlankIdError}
+          onRenameId={(nextId) => setId(id, nextId)}
+          onChangeQ={(next) => setQ(id, next)}
+          onRemove={() => remove(id)}
+        />
       ))}
       <button
         type="button"

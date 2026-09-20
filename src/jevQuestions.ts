@@ -11,12 +11,30 @@ export function questionIdValue(storageKey: string) {
   return isBlankQuestionId(storageKey) ? "" : storageKey;
 }
 
+/** Stable identity for a q-card or option row. Never the editable id / option key. */
+export function nextStableUid(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
 export function nextBlankQuestionKey() {
-  const suffix =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-  return `${BLANK_QUESTION_KEY_PREFIX}${suffix}`;
+  return `${BLANK_QUESTION_KEY_PREFIX}${nextStableUid()}`;
+}
+
+/** Rename a record key in place (insertion order). Does not move the row to the end. */
+export function renameRecordKey<V>(
+  rec: Record<string, V>,
+  oldKey: string,
+  newKey: string,
+): Record<string, V> {
+  if (oldKey === newKey) return rec;
+  const next: Record<string, V> = {};
+  for (const [k, v] of Object.entries(rec)) {
+    next[k === oldKey ? newKey : k] = v;
+  }
+  return next;
 }
 
 export function blankQuestionKeys(questions: Record<string, JevQuestion>) {

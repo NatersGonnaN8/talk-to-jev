@@ -228,6 +228,12 @@ function looksLikeJsonDump(text: string): boolean {
   return parsed.ok;
 }
 
+function looksLikeQuestionDump(text: string): boolean {
+  if (looksLikeJsonDump(text)) return true;
+  const ids = text.match(/`[a-z][a-z0-9_]{2,}`/gi);
+  return Boolean(ids && ids.length >= 2 && /noul|choice|score/i.test(text));
+}
+
 function tryJson(text: string): unknown {
   try {
     return JSON.parse(text);
@@ -314,6 +320,7 @@ async function completeChat(opts: {
   messages: OrMessage[];
   toolChoice: ToolChoice;
   includeReasoning?: boolean;
+  deferContent?: boolean;
   onThought?: (text: string) => void;
   onDelta?: (text: string) => void;
 }) {
@@ -324,6 +331,7 @@ async function completeChat(opts: {
     tools: LLM_TOOLS,
     toolChoice: opts.toolChoice,
     includeReasoning: opts.includeReasoning !== false,
+    deferContent: opts.deferContent,
     onThought: opts.onThought,
     onDelta: opts.onDelta,
   });
@@ -503,6 +511,11 @@ export async function runLlmSession(opts: {
       messages,
       toolChoice: choice,
       includeReasoning,
+      deferContent:
+        mode === "propose-questions" ||
+        work.appliedCase ||
+        work.appliedQuestions ||
+        work.askedJev,
       onThought: (text) => emit(opts.res, { type: "thought", text }),
       onDelta: (text) => {
         streamed.delta = true;
@@ -600,11 +613,18 @@ export async function runLlmSession(opts: {
       let text = content;
       if (!text && (work.appliedCase || work.appliedQuestions || work.askedJev)) {
         text = confirmationFor(work);
-      } else if (text && (work.appliedCase || work.appliedQuestions) && looksLikeJsonDump(text)) {
+      } else if (text && (work.appliedCase || work.appliedQuestions) && looksLikeQuestionDump(text)) {
         text = confirmationFor(work);
       }
-      if (text && (!streamed.delta || text !== content)) {
-        emit(opts.res, { type: "delta", text });
+      if (text) {
+        const replaced = streamed.delta && text !== content;
+        if (!streamed.delta || replaced) {
+          emit(opts.res, {
+            type: "delta",
+            text,
+            ...(replaced ? { replace: true } : {}),
+          });
+        }
       }
       emit(opts.res, { type: "done" });
       return;

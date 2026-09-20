@@ -51,10 +51,7 @@ function ThoughtsBlock({ text, streaming }: { text: string; streaming: boolean }
 function ToolCard({ tool }: { tool: ChatToolCall }) {
   const running = tool.status === "running";
   const failed = tool.status === "done" && tool.ok === false;
-  const [open, setOpen] = useState(running);
-  useEffect(() => {
-    if (running) setOpen(true);
-  }, [running]);
+  const [open, setOpen] = useState(true);
   const stamp = running ? "Running" : failed ? "Failed" : "Done";
   const label = TOOL_LABEL[tool.name] ?? tool.name;
   return (

@@ -133,14 +133,24 @@ function toolCallsFromMap(acc: Map<number, OrToolCall>): OrToolCall[] {
     .filter((c) => c.function.name);
 }
 
-function shouldStreamContent(acc: string, sawTools: boolean) {
-  if (sawTools) return false;
+function looksLikeDumpInProgress(acc: string) {
   const t = acc.trim();
   if (!t) return false;
   if (t.startsWith("<") || t.startsWith("{") || t.startsWith("[") || t.startsWith("```")) {
-    return false;
+    return true;
   }
-  return !looksLikeToolMarkup(acc);
+  if (looksLikeToolMarkup(acc)) return true;
+  if (/\|.+\|/.test(t) && /noul|choice|score|instructions/i.test(t)) return true;
+  const ids = t.match(/`[a-z][a-z0-9_]{2,}`/gi);
+  if (ids && ids.length >= 2 && /noul|choice|score/i.test(t)) return true;
+  if (/^\s*\d+\.\s+.+\n\s*\d+\.\s+/m.test(t) && /noul|choice|score/i.test(t)) return true;
+  return false;
+}
+
+function shouldStreamContent(acc: string, sawTools: boolean) {
+  if (sawTools) return false;
+  if (!acc.trim()) return false;
+  return !looksLikeDumpInProgress(acc);
 }
 
 export function summarizeToolArgs(name: string, args: Record<string, unknown>): string {
@@ -285,6 +295,7 @@ export async function completeChat(opts: {
   tools: unknown;
   toolChoice: ToolChoice;
   includeReasoning: boolean;
+  deferContent?: boolean;
   onThought?: (text: string) => void;
   onDelta?: (text: string) => void;
 }): Promise<ChatOk | ChatFail> {
@@ -363,7 +374,11 @@ export async function completeChat(opts: {
     const piece = contentPiece(delta);
     if (piece) {
       contentAcc += piece;
-      if (shouldStreamContent(contentAcc, sawTools) && streamedContent < contentAcc.length) {
+      if (
+        !opts.deferContent &&
+        shouldStreamContent(contentAcc, sawTools) &&
+        streamedContent < contentAcc.length
+      ) {
         const next = contentAcc.slice(streamedContent);
         streamedContent = contentAcc.length;
         if (next) opts.onDelta?.(next);
@@ -375,6 +390,7 @@ export async function completeChat(opts: {
 
   const tool_calls = toolCallsFromMap(toolAcc);
   if (
+    !opts.deferContent &&
     !tool_calls.length &&
     contentAcc &&
     streamedContent < contentAcc.length &&

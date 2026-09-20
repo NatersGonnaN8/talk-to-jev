@@ -88,7 +88,7 @@ export async function askJev(payload: {
 }
 
 export type LlmStreamEvent =
-  | { type: "delta"; text: string }
+  | { type: "delta"; text: string; replace?: boolean }
   | { type: "thought"; text: string }
   | { type: "error"; message: string }
   | {
@@ -115,6 +115,7 @@ type SsePayload = {
   name?: string;
   status?: string;
   ok?: boolean;
+  replace?: boolean;
   text?: string;
   state?: string;
   questions?: Record<string, JevQuestion>;
@@ -159,7 +160,11 @@ export function eventsFromPayload(json: SsePayload): LlmStreamEvent[] {
     out.push({ type: "thought", text: json.text });
   }
   if (json.type === "delta" && typeof json.text === "string") {
-    out.push({ type: "delta", text: json.text });
+    out.push({
+      type: "delta",
+      text: json.text,
+      ...(json.replace === true ? { replace: true } : {}),
+    });
   }
   const toolName =
     json.type === "tool" || json.type === "tool_call" ? json.name : undefined;
@@ -253,7 +258,7 @@ export async function streamLlm(
     if (!json) return;
     for (const ev of eventsFromPayload(json)) {
       if (ev.type === "delta") {
-        full += ev.text;
+        full = ev.replace ? ev.text : full + ev.text;
         onEvent({ type: "delta", text: full });
         continue;
       }
