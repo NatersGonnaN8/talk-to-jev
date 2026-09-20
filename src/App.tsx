@@ -23,11 +23,13 @@ import {
 import {
   BLANK_QUESTION_KEY_PREFIX,
   addChoiceOption,
+  attachChoiceLegends,
   blankQuestionKeys,
   emptyQuestion,
   isBlankQuestionId,
   nextBlankQuestionKey,
   nextStableUid,
+  probabilityBarLabel,
   questionIdValue,
   removeChoiceOption,
   renameRecordKey,
@@ -731,7 +733,7 @@ function Workshop({
             return;
           }
           if (ev.type !== "ask_jev") return;
-          setAnswers(ev.answers);
+          setAnswers(attachChoiceLegends(ev.answers, questionsForJev(questions)));
           const usage = ev.usage as
             | { input_tokens?: number; cost?: number }
             | undefined;
@@ -776,7 +778,12 @@ function Workshop({
         includeTranscript: includeChat,
         transcript: includeChat ? messages : [],
       });
-      setAnswers((payload.answers ?? {}) as Record<string, JevAnswer>);
+      setAnswers(
+        attachChoiceLegends(
+          (payload.answers ?? {}) as Record<string, JevAnswer>,
+          ready,
+        ),
+      );
       const usage = payload.usage as
         | { input_tokens?: number; cost?: number }
         | undefined;
@@ -794,17 +801,17 @@ function Workshop({
   };
 
   const feedJev = () => {
-    if (!answers) return;
+    if (!answers) {
+      onToast("Ask Jev first — nothing to feed.");
+      return;
+    }
     const note = summarizeAnswers(answers);
-    setMessages((m) => [
-      ...m,
-      { role: "user", content: note },
-      {
-        role: "assistant",
-        content: "Got Jev’s typed answers. Ask me what to do with the probabilities.",
-      },
-    ]);
+    if (!note.trim()) {
+      onToast("Ask Jev first — nothing to feed.");
+      return;
+    }
     onToast("Fed Jev’s answers into the LLM thread.");
+    void sendLlm("chat", note);
   };
 
   const attachedNames = useMemo(() => listAttachedNames(state), [state]);
@@ -940,7 +947,7 @@ function Workshop({
       <article className="pane llm" data-tutorial="llm" style={{ flex: `${split} 1 0` }}>
         <header className="pane-head">
           <div>
-            <span className="eyebrow">LLM</span>
+            <h2 className="pane-title">LLM</h2>
             <code>{health?.llmModel ?? "deepseek/deepseek-v4-flash"}</code>
             {busy === "llm" || busy === "propose" ? (
               <ThinkingMill
@@ -960,7 +967,8 @@ function Workshop({
             <button
               type="button"
               className="btn ghost"
-              disabled={!answers || busy !== null}
+              disabled={!answers || locked}
+              title={!answers ? "Ask Jev first — nothing to feed." : undefined}
               onClick={feedJev}
             >
               Feed Jev to LLM
@@ -1067,7 +1075,12 @@ function Workshop({
             <p className="empty">Define questions, then ask Jev.</p>
           ) : (
             Object.entries(answers).map(([id, a]) => (
-              <AnswerCard key={id} id={id} answer={a} />
+              <AnswerCard
+                key={id}
+                id={id}
+                answer={a}
+                question={questions[id]}
+              />
             ))
           )}
           {jevMeta ? <p className="meta">{jevMeta}</p> : null}
@@ -1097,7 +1110,7 @@ function Workshop({
         onDrop={onTicketDrop}
       >
         <div className="ticket-head">
-          <span className="eyebrow">Jev’s case</span>
+          <h2 className="pane-title">Jev’s case</h2>
           <label className="check">
             <input
               type="checkbox"
@@ -1502,7 +1515,15 @@ function QuestionEditor({
   );
 }
 
-function AnswerCard({ id, answer }: { id: string; answer: JevAnswer }) {
+function AnswerCard({
+  id,
+  answer,
+  question,
+}: {
+  id: string;
+  answer: JevAnswer;
+  question?: JevQuestion;
+}) {
   if (answer.type === "noul") {
     const p = Number(answer.noul);
     return (
@@ -1519,6 +1540,11 @@ function AnswerCard({ id, answer }: { id: string; answer: JevAnswer }) {
     );
   }
   const probs = answer.probabilities ?? {};
+  const legend =
+    answer.type === "score"
+      ? answer.legend
+      : answer.legend ??
+        (question?.type === "choice" ? question.criteria : undefined);
   return (
     <div className="answer">
       <header>
@@ -1533,11 +1559,7 @@ function AnswerCard({ id, answer }: { id: string; answer: JevAnswer }) {
       <ul className="probs">
         {Object.entries(probs).map(([k, v]) => (
           <li key={k}>
-            <span>
-              {answer.type === "score" && answer.legend
-                ? `${k} ${answer.legend[k] ?? ""}`
-                : k}
-            </span>
+            <span>{probabilityBarLabel(k, legend)}</span>
             <div className="bar">
               <span style={{ width: `${Math.min(100, Math.max(0, Number(v) * 100))}%` }} />
             </div>

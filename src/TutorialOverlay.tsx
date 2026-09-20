@@ -210,7 +210,7 @@ export function TutorialOverlay({
         aria-describedby="tour-body"
       >
         <p className="tour-kicker">{tutorialKicker(shown, total)}</p>
-        <h2 id="tour-title">{step.title}</h2>
+        <h2 className="pane-title" id="tour-title">{step.title}</h2>
         <p id="tour-body">{step.body}</p>
         <div className="tour-actions">
           <button type="button" className="btn ghost" onClick={finish}>

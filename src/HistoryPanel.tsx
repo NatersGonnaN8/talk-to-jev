@@ -65,7 +65,7 @@ export function HistoryPanel({
       <aside className="hist-drawer" id="workshop-history" role="dialog" aria-label="Chat history">
         <header className="hist-head">
           <div>
-            <span className="eyebrow">History</span>
+            <h2 className="pane-title">History</h2>
             <p className="hist-sub">This browser only</p>
           </div>
           <button

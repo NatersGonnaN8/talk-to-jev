@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.17 — 2026-09-20  
+**Status:** v0.19 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -112,7 +112,7 @@ Shared **Jev’s case** (the Jev `state`) sits in a ticket strip at the top. Bot
 | **Ask the LLM** | Chat completions **with tools** (`POST /api/v1/chat/completions`). System prompt includes `primer.md` so the LLM knows Jev’s contract (state + questions, not chat). Optional: last Jev answers. Jev’s case text (including any weather block and any **attach** blocks from local files) is the current state. The cheap LLM **must use tools** to mutate the Workshop — it does **not** paste a questions/case JSON blob into the chat as the product. Short confirmation in the thread. |
 | **Ask Jev** | Decisions API. `state` = Jev’s case text (same string: situation, weather block, attached blocks), plus optional `{ transcript }` of the LLM thread. `questions` = the editor on **Jev’s Questions**. If any question **id is blank**, show a clear **inline** error on that card and **do not** call Jev. Never silently invent an id (`q_*`, random suffixes, or similar). The LLM may call the same path via the `ask_jev` tool when the editor is **clean**. |
 | **Propose questions** | Button **Propose Jev questions** (and chat like “send it to case and propose Jev questions”). The LLM **must** call tools: `set_jev_questions` always for this intent; `set_jev_case` when the user asked to write the ticket. Valid maps **replace** the question cards immediately. Chat shows a **short confirmation**, not the JSON. Skip entries with a blank id — do not mint a placeholder. Do **not** call `ask_jev` from this button — leave **Ask Jev** as the click. If the user then **Ask Jev** with a still-blank id, same inline error as above. |
-| **Feed Jev → LLM** | Reverse wire. Inject a user-visible note into the LLM thread summarizing typed answers (choice / noul / score / confidence). Next LLM turn sees it. Does **not** go through LLM tools. |
+| **Feed Jev → LLM** | Reverse wire. Build a user-visible summary of typed answers (choice / noul / score / confidence) and **immediately stream** `/api/llm` on the **same path as Send** (SSE: delta / thought / tool / done). Show the You bubble, then mill thinking / the streamed assistant reply. Do **not** park the note for a second Send click. Do **not** insert a canned assistant one-liner. Disabled when there are no Jev answers yet (do not fake a send). Does **not** go through LLM tools. Nater (2026-09-20): pass immediately to the LLM, same path as hitting Send. |
 | **Load weather** | **Jacket preset only.** Server fetches Open-Meteo for the ticket location. Current conditions + a short forecast are written into a marked **weather block** on Jev’s case. Does not call Jev or the LLM. Hidden on business presets. |
 | **Sample case** | One pick (**Preset Cases** menu **or** Use Cases card) loads the same `src/samples.ts` preset: Jev’s case situation (weather placeholder **only** on Jacket), Jev questions, short label. Clears prior Jev answers and the LLM thread so the last case cannot leak. |
 | **New Case** | Full Workshop reset to an **empty** Workshop. Saves the open thread if it is worth keeping, then loads **no** Preset Cases item (not `invoice`, not Jacket, not any other sample id). Clears Jev’s case text, attached `.md` chips, Jev questions (one blank-id noul card), Jev answers, the LLM thread, and weather chrome. Strips `?case=` from the URL. **Preset Cases** shows none selected. Not History **Clear current**. |
@@ -144,7 +144,7 @@ Layout (desktop):
 
 ```
 [ chrome ]
-[ JEV’S CASE TICKET ]
+[ Jev’s case ticket ]
   [ New Case | Preset Cases | History ]
   [ location field + Load weather ]   ← Jacket only; hidden on business presets
   [ include-chat checkbox ]
@@ -156,7 +156,7 @@ Layout (desktop):
 
 **Jev’s case** (the state ticket — **not** Use Cases cards)
 
-- Label: **Jev’s case** (this is Jev’s `state`)
+- Label: **Jev’s case** (this is Jev’s `state`). Ticket heading is `h2.pane-title` — **same size as Jev’s Questions** (1.05rem / 16.8px, weight 650, letter-spacing 0.01em, mixed case). **Not** an uppercase wide-tracking stamp (`JEV’S CASE`). Nater (2026-09-20): he despises that blocky look. Same day: match pane-title size for same-tier headers.
 - Checkbox **Include LLM chat in Jev state** (default on)
 - **Case tools** row — **three** controls. **Do not** show the ten snaps as a chip row. Nater (2026-09-19): scribble on the Invoice exception … Jacket? pills; replace them.
   1. **New Case** — full reset of the Workshop to **empty**: Jev’s case text (blank), attached `.md` chips, Jev questions (one blank-id noul card; do not mint a real id), Jev answers, LLM chat, weather chrome hidden, `?case=` stripped. Save the open thread if it is worth keeping (existing history rule). **No** sample id — **Preset Cases** shows **none selected**. Do **not** load Invoice exception or any other preset. Include-chat on. Not a half-reset. History **Clear current** still only empties the LLM thread and last Jev answers. Nater (2026-09-20): New Case must not bring the invoices preset.
@@ -174,19 +174,19 @@ Layout (desktop):
 
 **LLM pane** (manila / prose)
 
-- Eyebrow: `LLM` + model id
+- Heading: `h2.pane-title` **LLM** (acronym as written) — **same size as Jev’s Questions** (1.05rem / 16.8px, weight 650, letter-spacing 0.01em). Model id is subtitle/meta (`code`), not a second heading.
 - Scrollable transcript (user / assistant). Assistant turns are **agentic**, not a single JSON dump in the bubble.
 - Composer: textarea (`resize: none`) + **Send**
 - Secondary: **Propose Jev questions**
-- After Jev has answered: **Feed Jev to LLM**
+- After Jev has answered: **Feed Jev to LLM**. Click builds the Jev-answers user message and **immediately POSTs** `/api/llm` (same `sendLlm` / SSE path as **Send**). The composer may stay empty; **Send** stays disabled until they type. Show the You bubble, then mill thinking / streamed assistant reply. Do **not** wait for a second click. Do **not** insert a canned “Got Jev’s typed answers…” assistant line. If there are no Jev answers yet, keep the button disabled (do not fake a send).
 - Empty: “Draft the case, or ask how to phrase a Jev question.”
-- **Send** streams `/api/llm` SSE into the open assistant turn. Keep the user + assistant pair on screen. History persist / preset reload must not wipe an in-flight or just-finished turn.
+- **Send** streams `/api/llm` SSE into the open assistant turn. Keep the user + assistant pair on screen. History persist / preset reload must not wipe an in-flight or just-finished turn. **Feed Jev to LLM** uses this same stream.
   - `{ type: "thought", text }` — incremental **actual** reasoning from OpenRouter (`reasoning`, `reasoning_content`, or `reasoning_details` text/summary). Accumulate `text`. Never invent thoughts. Encrypted / `[REDACTED]` chunks are not thoughts.
   - `{ type: "delta", text, replace? }` — incremental assistant prose. Accumulate `text` (this is **not** OpenAI `choices[0].delta.content`). If `replace` is true, that turn’s prose becomes `text` (used when a question-list dump is swapped for a short confirmation).
   - `{ type: "tool", id, name, status: "running"|"done", ok?, argsSummary, resultSummary?, ... }` — apply immediately. On `done` + `ok`, `set_jev_case` / `set_jev_questions` / `ask_jev` still update the ticket, q-cards, or Jev answers. The **transcript** shows a tool card, not the JSON.
   - `{ type: "error", message }` stays **in that assistant bubble**. `{ type: "done" }` ends the stream.
 - **Thinking chrome.** While `/api/llm` is in flight, the open assistant turn shows a slick mill **thinking** state (telegraph stamps + a pine nib on a manila track — custom CSS, not a stock spinner-only afterthought). Show it before the first prose token and while thoughts are streaming. Hide it in the bubble once assistant prose is on screen (tool cards may already be visible). Also show the same mill in the LLM **pane-head** for the whole in-flight window so it stays on-screen when the last bubble is below the fold. `prefers-reduced-motion: reduce` → static pine bar, no motion. Nater (2026-09-20): “add a nice thinking animation to LLM, stream the actual thoughts if possible in a nice collapsible agentic UI, and add nice tool calls as well.”
-- **Thoughts block.** If any thought text arrived, show a collapsible mill aside (pine left rule, manila fill, Fragment Mono **Thoughts**). **Open while streaming**; the operator can collapse. If the floor model (`deepseek/deepseek-v4-flash` by default) has no reasoning channel, keep thinking chrome and **hide** an empty thoughts block — do not fake copy.
+- **Thoughts block.** If any thought text arrived, show a collapsible mill aside (pine left rule, manila fill, Public Sans **Thoughts** — same family as `.nav-btn`, not Fragment Mono). **Open while streaming**; the operator can collapse. If the floor model (`deepseek/deepseek-v4-flash` by default) has no reasoning channel, keep thinking chrome and **hide** an empty thoughts block — do not fake copy.
 - **Tool cards.** Each call is a collapsible mill card: tool name (plus a short human label), stamp Running / Done / Failed, short args summary, short result. Not a questions-map table in the bubble. Propose / “send it to case” must look like `set_jev_*` tool use. Cards persist on the message in History.
 
 **Jev pane** (blueprint / typed) — header `article.pane.jev > header.pane-head`
@@ -203,15 +203,16 @@ Layout (desktop):
   - **TypeSafe snapshot (`docs/jev`) — what actually has to be spaceless.** Question **ids** and Choice **option names** (criteria **keys**) are JSON map keys (`questions` / `criteria`). Examples are snake_case with no spaces (`department`, `is_urgent`, `returns`, `wear_jacket`). The autoresearch cookbook slugifies names to `[a-z0-9_]` because they become question ids. The SDK/API does **not** reject spaces in string **values**: `instructions` and option **descriptions** are typically prose (“Which team should handle this?”, “Exchanges, wrong or damaged items”). Workshop still snake-cases **option description** typing because there is no option-key box — the description field is what the operator types on each row. Positional keys `"1"`, `"2"`, … stay the keys sent to Jev.
   - New-card defaults (empty editor UX): type `noul`, empty instructions, empty true/false criteria. Switching type to **choice** starts two rows numbered **1** and **2** (empty descriptions). Score stays Low / Medium / High. Noul stays empty true/false criteria.
   - **Choice options: no option-key text box.** Do not mint `option_a` and do not type `1` into an input. Show a slick **1-based number to the left** of each option description (1, 2, 3, 4 — never 0). That number **is** the choice key passed to Jev (`"1"`, `"2"`, …). Users only fill the description. **Add option** appends a new numbered row; remove/reorder keeps numbers in visual order. Each option row keeps a **stable uid** as its React `key` (not the displayed number, not a typed key). LLM `set_jev_questions` may still emit semantic option keys (`refund` / `deny`, `pay` / `hold`); rewrite those to positional numbers **on the card** and **when sending to Jev**. No key field → nothing to steal focus. Nater (2026-09-20): option keys were a second focus-stealing field; positional numbers replace them.
+  - **Choice criteria sent to Jev (2026-09-20).** TypeSafe Choice is a map of **option name → description**; both go to the model. Our names are the mill numbers. The Decisions payload must be positional keys → **description text**: `{ "1": "papaya", "2": "banana" }`, never `{ "1": "1" }` (description = key) and never empty values when the card has text. Score still sends ordered legend strings (Jev answers `0 Low` / `1 Medium` / `2 High`). Do not bring back the option-key input. Do not stop Space → `_` on description typing.
   - **Add option** after click: focus the **new** row’s description input (`document.activeElement` is `Option N description`, not the Add option button). `useEffect` + `requestAnimationFrame` on the new option uid. Nater (2026-09-20): Add option left focus on the button so he could not type immediately.
   - Score: ordered level lines (min 2)
   - Noul: optional true / false criteria
   - Blank id on **Ask Jev** (or sending the editor through the propose → ask flow): inline error on the card, do not call Jev, do not invent an id.
 - **Ask Jev**
 - Answers: one card per question
-  - Choice: selected option, probability bars, confidence stamp
+  - Choice: selected option, probability bars, confidence stamp. Bar labels are **`1 papaya`** (positional number + description) — the same pattern as score **`0 Low`**. Jev’s choice answer is keyed by the option **name** only (`"1"`); it does not return a legend. The Workshop joins the description from the criteria we sent (and persists that as `legend` on the choice answer). Bare `1` / `2` / `3` with no description is a bug.
   - Noul: 0–1 meter (P(true), not a separate confidence)
-  - Score: numeric score, level legend, probability bars, confidence
+  - Score: numeric score, level legend, probability bars, confidence (`0 Low` / `1 Medium` / `2 High`)
 - Usage line: input tokens + cost when OpenRouter returns them
 - Empty answers: “Define questions, then ask Jev.”
 
@@ -292,7 +293,7 @@ Layout:
 [ 10 case cards ]
 ```
 
-Intro slip: nine operator snaps plus one weather case. Same list as the Workshop **Preset Cases** menu. Jev returns `choice` / `noul` / `score` — not a chatbot. Open-Meteo is optional input on Jacket only.
+Intro slip: nine operator snaps plus one weather case. Same list as the Workshop **Preset Cases** menu. Page title **Use Cases** (`h1.pane-title`) matches **Jev’s Questions** size — not the product mark. Card titles are the same pane-title tier. Kickers (`.eyebrow`, e.g. **Ten snaps**) stay smaller. Jev returns `choice` / `noul` / `score` — not a chatbot. Open-Meteo is optional input on Jacket only.
 
 Each card: **label** (same as the Preset Cases item), one-line **pitch**, chips for which Jev types it uses (`choice` / `noul` / `score`). The Jacket card may stamp **weather**; business cards do not. Clicking the card (or **Open in Workshop**) goes to `/` with `?case=<id>` and loads **the same preset** as the menu: situation + questions, clear answers + LLM thread, mark that sample selected. Workshop with no `?case=` and no active history thread is the **empty** Workshop (Invoice is not auto-loaded).
 
@@ -326,7 +327,7 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 2. **Jev’s case** — this slip is Jev `state`. Drop `.md` here; other files open the **Convert** tab.
 3. **LLM pane** — prose / draft / chat. Thinking chrome while it works; real thoughts if the model streams them; tool cards for Workshop mutations.
 4. **Jev’s Questions** pane — typed `choice` / `noul` / `score` + **Ask Jev**.
-5. **Propose Jev questions** (tools fill the q-cards) / **Feed Jev to LLM** if those buttons exist.
+5. **Propose Jev questions** (tools fill the q-cards) / **Feed Jev to LLM** (sends typed answers to the LLM immediately) if those buttons exist.
 6. **Use Cases** — nine operator snaps plus one weather case (Jacket), same list as Workshop **Preset Cases**.
 7. **Docs** — Nice view (rendered Markdown), Code view (raw snapshot), boxed-i Iframe **only when the live page will embed**. May navigate to `/docs`.
 8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
@@ -352,6 +353,8 @@ Layout:
 [ five key rows ]
 ```
 
+Page title **Settings** (`h1.pane-title`) matches **Jev’s Questions** size. Key-row names (`h2.pane-title`) are the same tier. Kicker `.eyebrow` (**Bring your own keys**) stays smaller.
+
 Each row, in this order: **OpenRouter**, **OpenAI**, **Anthropic**, **Tavily**, **Brave**.
 
 - Label + short why (OpenRouter = LLM + Jev today; others unused until search / direct models land)
@@ -375,7 +378,7 @@ Layout:
 [ drop / choose files | quiet splitter | preview + actions ]
 ```
 
-- Full Convert to Markdown UI — not a half-pane on Workshop, not a button on Jev’s case.
+- Full Convert to Markdown UI — not a half-pane on Workshop, not a button on Jev’s case. Page title **Convert to Markdown** (`h1.pane-title`) and pane heads **Files** / **Markdown** (`h2.pane-title`) match **Jev’s Questions** size. Kicker `.eyebrow` (**In this browser**) stays smaller.
 - Drop zone + file picker (`accept` for `.txt,.html,.htm,.docx,.pdf,.doc` plus matching MIME types, `multiple`).
 - Per-file progress. 64k / 32k TypeSafe note. Preview textarea `resize: none`.
 - Actions on the selected resulting MD: **Add to the LLM** / **Add to Jev’s case** / **Download** / **Save as MD**.
@@ -422,7 +425,13 @@ Workshop, not a generic AI dashboard.
 - Jev slip: blueprint `#C9DCE8`
 - Wire / pine: `#2F5D4A`
 - Probability fill: industrial orange `#E06B2A`
-- Type: **Public Sans** (UI chrome, eyebrows, headings, body), **Fragment Mono** (ids, JSON, meters). **Never font:** Bricolage Grotesque (Nater 2026-09-20 — he despises it; no similar quirky/wonky display grotesques)
+- Type (Nater 2026-09-20, size match this message):
+  - **Product mark** — `a.mark` “Talk to Jev”: Public Sans, **1.25rem / 20px**, weight **700**, letter-spacing **-0.03em**, mixed case. Higher tier. Do **not** shrink it to pane-title size.
+  - **Same-tier headers** — `h2.pane-title` “Jev’s Questions” is the size reference: Public Sans, **1.05rem / 16.8px**, weight **650**, letter-spacing **0.01em**, mixed case (`text-transform: none`). Same tier = other pane titles and page/section headers: LLM pane **LLM**, ticket **Jev’s case**, Convert **Files** / **Markdown**, History drawer title, Tour card titles, page titles **Use Cases** / **Settings** / **Convert to Markdown**, Use Cases card titles, Settings key names. Do **not** bump body, `.nav-btn`, or buttons to this size.
+  - **Everything else** — Public Sans like `.nav-btn` (Workshop, Use Cases, Docs): LLM chat, question instructions, chrome labels, chips, kickers. Kickers (`.eyebrow`) stay **smaller** than pane-title (mixed case, ~0.78rem, weight ~650, tracking ~0.01em).
+  - **Fragment Mono** only for **real code**: question ids, model ids, env names, JSON, Docs Code view, markdown `code`/`pre`, convert preview. Not for product chrome labels, thoughts kickers, type chips, or stamps.
+  - **Never stylistic ALL CAPS** — no `text-transform: uppercase` on UI chrome. Acronyms as written (LLM, JSON, API) are fine.
+- **Never font** (Nater 2026-09-20): **Bricolage Grotesque** is banned. So is that **whole blocky style** — quirky/wonky/naive grotesques, and all-caps + wide-tracking UI chrome. Do not load Bricolage “just for the wordmark.”
 
 Signature: **Jev’s case** as a physical slip the two instruments share. Probability is a filled bar, not a pie.
 
@@ -448,7 +457,7 @@ The LLM is told, every request:
 - Never invent Jev probabilities. Only mention typed answers if `ask_jev` just returned them or Latest Jev answers are in this prompt.
 - When `mode` is `propose-questions`, **must** call `set_jev_questions`. Do not call `ask_jev` from that button. Do not reply with JSON only.
 - Chat like “send it to case and propose Jev questions” must call `set_jev_case` and `set_jev_questions` (same apply path).
-- **Feed Jev to LLM** is the reverse wire — a user note in the thread, not a tool.
+- **Feed Jev to LLM** is the reverse wire — a user note in the thread that **immediately streams** `/api/llm` (same path as Send). Not a tool. Not a canned assistant one-liner.
 - Primer from `docs/jev/primer.md` is attached (truncated if huge).
 - A `## Weather` block in the case is observational Open-Meteo input. Do not invent a weather API call. Do not pretend to be Jev.
 - `<!-- attach:start … -->` blocks are **user-provided** markdown the operator dropped into Jev’s case (or added from Convert to Markdown). Treat them as part of `state`. Do not fetch files. Do not invent a docs-snapshot dump.
@@ -487,7 +496,7 @@ OpenAI-style tools on the chat-completions call. The server executes them, then 
 }
 ```
 
-Choice `criteria` in this example may use semantic keys (`pay` / `hold` / `reject`). The editor and the Decisions payload rewrite them to `"1"` / `"2"` / `"3"` in object order. Descriptions stay. The LLM does not need to number them and must not mint `option_a`.
+Choice `criteria` in this example may use semantic keys (`pay` / `hold` / `reject`). The editor and the Decisions payload rewrite them to `"1"` / `"2"` / `"3"` in object order. **Descriptions stay as the map values** (`"1": "Pay the invoice as billed"`, not `"1": "1"`). The LLM does not need to number them and must not mint `option_a`.
 
 **`ask_jev`** — `{}`. Uses the working case + working questions from this request (after any `set_*` in the same loop). Choice keys in that call are the positional numbers. If not clean: `{ ok: false }` to the model; do not call Decisions; the operator clicks **Ask Jev**.
 
@@ -755,7 +764,7 @@ Before calling Workshop done:
 2. Send an LLM message; thinking chrome shows, then streamed reply appears. Thoughts block only if the model streamed real reasoning. Tool calls (if any) are cards, not a JSON dump in the bubble.
 3. Pick **Invoice exception** from **Preset Cases**; Ask Jev; three answers render (choice / noul / score)
 4. **Propose Jev questions** (and chat that asks to send to case / propose) uses **tools**: Jev’s case and/or q-cards update immediately; the LLM thread is a short confirmation, **not** a JSON dump
-5. Feed Jev → LLM injects a visible note
+5. Feed Jev → LLM with live Jev answers: You bubble appears, `/api/llm` returns 200 SSE, mill thinking, then a streamed assistant reply (not a canned one-liner). Composer may stay empty; Send stays disabled until they type. With no Jev answers, the button stays disabled.
 6. Docs page lists snapshot files; open one. Type chips appear (from snapshot paths). Toggle A→Z / Z→A; click a type (e.g. `cloudflare`) and `cloudflare/jev.md` stays selectable. Search still AND-filters. Reload keeps sort + tags + rail collapsed (`talk-to-jev:docs-rail`). Filtering out the open page keeps the reader, hides that row. The rail is viewport-tall; the file list scrolls **inside** the aside; window `scrollY` stays ~0. Chevron swipe-out hides the rail (reader full remaining width); swipe-in restores it.
 7. Update Jev docs button completes and the list refreshes; if a page was open, that page’s markdown reloads (same path) or the empty picker if the path is gone. Tour overlay still reloads the doc behind it.
 8. Splitter drags; textareas have no native corner grip. Splitter reads as a thin quiet seam (not a dashed orange candy-cane stripe); hover/drag shows a slightly wider pine handle
@@ -785,7 +794,7 @@ Before calling Workshop done:
 32. Chrome right-side has Tour / Update Jev docs only — **no** History, **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. **History** is on the Jev’s case row. Nav **Settings** and `/settings` remain the key home.
 33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`) and puts the caret in that id field. Typing several characters into a blank or filled id (e.g. `action`, `vendor_claim_valid`) keeps focus — the field does not deselect after one character. Space in the id field inserts `_` (`wear jacket` → `wear_jacket`). **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled. Instructions textarea still accepts spaces.
-35. Ticket label reads **Jev’s case** (not **Case**). Use Cases gallery title stays **Use Cases**.
+35. Ticket heading reads **Jev’s case** (`h2.pane-title`, not **Case**, not uppercase **JEV’S CASE**). Same Public Sans **size** as **Jev’s Questions** (1.05rem / 650 / 0.01em). Product mark **Talk to Jev** stays larger (1.25rem / 700). Use Cases gallery title stays **Use Cases** at that same pane-title size. Nav **Workshop / Use Cases / Docs** stay `.nav-btn` size — not header size.
 36. **Add .md** (or drop `.md` onto Jev’s case) inserts a marked attach block into the textarea; chips list the filename. Ask Jev / the LLM see that text as `state`.
 37. Drop a **mix** (`.md` + `.txt` or `.pdf`): markdown attaches on Workshop; the **Convert** tab (`/convert`) opens for the rest with per-file progress. A truly unsupported type shows an inline error on the ticket (no native `alert`). A huge markdown file (over the §15 cap) is rejected without freezing the UI.
 38. Remove a chip: that attach block is gone; weather / situation text stay.
@@ -799,8 +808,8 @@ Before calling Workshop done:
 46. Jev’s case toolbar has **Add .md** only — no Convert to Markdown chrome button in that row. `.md` drop stays on Workshop (attach chips).
 47. Jev’s case tools are **New Case**, **Preset Cases**, **History** — not a row of ten sample chips. Chrome-right has no History button.
 48. **New Case** clears case text, strips attach chips, resets Jev questions to one blank-id card, clears Jev answers, empties the LLM thread, hides weather chrome, strips `?case=`, and leaves **Preset Cases** with none selected — it must **not** load Invoice exception. Opening **Preset Cases** lists all ten snaps; picking one loads like today. **History** on that row still opens the localStorage drawer.
-49. Jev pane heading reads **Jev’s Questions**; the model id is the subtitle/meta; **Ask Jev** remains.
-50. Choice card: slick **1-based** numbers (1, 2, 3) to the left of descriptions; **no** Option key input (do not mint `option_a`, do not type `1` into a box). **Add option** shows 4 and moves focus to **Option 4 description** (not the Add option button). Space in that description inserts `_`. **Ask Jev** payload uses those numeric keys (`"1"`, `"2"`, …). LLM semantic keys (`refund`/`deny`) rewrite to `"1"`/`"2"` on the card and in the Jev payload. Description typing keeps focus.
+49. Jev pane heading reads **Jev’s Questions**; LLM pane heading reads **LLM**; both are `h2.pane-title` at the same size. The model id is the subtitle/meta; **Ask Jev** remains.
+50. Choice card: slick **1-based** numbers (1, 2, 3) to the left of descriptions; **no** Option key input (do not mint `option_a`, do not type `1` into a box). **Add option** shows 4 and moves focus to **Option 4 description** (not the Add option button). Space in that description inserts `_`. **Ask Jev** payload uses those numeric keys with the **description as the value** (`"1": "papaya"`, not `"1": "1"`). LLM semantic keys (`refund`/`deny`) rewrite to `"1"`/`"2"` on the card and in the Jev payload; descriptions stay. Choice answer bars read `1 papaya` (number + description), matching score `0 Low`. Description typing keeps focus.
 51. Send a short prompt that should tool-call into Jev’s case (or **Propose Jev questions**): mill thinking shows while `/api/llm` is in flight; if OpenRouter streams reasoning, the Thoughts block is open and fills; `set_jev_case` / `set_jev_questions` appear as tool cards (Running then Done) and the ticket/q-cards update; the bubble’s prose is a short confirmation, not a markdown table of questions. Refresh restores thoughts + tool cards on that assistant turn. If the floor model has no reasoning channel, thinking still runs and Thoughts stays hidden.
 52. Docs Iframe: open Introduction (TypeSafe, `X-Frame-Options: DENY`): boxed-i is **hidden**; Nice (or Code) is the view; no mill “won’t embed” dead end. Open `primer.md`: Iframe is hidden (no source). A page that *can* embed still shows boxed-i and loads the live site. No keys in the iframe URL. No native resize grips. Rail chevron collapses/expands with animation; refresh keeps collapsed.
 

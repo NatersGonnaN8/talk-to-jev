@@ -290,7 +290,7 @@ export function ConvertPane({
     >
       <section className="convert-intro">
         <span className="eyebrow">In this browser</span>
-        <h1>Convert to Markdown</h1>
+        <h1 className="pane-title">Convert to Markdown</h1>
         <p>
           Drop txt, html, docx, or pdf here. Files never leave this machine — no
           OCR, no upload. Add the result to the LLM, to Jev’s case, or save a
@@ -305,7 +305,7 @@ export function ConvertPane({
         >
           <header className="pane-head">
             <div>
-              <span className="eyebrow">Files</span>
+              <h2 className="pane-title">Files</h2>
               <code>txt · html · docx · pdf</code>
             </div>
             <FlipTip text="Convert txt, html, docx, or pdf in this browser. Files never leave the machine.">
@@ -382,7 +382,7 @@ export function ConvertPane({
         >
           <header className="pane-head">
             <div>
-              <span className="eyebrow">Markdown</span>
+              <h2 className="pane-title">Markdown</h2>
               <code>in this browser · files stay here</code>
             </div>
           </header>

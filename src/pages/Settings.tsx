@@ -53,7 +53,7 @@ export function SettingsPage({
     <main className="settings" data-tutorial="settings-page">
       <section className="settings-intro">
         <span className="eyebrow">Bring your own keys</span>
-        <h1>Settings</h1>
+        <h1 className="pane-title">Settings</h1>
         <p>
           Keys stay on this computer in gitignored <code>.env.local</code>. The
           browser never stores them. OpenRouter runs the LLM and Jev today. The
@@ -69,7 +69,7 @@ export function SettingsPage({
           >
             <header className="key-head">
               <div>
-                <h2>{k.label}</h2>
+                <h2 className="pane-title">{k.label}</h2>
                 <p className="key-why">{k.why}</p>
                 <code>{k.env}</code>
               </div>

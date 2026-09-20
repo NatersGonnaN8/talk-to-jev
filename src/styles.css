@@ -10,6 +10,14 @@
   --line: #8aa090;
   --miss: #8b3a4a;
   --ready: #2f5d4a;
+  --font-ui: "Public Sans", sans-serif;
+  --font-code: "Fragment Mono", monospace;
+  --type-mark-size: 1.25rem;
+  --type-mark-weight: 700;
+  --type-mark-track: -0.03em;
+  --type-pane-size: 1.05rem;
+  --type-pane-weight: 650;
+  --type-pane-track: 0.01em;
 }
 
 * {
@@ -23,7 +31,11 @@ body,
   min-height: 100%;
   background: var(--floor);
   color: var(--ink);
-  font-family: "Public Sans", sans-serif;
+  font-family: var(--font-ui);
+}
+
+code {
+  font-family: var(--font-code);
 }
 
 button,
@@ -68,12 +80,13 @@ textarea {
 }
 
 .mark {
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-weight: 700;
-  font-size: 1.25rem;
+  font-family: var(--font-ui);
+  font-weight: var(--type-mark-weight);
+  font-size: var(--type-mark-size);
   color: inherit;
   text-decoration: none;
-  letter-spacing: -0.03em;
+  letter-spacing: var(--type-mark-track);
+  text-transform: none;
 }
 
 .nav {
@@ -88,6 +101,9 @@ textarea {
   cursor: pointer;
   border-radius: 999px;
   padding: 0.35rem 0.8rem;
+  font-family: var(--font-ui);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .nav-btn {
@@ -107,7 +123,7 @@ textarea {
 }
 
 .pill {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.72rem;
   padding: 0.28rem 0.6rem;
   border-radius: 999px;
@@ -218,7 +234,9 @@ textarea {
   background: #fffdf8;
   border-radius: 999px;
   padding: 0.22rem 0.65rem;
+  font-family: var(--font-ui);
   font-size: 0.8rem;
+  text-transform: none;
   cursor: pointer;
 }
 
@@ -282,7 +300,7 @@ textarea {
 }
 
 .preset-item-label {
-  font-family: "Bricolage Grotesque", sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.92rem;
   letter-spacing: -0.02em;
 }
@@ -319,7 +337,7 @@ textarea {
 }
 
 .weather-status {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.72rem;
   color: var(--mute);
   margin: 0.1rem 0 0.35rem;
@@ -372,7 +390,7 @@ textarea.case {
   background: #fffdf8;
   border-radius: 999px;
   padding: 0.12rem 0.25rem 0.12rem 0.55rem;
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.72rem;
 }
 
@@ -381,10 +399,12 @@ textarea.case {
 }
 
 .eyebrow {
-  font-family: "Bricolage Grotesque", sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.78rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  text-transform: none;
   color: var(--pine);
 }
 
@@ -408,6 +428,12 @@ textarea.case {
   background: #fffdf8;
   padding: 0.5rem 0.6rem;
   border-radius: 6px;
+  font-family: var(--font-ui);
+}
+
+.q-card input.id-input,
+.id-input {
+  font-family: var(--font-code);
 }
 
 .hint,
@@ -462,10 +488,9 @@ textarea.case {
   box-shadow: 6px 6px 0 #2f5d4a22;
 }
 
-.convert-intro h1 {
-  font-family: "Bricolage Grotesque", sans-serif;
-  letter-spacing: -0.03em;
-  font-size: 1.85rem;
+.convert-intro .pane-title,
+.settings-intro .pane-title,
+.cases-intro .pane-title {
   margin: 0.15rem 0 0.35rem;
 }
 
@@ -553,7 +578,7 @@ textarea.case {
 }
 
 .convert-job-name {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.75rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -590,7 +615,7 @@ textarea.case {
 .convert-preview {
   flex: 1;
   min-height: 12rem;
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-code);
   font-size: 0.78rem;
   line-height: 1.4;
 }
@@ -608,17 +633,17 @@ textarea.case {
 
 .pane-head code {
   display: block;
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-code);
   font-size: 0.72rem;
   color: var(--mute);
 }
 
 .pane-title {
   margin: 0;
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 1.05rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
+  font-family: var(--font-ui);
+  font-size: var(--type-pane-size);
+  font-weight: var(--type-pane-weight);
+  letter-spacing: var(--type-pane-track);
   line-height: 1.15;
   color: var(--ink);
   text-transform: none;
@@ -676,15 +701,16 @@ textarea.case {
 .bubble pre {
   margin: 0.2rem 0 0;
   white-space: pre-wrap;
-  font-family: "Public Sans", sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.95rem;
 }
 
 .bubble .who {
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--mute);
 }
 
@@ -713,10 +739,10 @@ textarea.case {
 }
 
 .llm-thinking-label {
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--pine);
 }
 
@@ -808,18 +834,19 @@ textarea.case {
 
 .llm-agent-kicker,
 .llm-tool-label {
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--pine);
 }
 
 .llm-agent-meta {
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--mute);
   margin-left: auto;
 }
@@ -833,7 +860,7 @@ textarea.case {
   margin: 0;
   padding: 0 0.55rem 0.5rem;
   white-space: pre-wrap;
-  font-family: "Public Sans", sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.85rem;
   color: var(--mute);
   max-height: 12rem;
@@ -868,10 +895,11 @@ textarea.case {
 
 .llm-tool-stamp {
   margin-left: auto;
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
   padding: 0.12rem 0.35rem;
   border-radius: 2px;
   background: var(--pine);
@@ -905,10 +933,11 @@ textarea.case {
   display: inline-block;
   min-width: 3.2rem;
   margin-right: 0.35rem;
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--mute);
 }
 
@@ -980,8 +1009,28 @@ textarea.case {
   grid-template-columns: 1fr 2fr auto;
 }
 
+.crit-row.choice-opt {
+  grid-template-columns: auto 1fr auto;
+}
+
+.opt-num {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 650;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding: 0 0.25rem;
+  display: grid;
+  place-items: center;
+  background: var(--pine);
+  color: var(--manila);
+  border-radius: 4px;
+  line-height: 1;
+  user-select: none;
+}
+
 .lvl {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.75rem;
 }
 
@@ -1007,7 +1056,7 @@ textarea.case {
 }
 
 .stamp {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.72rem;
   background: #142018;
   color: #f3e7d3;
@@ -1048,7 +1097,7 @@ textarea.case {
 
 .probs em {
   font-style: normal;
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   text-align: right;
 }
 
@@ -1177,9 +1226,9 @@ body:has(.docs) {
   color: var(--ink);
   border-radius: 999px;
   padding: 0.18rem 0.65rem;
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  letter-spacing: normal;
   cursor: pointer;
 }
 
@@ -1209,9 +1258,9 @@ body:has(.docs) {
   color: var(--ink);
   border-radius: 999px;
   padding: 0.12rem 0.45rem;
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.03em;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: normal;
   cursor: pointer;
 }
 
@@ -1242,9 +1291,14 @@ body:has(.docs) {
 
 .doc-link span {
   display: block;
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.7rem;
   color: var(--mute);
+}
+
+.doc-link strong {
+  font-family: var(--font-ui);
+  font-weight: 600;
 }
 
 .doc-link.on,
@@ -1379,11 +1433,11 @@ body:has(.docs) {
 
 .doc-frame-fallback p {
   margin: 0;
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-weight: 700;
-  font-size: 1.35rem;
+  font-family: var(--font-ui);
+  font-weight: var(--type-pane-weight);
+  font-size: var(--type-pane-size);
   line-height: 1.25;
-  letter-spacing: -0.03em;
+  letter-spacing: var(--type-pane-track);
   color: #142018;
 }
 
@@ -1397,9 +1451,9 @@ body:has(.docs) {
   border-radius: 999px;
   background: var(--pine);
   color: #f3e7d3;
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.78rem;
-  letter-spacing: 0.04em;
+  letter-spacing: normal;
   text-decoration: none;
 }
 
@@ -1413,7 +1467,7 @@ body:has(.docs) {
 .doc-code,
 .doc-view pre {
   white-space: pre-wrap;
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-code);
   font-size: 0.82rem;
   line-height: 1.45;
 }
@@ -1440,7 +1494,7 @@ body:has(.docs) {
 .md-nice h1,
 .md-nice h2,
 .md-nice h3 {
-  font-family: "Bricolage Grotesque", sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: -0.03em;
   line-height: 1.2;
 }
@@ -1459,7 +1513,7 @@ body:has(.docs) {
 }
 
 .md-nice code {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-code);
   font-size: 0.84em;
   background: #efe6d4;
   padding: 0.08rem 0.28rem;
@@ -1650,14 +1704,14 @@ select:focus-visible,
 
 .hist-pick strong {
   display: block;
-  font-family: "Bricolage Grotesque", sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.95rem;
   letter-spacing: -0.02em;
 }
 
 .hist-pick span {
   display: block;
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.68rem;
   color: var(--mute);
   margin-top: 0.15rem;
@@ -1694,13 +1748,6 @@ select:focus-visible,
   padding: 0.9rem 1rem 1rem;
   box-shadow: 6px 6px 0 #2f5d4a22;
   margin-bottom: 1rem;
-}
-
-.cases-intro h1 {
-  font-family: "Bricolage Grotesque", sans-serif;
-  letter-spacing: -0.03em;
-  font-size: 1.85rem;
-  margin: 0.15rem 0 0.35rem;
 }
 
 .cases-intro p {
@@ -1741,15 +1788,12 @@ select:focus-visible,
 }
 
 .case-index {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.72rem;
   color: var(--pine);
 }
 
-.case-card h2 {
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 1.2rem;
-  letter-spacing: -0.03em;
+.case-card .pane-title {
   margin: 0;
 }
 
@@ -1773,9 +1817,9 @@ select:focus-visible,
 }
 
 .type-chip {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.68rem;
-  letter-spacing: 0.04em;
+  letter-spacing: normal;
   padding: 0.12rem 0.4rem;
   border-radius: 999px;
   background: var(--blueprint);
@@ -1791,9 +1835,9 @@ select:focus-visible,
 }
 
 .kind-chip {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.68rem;
-  letter-spacing: 0.04em;
+  letter-spacing: normal;
   padding: 0.12rem 0.4rem;
   border-radius: 999px;
   background: var(--manila);
@@ -1837,7 +1881,7 @@ select:focus-visible,
 }
 
 .case-go {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-ui);
   font-size: 0.7rem;
   color: var(--pine);
   margin-top: 0.25rem;
@@ -1860,20 +1904,13 @@ select:focus-visible,
   box-shadow: 6px 6px 0 #2f5d4a22;
 }
 
-.settings-intro h1 {
-  font-family: "Bricolage Grotesque", sans-serif;
-  letter-spacing: -0.03em;
-  font-size: 1.85rem;
-  margin: 0.15rem 0 0.35rem;
-}
-
 .settings-intro p {
   margin: 0;
   color: var(--mute);
 }
 
 .settings-intro code {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-code);
   font-size: 0.84em;
 }
 
@@ -1908,10 +1945,7 @@ select:focus-visible,
   gap: 0.75rem;
 }
 
-.key-head h2 {
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 1.2rem;
-  letter-spacing: -0.03em;
+.key-head .pane-title {
   margin: 0;
 }
 
@@ -1922,7 +1956,7 @@ select:focus-visible,
 }
 
 .key-head code {
-  font-family: "Fragment Mono", monospace;
+  font-family: var(--font-code);
   font-size: 0.72rem;
   color: var(--mute);
 }
@@ -2000,19 +2034,15 @@ select:focus-visible,
 
 .tour-kicker {
   margin: 0 0 0.35rem;
-  font-family: "Fragment Mono", monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: normal;
+  text-transform: none;
   color: #2f5d4a;
 }
 
-.tour-card h2 {
+.tour-card .pane-title {
   margin: 0 0 0.4rem;
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 1.25rem;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
 }
 
 .tour-card p#tour-body {

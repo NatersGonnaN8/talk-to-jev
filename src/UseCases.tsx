@@ -17,7 +17,7 @@ export function UseCasesPage({
     <main className="use-cases">
       <section className="cases-intro">
         <span className="eyebrow">Ten snaps</span>
-        <h1>Use Cases</h1>
+        <h1 className="pane-title">Use Cases</h1>
         <p>
           Nine operator snaps plus one weather case — the same list as
           Workshop Preset Cases. Click a card to load the case and Jev questions.
@@ -36,7 +36,7 @@ export function UseCasesPage({
               <span className="case-index">
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <h2>{s.label}</h2>
+              <h2 className="pane-title">{s.label}</h2>
               <p className="case-pitch">{s.pitch}</p>
               <div className="type-chips">
                 {s.kind === "weather" ? (
