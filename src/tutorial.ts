@@ -44,7 +44,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "welcome",
     title: "Two AIs, one key",
-    body: "Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRouter key runs chat completions and the Decisions API. Jev is System One: state plus typed questions, then probabilities — not a chatbot.",
+    body: "Talk to Jev wires an LLM that chats to Jev which decides using a single OpenRouter key.",
     page: "workshop",
   },
   {
@@ -74,7 +74,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "wire",
     title: "Pass work across the wire",
-    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.",
+    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random case (left of Propose) runs an autonomous LLM↔Jev loop. After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.",
     page: "workshop",
     hooks: ["wire"],
     selectors: [".pane.llm .row-actions"],

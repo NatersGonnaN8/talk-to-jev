@@ -240,7 +240,7 @@ export async function streamLlm(
     questions?: unknown;
     jevAnswers?: unknown;
     includeTranscript?: boolean;
-    mode?: "chat" | "propose-questions";
+    mode?: "chat" | "propose-questions" | "random-case";
   },
   onEvent: (ev: LlmStreamEvent) => void,
 ): Promise<string> {

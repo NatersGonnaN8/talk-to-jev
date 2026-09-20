@@ -39,7 +39,7 @@ Weather is **Open-Meteo** input (free, no key) on the **Jacket** preset only —
 
 | Page | Path | What it is |
 |---|---|---|
-| **Workshop** | `/` | **Jev’s case** + LLM pane + **Jev’s Questions**. First-open is an **empty** Workshop. **New Case** starts another empty Workshop (does **not** load Invoice). **Preset Cases** (9 business + Jacket), **History** on that row. **Load weather** on Jacket only. **Ask Jev**, **Propose Jev questions** (tools fill the q-cards), **Feed Jev to LLM**. Drop `.md` into Jev’s case; other files open the **Convert** tab. |
+| **Workshop** | `/` | **Jev’s case** + LLM pane + **Jev’s Questions**. First-open is an **empty** Workshop. **New Case** starts another empty Workshop (does **not** load Invoice). **Preset Cases** (9 business + Jacket), **History** on that row. **Load weather** on Jacket only. **Ask Jev**, **Random case** (autonomous LLM↔Jev loop), **Propose Jev questions** (tools fill the q-cards), **Feed Jev to LLM**. Drop `.md` into Jev’s case; other files open the **Convert** tab. |
 | **Use Cases** | `/use-cases` (`/cases`) | Same ten snaps as Workshop **Preset Cases**: nine operator cases plus Jacket. |
 | **Docs** | `/docs` | In-repo Jev snapshot. Eyeball = nice Markdown; code icon = raw source. |
 | **Settings** | `/settings` | BYOK. Paste keys; they stay in `.env.local` on this machine. |
