@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import type { Config } from "dompurify";
 import { marked } from "marked";
+import { htmlToMarkdown } from "./convert/html";
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -35,10 +36,20 @@ export function stripFrontmatter(text: string): string {
   return text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
 }
 
-/** Shared marked + DOMPurify path for LLM bubbles and Jev’s State read view. */
+/** Shared marked + DOMPurify path for LLM bubbles and Jev’s State ticket. */
 export function toProseHtml(md: string): string {
   const parsed = marked.parse(md, { async: false });
   return sanitize(typeof parsed === "string" ? parsed : "");
+}
+
+/** Sanitize HTML before inserting into the painted State ticket. */
+export function sanitizeProseHtml(html: string): string {
+  return sanitize(html);
+}
+
+/** Persist path: painted ticket HTML → raw markdown string (no second HTML copy). */
+export function fromProseHtml(html: string): string {
+  return htmlToMarkdown(sanitize(html));
 }
 
 export function toNiceHtml(raw: string, path: string): string {

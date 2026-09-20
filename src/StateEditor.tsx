@@ -1,5 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { MdProse } from "./MdProse";
+import {
+  fromProseHtml,
+  sanitizeProseHtml,
+  toProseHtml,
+} from "./markdown";
 
 const PLACEHOLDER = "What Jev should judge";
 
@@ -10,15 +14,28 @@ function clickIsOnChrome(target: EventTarget | null): boolean {
   );
 }
 
-function selectionIsInside(host: EventTarget | null): boolean {
-  if (!(host instanceof Node)) return false;
-  const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || !sel.toString()) return false;
-  const node = sel.anchorNode;
-  return Boolean(node && host.contains(node));
+function armEditable(el: HTMLElement): void {
+  if (el.getAttribute("contenteditable") === "true") return;
+  el.contentEditable = "true";
+  try {
+    document.execCommand("defaultParagraphSeparator", false, "p");
+  } catch {
+    /* ignore */
+  }
 }
 
-/** Jev’s State ticket: rendered markdown until click/focus, then raw textarea. */
+function paint(el: HTMLElement, md: string): void {
+  const top = el.scrollTop;
+  const html = md.trim() ? toProseHtml(md) : "";
+  if (el.innerHTML !== html) el.innerHTML = html;
+  el.scrollTop = top;
+}
+
+/**
+ * Jev’s State ticket: painted Public Sans prose while focused.
+ * Click puts a caret in the ticket; blur serializes to markdown and re-paints.
+ * Never swap to a raw-source textarea.
+ */
 export function StateEditor({
   value,
   onChange,
@@ -27,80 +44,99 @@ export function StateEditor({
   onChange: (next: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  const readRef = useRef<HTMLDivElement>(null);
+  const [empty, setEmpty] = useState(() => !value.trim());
+  const hostRef = useRef<HTMLDivElement>(null);
+  const lastSent = useRef(value);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   useLayoutEffect(() => {
-    if (editing) {
-      const el = taRef.current;
-      if (!el) return;
-      el.focus();
-      const n = el.value.length;
-      el.setSelectionRange(n, n);
-      return;
-    }
-    const active = document.activeElement;
-    if (active instanceof HTMLElement && active === readRef.current) {
-      active.blur();
-    }
-  }, [editing]);
+    const el = hostRef.current;
+    if (!el) return;
+    if (!editing) el.contentEditable = "false";
+    if (editing && value === lastSent.current) return;
+    lastSent.current = value;
+    paint(el, value);
+    setEmpty(!value.trim());
+  }, [value, editing]);
+
+  function commitFromDom(): void {
+    const el = hostRef.current;
+    const md = el ? fromProseHtml(el.innerHTML) : "";
+    lastSent.current = md;
+    setEmpty(!md.trim());
+    onChangeRef.current(md);
+  }
+
+  function endEdit(): void {
+    commitFromDom();
+    const node = hostRef.current;
+    if (node) node.contentEditable = "false";
+    setEditing(false);
+  }
 
   useEffect(() => {
     if (!editing) return;
     const leave = (event: Event) => {
       const t = "target" in event ? event.target : null;
-      if (t instanceof Node && taRef.current?.contains(t)) return;
+      if (t instanceof Node && hostRef.current?.contains(t)) return;
       if (t instanceof Element && t.closest(".mill-bar")) return;
-      setEditing(false);
+      endEdit();
     };
     document.addEventListener("pointerdown", leave, true);
     return () => document.removeEventListener("pointerdown", leave, true);
   }, [editing]);
 
-  if (editing) {
-    return (
-      <textarea
-        ref={taRef}
-        className="case"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => setEditing(false)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            e.preventDefault();
-            e.currentTarget.blur();
-          }
-        }}
-        placeholder={PLACEHOLDER}
-        rows={8}
-        aria-label="Jev’s State"
-      />
-    );
-  }
-
-  const empty = !value.trim();
   return (
     <div
-      ref={readRef}
-      className={empty ? "case case-read is-empty" : "case case-read"}
+      ref={hostRef}
+      className={
+        empty ? "case case-read md-prose is-empty" : "case case-read md-prose"
+      }
       role="textbox"
-      tabIndex={0}
-      aria-readonly="true"
+      aria-multiline="true"
+      aria-readonly={!editing}
       aria-label="Jev’s State"
+      aria-placeholder={PLACEHOLDER}
       data-placeholder={PLACEHOLDER}
-      onClick={(e) => {
+      tabIndex={0}
+      contentEditable={editing ? "true" : "false"}
+      suppressContentEditableWarning
+      spellCheck
+      onPointerDown={(e) => {
         if (clickIsOnChrome(e.target)) return;
-        if (selectionIsInside(e.currentTarget)) return;
+        if (hostRef.current) armEditable(hostRef.current);
         setEditing(true);
       }}
+      onFocus={() => {
+        if (hostRef.current) armEditable(hostRef.current);
+        setEditing(true);
+      }}
+      onBlur={() => endEdit()}
+      onInput={(e) => {
+        if (e.nativeEvent instanceof InputEvent && e.nativeEvent.isComposing) {
+          return;
+        }
+        commitFromDom();
+      }}
+      onCompositionEnd={() => commitFromDom()}
+      onPaste={(e) => {
+        e.preventDefault();
+        const html = e.clipboardData.getData("text/html");
+        const text = e.clipboardData.getData("text/plain");
+        if (html.trim()) {
+          document.execCommand("insertHTML", false, sanitizeProseHtml(html));
+        } else {
+          document.execCommand("insertText", false, text);
+        }
+        commitFromDom();
+      }}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if (e.key === "Escape") {
           e.preventDefault();
-          setEditing(true);
+          e.currentTarget.blur();
         }
       }}
-    >
-      {empty ? null : <MdProse text={value} />}
-    </div>
+    />
   );
 }
