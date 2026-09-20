@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ChatMessage, ChatToolCall } from "./types";
 
 const TOOL_LABEL: Record<string, string> = {
-  set_jev_case: "Jev’s case",
+  set_jev_case: "Jev’s State",
   set_jev_questions: "Jev’s Questions",
   ask_jev: "Ask Jev",
 };
@@ -24,10 +24,12 @@ export function ThinkingMill({ label = "Thinking" }: { label?: string }) {
 }
 
 function ThoughtsBlock({ text, streaming }: { text: string; streaming: boolean }) {
-  const [open, setOpen] = useState(true);
-  useEffect(() => {
-    if (streaming) setOpen(true);
-  }, [streaming]);
+  const [open, setOpen] = useState(streaming);
+  const [prevStreaming, setPrevStreaming] = useState(streaming);
+  if (streaming !== prevStreaming) {
+    setPrevStreaming(streaming);
+    setOpen(streaming);
+  }
   if (!text.trim()) return null;
   return (
     <div className={open ? "llm-thoughts open" : "llm-thoughts"}>
