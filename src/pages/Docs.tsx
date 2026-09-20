@@ -132,10 +132,17 @@ function DocIframe({ src }: { src: string }) {
       )}
       {blocked ? (
         <div className="doc-frame-fallback" role="status">
-          <p>This page won’t embed.</p>
-          <a href={src} target="_blank" rel="noopener noreferrer">
-            Open source
-          </a>
+          <div className="doc-frame-fallback-card">
+            <p>This page won’t embed.</p>
+            <a
+              className="doc-frame-open"
+              href={src}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open source
+            </a>
+          </div>
         </div>
       ) : null}
     </div>

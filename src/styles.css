@@ -1264,28 +1264,57 @@ textarea.case {
   z-index: 2;
   display: grid;
   place-items: center;
-  align-content: center;
-  gap: 0.75rem;
   padding: 1.5rem;
-  text-align: center;
-  background: #f7f4ec;
+  background: #e7eee4;
   border: 1px solid var(--line);
   border-radius: 8px;
-  color: var(--ink);
+}
+
+.doc-frame-fallback-card {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  width: min(26rem, 100%);
+  padding: 1.85rem 1.6rem 1.5rem;
+  text-align: center;
+  background: #f3e7d3;
+  color: #142018;
+  border: 1px solid var(--pine);
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 #2f5d4a22;
 }
 
 .doc-frame-fallback p {
   margin: 0;
   font-family: "Bricolage Grotesque", sans-serif;
   font-weight: 700;
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+  color: #142018;
 }
 
-.doc-frame-fallback a {
-  color: var(--pine);
+.doc-frame-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.2rem;
+  padding: 0.4rem 1.15rem;
+  border: 1px solid var(--pine);
+  border-radius: 999px;
+  background: var(--pine);
+  color: #f3e7d3;
   font-family: "Fragment Mono", monospace;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.doc-frame-open:hover,
+.doc-frame-open:focus-visible {
+  background: #142018;
+  border-color: #142018;
+  color: #f3e7d3;
 }
 
 .doc-code,
