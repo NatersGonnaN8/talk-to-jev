@@ -17,6 +17,7 @@ import {
 import { DEFAULT_JEV, DEFAULT_LLM } from "./server/openrouter";
 import { callJev } from "./server/jev";
 import { runLlmSession } from "./server/llm";
+import { checkCatalogEmbed } from "./server/embedCheck";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docsRoot = resolve(here, "docs", "jev");
@@ -212,6 +213,14 @@ function workshopApi(): Plugin {
             if (!abs) return send(res, 404, { ok: false, message: "Doc not found." });
             const text = readFileSync(abs, "utf8");
             return send(res, 200, { ok: true, path: q, text });
+          }
+
+          if (req.method === "GET" && url === "/api/docs/embed") {
+            const raw =
+              new URL(req.url || "", "http://127.0.0.1").searchParams.get("url") ||
+              "";
+            const probe = await checkCatalogEmbed(raw, docsIndex().files);
+            return send(res, 200, { ok: true, embed: probe.embed, src: probe.src });
           }
 
           if (req.method === "GET" && url === "/api/weather") {

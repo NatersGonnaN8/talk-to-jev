@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { listDocs, readDoc } from "../api";
+import { checkDocEmbed, listDocs, readDoc } from "../api";
+import {
+  embedForDoc,
+  loadDocsView,
+  saveDocsView,
+  sourceFromHeader,
+  type DocsView,
+} from "../docsEmbed";
 import {
   compareDocs,
   docMatchesSearch,
@@ -58,6 +65,83 @@ function IconCode() {
   );
 }
 
+/** Literal i in a box — not a globe or browser chrome. */
+function IconIframe() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18">
+      <rect
+        x="4.25"
+        y="4.25"
+        width="15.5"
+        height="15.5"
+        rx="2.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="8.35" r="1.15" fill="currentColor" />
+      <path
+        d="M12 11.15v6.1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function DocIframe({ src }: { src: string }) {
+  const [blocked, setBlocked] = useState(false);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    setBlocked(false);
+    void checkDocEmbed(src).then((embed) => {
+      if (!alive.current) return;
+      if (embed === false) setBlocked(true);
+    });
+    return () => {
+      alive.current = false;
+    };
+  }, [src]);
+
+  return (
+    <div className="doc-frame-wrap">
+      {blocked ? null : (
+        <iframe
+          key={src}
+          className="doc-frame"
+          title="Live source"
+          src={src}
+          referrerPolicy="no-referrer"
+          onLoad={(e) => {
+            const frame = e.currentTarget;
+            window.setTimeout(() => {
+              if (!alive.current) return;
+              try {
+                const href = frame.contentWindow?.location.href ?? "";
+                if (!href || href === "about:blank") setBlocked(true);
+              } catch {
+                /* cross-origin document — probe already decided, or the page loaded */
+              }
+            }, 200);
+          }}
+        />
+      )}
+      {blocked ? (
+        <div className="doc-frame-fallback" role="status">
+          <p>This page won’t embed.</p>
+          <a href={src} target="_blank" rel="noopener noreferrer">
+            Open source
+          </a>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
   const boot = useMemo(() => loadDocsRailPrefs(), []);
   const [files, setFiles] = useState<DocListItem[]>([]);
@@ -67,7 +151,7 @@ export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
   const [tags, setTags] = useState<string[]>(boot.tags);
   const [active, setActive] = useState("");
   const [text, setText] = useState("");
-  const [view, setView] = useState<"nice" | "code">("nice");
+  const [view, setView] = useState<DocsView>(() => loadDocsView());
   const [err, setErr] = useState("");
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -111,6 +195,10 @@ export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
     saveDocsRailPrefs({ v: 1, sort, tags });
   }, [sort, tags]);
 
+  useEffect(() => {
+    saveDocsView(view);
+  }, [view]);
+
   const knownTags = useMemo(() => {
     if (files.length === 0) return tags;
     const known = new Set(files.map((f) => docType(f.path)));
@@ -134,6 +222,14 @@ export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
       .filter((f) => docMatchesSearch(f, q) && docMatchesTags(docType(f.path), knownTags))
       .sort((a, b) => compareDocs(a, b, sort));
   }, [files, q, knownTags, sort]);
+
+  const catalogSource = files.find((f) => f.path === active)?.source ?? "";
+  const embed = useMemo(
+    () => embedForDoc(active, catalogSource || sourceFromHeader(text)),
+    [active, catalogSource, text],
+  );
+  const shownView: DocsView =
+    view === "iframe" && !embed.ok ? "nice" : view;
 
   const niceHtml = useMemo(() => {
     if (!active || !text) return "";
@@ -161,6 +257,8 @@ export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
       cur.includes(id) ? cur.filter((t) => t !== id) : [...cur, id],
     );
   };
+
+  const iframeTip = embed.ok ? "Iframe" : embed.reason;
 
   return (
     <main className="docs">
@@ -240,18 +338,20 @@ export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
           </ul>
         )}
       </aside>
-      <article className="doc-view">
+      <article
+        className={shownView === "iframe" ? "doc-view is-frame" : "doc-view"}
+      >
         {active && text ? (
           <div
             className="doc-overlay"
             data-tutorial="docs-view"
             role="group"
-            aria-label="Markdown view"
+            aria-label="Docs view"
           >
             <button
               type="button"
-              className={view === "nice" ? "view-btn on" : "view-btn"}
-              aria-pressed={view === "nice"}
+              className={shownView === "nice" ? "view-btn on" : "view-btn"}
+              aria-pressed={shownView === "nice"}
               aria-label="Nice view"
               onClick={() => setView("nice")}
             >
@@ -260,19 +360,37 @@ export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
             </button>
             <button
               type="button"
-              className={view === "code" ? "view-btn on" : "view-btn"}
-              aria-pressed={view === "code"}
+              className={shownView === "code" ? "view-btn on" : "view-btn"}
+              aria-pressed={shownView === "code"}
               aria-label="Code view"
               onClick={() => setView("code")}
             >
               <IconCode />
               <span className="tip">Code view</span>
             </button>
+            <button
+              type="button"
+              className={
+                shownView === "iframe" ? "view-btn on" : "view-btn"
+              }
+              aria-pressed={shownView === "iframe"}
+              aria-disabled={!embed.ok}
+              aria-label={embed.ok ? "Iframe" : `Iframe. ${embed.reason}`}
+              onClick={() => {
+                if (!embed.ok) return;
+                setView("iframe");
+              }}
+            >
+              <IconIframe />
+              <span className="tip">{iframeTip}</span>
+            </button>
           </div>
         ) : null}
         {!active ? (
           <p className="empty pick">Pick a page from the snapshot.</p>
-        ) : view === "code" ? (
+        ) : shownView === "iframe" && embed.ok ? (
+          <DocIframe src={embed.src} />
+        ) : shownView === "code" ? (
           <pre className="doc-code">{text}</pre>
         ) : (
           <div

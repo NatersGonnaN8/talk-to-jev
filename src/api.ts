@@ -62,6 +62,20 @@ export async function readDoc(path: string) {
   return body as { ok: true; path: string; text: string };
 }
 
+/** Whether the live https source will embed. null = probe failed, try the iframe. */
+export async function checkDocEmbed(src: string): Promise<boolean | null> {
+  const res = await docsGet(
+    `/api/docs/embed?url=${encodeURIComponent(src)}`,
+  );
+  const body = (await res.json()) as {
+    ok?: boolean;
+    embed?: boolean;
+    message?: string;
+  };
+  if (!res.ok || !body.ok) return null;
+  return body.embed !== false;
+}
+
 export async function fetchWeather(q: string): Promise<WeatherResponse> {
   const res = await fetch(`/api/weather?q=${encodeURIComponent(q)}`);
   const body = (await res.json()) as WeatherResponse;

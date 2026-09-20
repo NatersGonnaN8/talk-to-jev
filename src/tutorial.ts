@@ -89,8 +89,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: "docs",
-    title: "Docs: eyeball vs code",
-    body: "Official Jev docs live in this repo. Open a page, then the eyeball for a nice read or the code icon for the raw snapshot.",
+    title: "Docs: Nice, Code, Iframe",
+    body: "Official Jev docs live in this repo. Open a page, then Nice view, Code view, or the boxed-i Iframe for the live source. Iframe stays off for local primer pages.",
     page: "docs",
     hooks: ["docs-view", "docs"],
     selectors: [".doc-overlay"],

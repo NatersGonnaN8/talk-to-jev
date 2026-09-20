@@ -84,7 +84,7 @@ Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON du
 
 Nine operator snaps plus Jacket — the same list as Workshop Preset Cases. Open a card to load the case and Jev questions.
 
-### 7. Docs: eyeball vs code
+### 7. Docs: Nice, Code, Iframe
 
 - **id:** `docs`
 - **page:** docs
@@ -92,7 +92,7 @@ Nine operator snaps plus Jacket — the same list as Workshop Preset Cases. Open
 - **selectors:** `.doc-overlay`
 - **texts:** Docs
 
-Official Jev docs live in this repo. Open a page, then the eyeball for a nice read or the code icon for the raw snapshot.
+Official Jev docs live in this repo. Open a page, then Nice view, Code view, or the boxed-i Iframe for the live source. Iframe stays off for local primer pages.
 
 ### 8. Settings — bring your own key
 
