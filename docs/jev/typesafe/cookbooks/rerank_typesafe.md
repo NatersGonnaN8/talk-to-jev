@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/cookbooks/rerank_typesafe.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -151,7 +151,7 @@ reranked = sorted(shortlist, key=lambda c: nouls[c], reverse=True)  # highest no
 The diagram below shows how one request per candidate produces the scores used to reorder
 the shortlist.
 
-```mermaid theme={null}
+```mermaid actions={true} theme={null}
 flowchart LR
     q["query excerpt<br/><i>one opinion passage,<br/>citation removed</i>"]
     sl["shortlist from fast search<br/><i>30 candidate passages</i>"]

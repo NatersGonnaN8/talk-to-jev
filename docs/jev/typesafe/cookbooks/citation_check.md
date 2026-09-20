@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/cookbooks/citation_check.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -23,7 +23,7 @@ To automate that check, we first look for missing quotes with an ordinary string
 and then we use a `Choice` question to read each surviving quote's context and decide
 whether it supports the claim.
 
-```mermaid theme={null}
+```mermaid actions={true} theme={null}
   %%{init: {"flowchart": {"wrappingWidth": 330}}}%%
 flowchart LR
     cite["source document + citation"]
@@ -48,14 +48,6 @@ flowchart LR
     request --> gate
     gate --> stand
     gate --> review
-
-    classDef api fill:#e8eef6,stroke:#3b6ea5,color:#1b3a5c
-    classDef local fill:#f5f6f8,stroke:#b9c0c8,color:#4a525c
-    classDef data fill:#ffffff,stroke:#c9ced6,color:#2b3138
-    class q api
-    class match,gate,fab,stand,review local
-    class cite data
-    style request fill:#f2f7fc,stroke:#3b6ea5,stroke-dasharray:0
 ```
 
 Below, eight citations from an LLM's answer about RFC 7519 (JSON Web Token) go through the

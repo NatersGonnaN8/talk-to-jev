@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/cookbooks/llm_guardrails.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -30,7 +30,7 @@ gets blocked, or routes to support.
 Run this TypeSafe check both on LLM inputs, and on LLM outputs, because even
 ordinary-looking prompts can lead to harmful generated replies.
 
-```mermaid theme={null}
+```mermaid actions={true} theme={null}
   %%{init: {"flowchart": {"rankSpacing": 55, "wrappingWidth": 320}}}%%
 flowchart LR
     PIN["a user message<br/><i>on the way in</i>"] --> G

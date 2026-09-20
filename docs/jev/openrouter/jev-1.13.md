@@ -1,6 +1,6 @@
 ---
 source: https://openrouter.ai/typesafe/jev-1.13
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 # Source
@@ -128,13 +128,13 @@ TypeSafe
 
 $0.042
 Free
-0.23s
+0.27s
 
 100.00%
 
 Latency
 
-0.23s
+0.27s
 
 P50, best provider
 
@@ -144,11 +144,11 @@ Uptime (3d)The model was reachable. Request routed to a provider.
 99.99%
 
 Availability (3d)The model returned inference from any provider. Errors and empty responses count against it.
-99.97%
+99.98%
 
 ### Availability over the last 3 days
 Last 72 hours
-Availability 99.97%
+Availability 99.98%
 3 Days Ago2 Days AgoYesterdayNow
 
 ### Availability over the last 24 hours
@@ -158,36 +158,6 @@ OpenRouter Availability
 99.99%
 
 When an error occurs in an upstream provider, we can recover by routing to another healthy provider, if your request filters allow it. You can access per-provider uptime data programmatically through the Endpoints API. Learn more about our load balancing and customization options.
-
-1.
-
-Gloomberb new
-
-820Mtokens
-
-2.
-
-PipeRich CategBench AI that takes the work out of generating direct and channel sales opportunities.
-
-749Mtokens
-
-3.
-
-Destava new
-
-608Mtokens
-
-4.
-
-People of Pukaist Society archive new
-
-604Mtokens
-
-5.
-
-int-enrich-jev new
-
-586Mtokens
 
 ## Frequently asked questions
 
@@ -205,9 +175,3 @@ Jev 1.13 accepts text as input and returns structured decisions.
 
 ### When was Jev 1.13 released?
 Jev 1.13 was released on September 18, 2026.
-
-## More models from Typesafe
-Jev Latest
-This model always redirects to the latest model in the Jev family.
-
-Decisions

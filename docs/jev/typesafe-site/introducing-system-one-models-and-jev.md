@@ -1,6 +1,6 @@
 ---
 source: https://typesafe.ai/blog/introducing-system-one-models-and-jev
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 # Source

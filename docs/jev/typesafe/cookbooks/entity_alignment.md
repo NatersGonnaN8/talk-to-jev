@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/cookbooks/entity_alignment.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -48,7 +48,7 @@ information for the curator, if the score lands neither in the "same product" no
 You end up with a `route()` that takes one candidate pair and returns one of the three
 outcomes, with no threshold you had to fit to your own data.
 
-```mermaid theme={null}
+```mermaid actions={true} theme={null}
 flowchart LR
     PAIR["one candidate pair<br/><i>both entities, one state</i>"] --> CALL
 

@@ -1,6 +1,6 @@
 ---
 source: assembled from docs/jev snapshot
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 # Jev primer (app context)
@@ -12,7 +12,7 @@ This file is generated. Prefer the individual pages in this folder.
 
 ---
 source: https://docs.typesafe.ai/introduction.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -25,7 +25,21 @@ fetched_at: 2026-09-19T22:40:24.991Z
 
 Large language models (LLMs) are designed to produce text for humans to read. When you need a model to make a judgment that your code will consume, that creates a mismatch: you are coercing a text-generation system into outputting structured decisions, then parsing the results back into something your code can depend on.
 
-Jev is TypeSafe's flagship model and the first [System One model](/concepts/system-one). System One models are built to make fast, structured decisions that software can use directly. Jev evaluates typed *questions* against a *state* and returns structured results directly. No text generation, no parsing. You get typed values and probability distributions that your code can branch on, sort by, and route with.
+Jev is TypeSafe's flagship model and the first [System One model](/concepts/system-one). System One models are built to make fast, structured decisions that software can use directly. Jev evaluates typed *questions* against a *state* and returns structured results directly. No text generation, no parsing. You get typed values and probability distributions that your code can branch on, sort by, and route with. Choice and Score also return [confidence](/confidence), which your code can use to decide whether and how to act on an answer.
+
+```mermaid actions={true} theme={null}
+%%{init: {"fontFamily": "Inter, sans-serif", "flowchart": {"rankSpacing": 35, "wrappingWidth": 300, "subGraphTitleMargin": {"top": 12, "bottom": 12}}}}%%
+flowchart LR
+    input["state + questions"]
+
+    subgraph model["TypeSafe AI model"]
+        evaluate["evaluate each question<br/>against the state<br/>in parallel"]
+    end
+
+    input -- "one request" --> model
+    model -- "one response" --> answers["typed answers<br/>+ probabilities<br/>+ confidence<br/>(Choice and Score)"]
+    answers --> code["<b>your code</b><br/>branch, sort, and route"]
+```
 
 ## TypeSafe primitives
 
@@ -60,7 +74,7 @@ For example, instead of "rate this startup pitch," ask separately about market s
 
 ---
 source: https://docs.typesafe.ai/introduction/quickstart.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -77,7 +91,7 @@ fetched_at: 2026-09-19T22:40:24.991Z
 2. **Paste any text** as the state.
 
 ```plaintext title="Sample state" theme={null}
-Hi, I've been trying to connect my Stripe account for 3 days and it keeps failing. I'm losing sales. Please help ASAP.
+Hi, I've been trying to connect my Stripe account for 3 days and the integration keeps failing. I'm losing sales. Please help ASAP.
 ```
 
 3. **Add a question.** Try a Noul question: `"Does this message express urgency?"`
@@ -113,7 +127,7 @@ curl -X POST https://api.typesafe.ai/v1/systemone \
   -H "Content-Type: application/json" \
   -d @- <<'EOF'
   {
-    "state": "Hi, I've been trying to connect my Stripe account for 3 days and it keeps failing. I'm losing sales. Please help ASAP.",
+    "state": "Hi, I've been trying to connect my Stripe account for 3 days and the integration keeps failing. I'm losing sales. Please help ASAP.",
     "model": "jev-latest",
     "questions": {
       "urgency": {
@@ -129,7 +143,7 @@ EOF
 
 ```json theme={null}
 {
-  "state": "Hi, I've been trying to connect my Stripe account for 3 days and it keeps failing. I'm losing sales. Please help ASAP.",
+  "state": "Hi, I've been trying to connect my Stripe account for 3 days and the integration keeps failing. I'm losing sales. Please help ASAP.",
   "model": "jev-latest",
   "questions": {
     "department": {
@@ -162,36 +176,41 @@ EOF
 
 ```json theme={null}
 {
-  "model": "jev-latest",
+  "model": "jev-1.13.0",
   "answers": {
     "department": {
       "type": "choice",
-      "choice": "billing",
+      "choice": "technical",
+      "confidence": 0.78,
       "probabilities": {
-        "billing": 0.84,
-        "technical": 0.159,
-        "sales": 0.001
-      },
-      "confidence": 0.596
+        "technical": 0.85,
+        "sales": 0.0,
+        "billing": 0.15
+      }
     },
     "frustration": {
       "type": "score",
-      "score": 1.035,
+      "score": 1.0,
+      "confidence": 1.0,
       "legend": {
         "0": "Calm, just stating facts",
         "1": "Frustrated but civil",
         "2": "Very angry, strong language"
       },
-      "confidence": 0.842
+      "probabilities": {
+        "0": 0.0,
+        "1": 1.0,
+        "2": 0.0
+      }
     },
     "is_urgent": {
       "type": "noul",
-      "noul": 0.999
+      "noul": 1.0
     }
   },
   "usage": {
-    "input_tokens": 312,
-    "output_tokens": 48
+    "input_tokens": 392,
+    "output_tokens": 65
   }
 }
 ```
@@ -217,7 +236,7 @@ from typesafe_sdk import Choice, Noul, Score, TypeSafeClient
 
 client = TypeSafeClient()
 
-ticket = "Hi, I've been trying to connect my Stripe account for 3 days and it keeps failing. I'm losing sales. Please help ASAP."
+ticket = "Hi, I've been trying to connect my Stripe account for 3 days and the integration keeps failing. I'm losing sales. Please help ASAP."
 
 response = client.system_one(
     state=ticket,
@@ -244,9 +263,9 @@ response = client.system_one(
     },
 )
 
-print(response.answers["department"].choice)  # "billing"
-print(response.answers["frustration"].score)  # 1.035
-print(response.answers["is_urgent"].noul)     # 0.999
+print(response.answers["department"].choice)  # "technical"
+print(response.answers["frustration"].score)  # 1.0
+print(response.answers["is_urgent"].noul)     # 1.0
 ```
 
 See [client SDKs](/sdk) for installation options and detailed usage.
@@ -259,14 +278,14 @@ See [client SDKs](/sdk) for installation options and detailed usage.
   <Tab title="Claude Code">
     Run these two commands in your terminal:
 
-    ```bash theme={null} theme={null} theme={null} theme={null}
+    ```bash theme={null}
     claude plugin marketplace add typesafe-ai/skills
     claude plugin install typesafe@typesafe-ai
     ```
   </Tab>
 
   <Tab title="Other agents">
-    ```bash theme={null} theme={null} theme={null} theme={null}
+    ```bash theme={null}
     npx skills add typesafe-ai/skills --skill typesafe-ai
     ```
 
@@ -276,7 +295,7 @@ See [client SDKs](/sdk) for installation options and detailed usage.
   <Tab title="Copy to your agent">
     Paste this prompt into your coding agent:
 
-    ```text wrap theme={null} theme={null} theme={null} theme={null}
+    ```text wrap theme={null}
     Install the TypeSafe skill. If you're in Claude Code, run `claude plugin marketplace add typesafe-ai/skills`, then `claude plugin install typesafe@typesafe-ai`. If you're in another agent, run `npx skills add typesafe-ai/skills --skill typesafe-ai` and select your agent. Use one installation method. You can read the skill directly at https://github.com/typesafe-ai/skills/blob/main/skills/typesafe-ai/SKILL.md (raw: https://raw.githubusercontent.com/typesafe-ai/skills/main/skills/typesafe-ai/SKILL.md). Then use the TypeSafe skill when working on this project.
     ```
   </Tab>
@@ -295,7 +314,7 @@ See the [Agent Skill](/agent-skill) page for more details.
 
 ---
 source: https://docs.typesafe.ai/concepts/system-one.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -359,7 +378,7 @@ Start with [State](/concepts/state) to prepare the input and [Primitives (Questi
 
 ---
 source: https://docs.typesafe.ai/concepts/state.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -374,7 +393,7 @@ fetched_at: 2026-09-19T22:40:24.991Z
 
 Each request evaluates one state against one or more questions. All questions see the same state and are evaluated independently. You can mix [Choice](/primitives/choice), [Score](/primitives/score), and [Noul](/primitives/noul) questions in one request.
 
-## State can be as simple as a string
+## State can be a simple string or a structured JSON value
 
 The simplest state is a plain string:
 
@@ -431,7 +450,7 @@ See the [API reference](/api) for the request schema and [client SDKs](/sdk) for
 
 ---
 source: https://docs.typesafe.ai/primitives.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -693,7 +712,7 @@ Every question has an ID, a `type`, and `instructions`. Choice and Score questio
 
 * ID. The key you pick, such as `refund_requested`. It identifies the answer in the response.
 * `type`. One of `choice`, `score`, or `noul`.
-* `instructions`. The question you are asking about the state. This is where your evaluation logic goes. Write it as a clear, specific question, or as a statement for the model to judge.
+* `instructions`. The question you are asking about the state. This is where your evaluation logic goes. Write it as a clear, specific question, or as a statement for the model to judge. A string is enough for most questions. It can also be an object or an array, which puts the question in one field and the data it refers to in others; see [Use structure in the questions](/concepts/how-to-build-with-system-one#use-structure-in-the-questions).
 * `criteria`. The possible answers: a map of options for a Choice question, an ordered list of levels for a Score, and an optional description of yes and no for a Noul. Each question type's page covers its shape.
 
 This question asks whether a customer requested a refund:
@@ -720,7 +739,7 @@ Pick the type that matches the shape of the answer you need.
 
 * **Score** fits when the answer falls on a spectrum and you can describe what each point on that spectrum means: bug severity, customer frustration, skill level. The levels are yours to define, and the model returns a position along them.
 
-* **Noul** fits a clean yes/no question where the probability itself is the useful signal: does this message report a bug, is the customer requesting a refund, does the resume mention distributed systems.
+* **Noul** fits a clean yes/no question where the probability itself is the useful signal: does this message contain personally identifiable information, is the customer requesting a refund, does the resume mention distributed systems.
 
 <Note>
   Use Noul for a yes/no judgment and Score to measure a position on a spectrum. "Is this candidate strong in Python?" needs a clear definition of "strong". A Noul value of 0.5 means the model gives yes and no equal probability. It does not mean the candidate has a medium skill level. An unclear definition makes that probability hard to interpret.
@@ -877,8 +896,6 @@ See [client SDKs](/sdk) for installation and usage in your language.
 
 Ask every question your code might need, including ones whose answer only matters for some inputs, and let the code decide which answers to use. If a ticket turns out not to be a bug report, ignore the severity answer. We call this the [Speculative fan-out](/patterns/fan-out) pattern. The [Parallel questions cookbook](/cookbooks/parallel_questions) shows how batching 13 questions into one call is 11.5x cheaper and 9.6x faster than 13 separate calls, with no change in the answers.
 
-The number of questions in one request is limited only by the request's token budget, which the state and the questions share. The budget is around 32,000 tokens, roughly 150,000 characters of English text.
-
 <Tip>
   Coding agents fall into the one question per call habit more than people do. The [TypeSafe agent skill](/agent-skill#installation) tells your agent to put many questions in each call, including ones that only matter for some inputs.
 </Tip>
@@ -920,7 +937,7 @@ To see how these compose into system architectures, head to [Patterns](/patterns
 
 ---
 source: https://docs.typesafe.ai/primitives/choice.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -983,31 +1000,7 @@ export function TypesafeExample({example, display, title}) {
               if (context_data_position == bitsPerChar - 1) {
                 context_data_position = 0;
                 context_data.push(getCharFromInt(context_data_val));
-                context_data_val = 0;
-              } else {
-                context_data_position++;
-              }
-              value = 0;
-            }
-            value = context_w.charCodeAt(0);
-            for (i = 0; i < 16; i++) {
-              context_data_val = context_data_val << 1 | value & 1;
-              if (context_data_position == bitsPerChar - 1) {
-                context_data_position = 0;
-                context_data.push(getCharFromInt(context_data_val));
-                context_data_val = 0;
-              } else {
-                context_data_position++;
-              }
-              value = value >> 1;
-            }
-          }
-          context_enlargeIn--;
-          if (context_enlargeIn == 0) {
-            context_enlargeIn = Math.pow(2, context_numBits);
-            context_numBits++;
-          }
-         
+       
 
 ---
 

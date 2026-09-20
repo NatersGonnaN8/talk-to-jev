@@ -1,6 +1,6 @@
 ---
 source: https://jevai.dev/
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 # Source
@@ -11,13 +11,14 @@ Jev AI Model API Developer Guides & Community
 Jev AI Dev◎EnglishEnglish简体中文繁體中文日本語한국어DeutschFrançaisEspañolPortuguêsPolskiDanskNederlandsNorskSvenskaРусскийBahasa IndonesiaไทยTürkçeTiếng ViệtSlovenščinaČeštinaSlovenčinaSuomi
 Sign inUse cases
 
-An independent guide for developers
+An independent guide and community for developers
+Official Jev information: typesafe.ai
 
 # Jev AI model.
 From idea to code.
 Jev is TypeSafe&#x27;s first System One model. It returns typed decisions and probabilities that software can use. Explore use cases and see how to call it from your code.
 
-Try Jev For free
+Try Jev For free Explore Projects
 
 Choose by task
 
@@ -96,7 +97,7 @@ Jev is designed for focused, repeatable decisions with a defined answer space. T
 Classify complaints and merchant feedback, score urgency, and route each case to the right team. Send uncertain cases to a person.
 
 Example decisionIs this a billing issue or a technical issue?
-GitHubEmail intent workflow
+GitHubTypeSafe Jev Examples
 
 02◎
 
@@ -137,6 +138,8 @@ Sort email and notifications by your own rules, assess smart-home state, or deci
 
 Example decisionIs this notification worth interrupting me for now?
 GitHubHA-Jev
+
+Projects
 
 Get started
 
@@ -316,6 +319,12 @@ Start with one question
 Define the question and possible answers. Let your application decide what to do with the result.
 
 Try Jev For free Read the official quickstart
+
+Jev AI Dev
+## Follow what developers build with Jev.
+Get occasional community picks: trending GitHub projects, useful code examples, and practical Jev use cases.
+
+✉ SubscribeBy subscribing, you agree to receive occasional emails from Jev AI Dev.
 
 Jev AI DevAn independent developer guide to the Jev AI model, its use cases, and API integration.
 

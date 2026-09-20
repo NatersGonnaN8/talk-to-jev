@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/cookbooks/skill_suggestion.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -59,7 +59,7 @@ You end up with a `suggest()` function that returns at most one skill name, a
 `suggestion_block()` that wraps it for the system prompt, and the harness that produced the
 table above, ready to point at your own roster.
 
-```mermaid theme={null}
+```mermaid actions={true} theme={null}
 flowchart LR
     subgraph C1["Call 1 - skim all 182 skills"]
         direction TB

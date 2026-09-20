@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/concepts/state.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -15,7 +15,7 @@ fetched_at: 2026-09-19T22:40:24.991Z
 
 Each request evaluates one state against one or more questions. All questions see the same state and are evaluated independently. You can mix [Choice](/primitives/choice), [Score](/primitives/score), and [Noul](/primitives/noul) questions in one request.
 
-## State can be as simple as a string
+## State can be a simple string or a structured JSON value
 
 The simplest state is a plain string:
 

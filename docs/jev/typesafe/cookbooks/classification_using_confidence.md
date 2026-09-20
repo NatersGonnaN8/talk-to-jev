@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/cookbooks/classification_using_confidence.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -35,7 +35,7 @@ right 90% of the time; the other half, 40%. Reported one level up, that 40% beco
 end with a `classify()` function that returns a label plus how specific it is, at one
 request per document.
 
-```mermaid theme={null}
+```mermaid actions={true} theme={null}
 flowchart LR
     doc["Item 1 'Business'<br/>from one 10-K"]
 

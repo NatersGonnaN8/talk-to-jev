@@ -1,6 +1,6 @@
 ---
 source: https://docs.typesafe.ai/cookbooks/classifying_rag_passages.md
-fetched_at: 2026-09-19T22:40:24.991Z
+fetched_at: 2026-09-20T10:35:52.063Z
 ---
 
 > ## Documentation Index
@@ -37,7 +37,7 @@ cosine-similarity search that keeps the top 12 passages per query, the four
 that label each one, the prompt assembled from separate evidence and conflict blocks, and
 the answers `claude-sonnet-5` writes from it.
 
-```mermaid theme={null}
+```mermaid actions={true} theme={null}
   %%{init: {"flowchart": {"rankSpacing": 90}}}%%
 flowchart LR
     RET["fast search<br/><i>top 12 by similarity</i>"] --> CALL
@@ -64,9 +64,10 @@ flowchart LR
 
     GEN --> ANS["generated answer"]
 
-    %% the LLM call is marked by its border, not a fill: the docs site defaults to dark
-    %% mode, where a hard-coded light fill would strand the text inside it
-    style GEN stroke:#2a78d6,stroke-width:2px,stroke-dasharray: 6 4
+    %% the LLM call is not TypeSafe, so it opts out of the shared pink subgraph style:
+    %% a neutral dashed border and no fill. zinc-500 reads in both themes (4.8:1 on
+    %% white, 4.0:1 on the dark page); a hard-coded light fill would strand the text.
+    style GEN fill:none,stroke:#71717a,stroke-width:1.5px,stroke-dasharray: 6 4
 ```
 
 ## Setup
