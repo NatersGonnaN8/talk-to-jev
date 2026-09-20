@@ -99,14 +99,26 @@ export function withPositionalChoiceKeys(
   return out;
 }
 
-/** Bar label: `1 papaya` / `0 Low`. Bare key if the description is missing or equals the key. */
+/**
+ * TypeSafe Score is 0-based on the wire (`"0"` / `score: 0`).
+ * Workshop chrome is 1-based so the first level reads like a human count.
+ */
+export function humanScoreIndex(wire: string | number): string {
+  const n = typeof wire === "number" ? wire : Number(wire);
+  if (!Number.isFinite(n)) return String(wire);
+  return String(n + 1);
+}
+
+/** Bar label: `1 papaya` / `1 Low`. Bare key if the description is missing or equals the key. */
 export function probabilityBarLabel(
   key: string,
   legend?: Record<string, string>,
+  opts?: { humanScore?: boolean },
 ): string {
+  const shown = opts?.humanScore ? humanScoreIndex(key) : key;
   const desc = (legend?.[key] ?? "").trim();
-  if (!desc || desc === key) return key;
-  return `${key} ${desc}`;
+  if (!desc || desc === key || desc === shown) return shown;
+  return `${shown} ${desc}`;
 }
 
 /** Jev choice answers have no legend — copy descriptions from the criteria we sent. */

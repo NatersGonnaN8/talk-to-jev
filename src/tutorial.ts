@@ -98,7 +98,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "jev",
     title: "Jev’s Questions",
-    body: "Question types Jev answers: choice (rice or noodles?), noul (probability, 0-1), or score (How mad is the customer? 0: not mad, 1: mildly mad, 2: livid). Add questions, then Ask Jev. Send answers to LLM sits next to Ask Jev and sends typed answers to the LLM immediately for greater cooperation between multiple AI types.",
+    body: "Question types Jev answers: choice (rice or noodles?), noul (probability, 0-1), or score (How mad is the customer? 1: not mad, 2: mildly mad, 3: livid). Add questions, then Ask Jev. Send answers to LLM sits next to Ask Jev and sends typed answers to the LLM immediately for greater cooperation between multiple AI types.",
     page: "workshop",
     hooks: ["jev", "ask-jev", "feed-jev"],
     selectors: [".pane.jev"],

@@ -28,6 +28,7 @@ import {
   attachChoiceLegends,
   blankQuestionKeys,
   emptyQuestion,
+  humanScoreIndex,
   isBlankQuestionId,
   nextBlankQuestionKey,
   nextStableUid,
@@ -1805,32 +1806,35 @@ function QuestionCard({
       ) : null}
       {q.type === "score" ? (
         <div className="criteria">
-          {q.criteria.map((level, i) => (
-            <div className="crit-row" key={i}>
-              <span className="lvl">{i}</span>
-              <input
-                value={level}
-                onChange={(e) => {
-                  const criteria = [...q.criteria];
-                  criteria[i] = e.target.value;
-                  onChangeQ({ ...q, criteria });
-                }}
-                aria-label={`Score level ${i}`}
-              />
-              <button
-                type="button"
-                className="btn tiny"
-                onClick={() =>
-                  onChangeQ({
-                    ...q,
-                    criteria: q.criteria.filter((_, j) => j !== i),
-                  })
-                }
-              >
-                ×
-              </button>
-            </div>
-          ))}
+          {q.criteria.map((level, i) => {
+            const n = i + 1;
+            return (
+              <div className="crit-row" key={i}>
+                <span className="lvl">{n}</span>
+                <input
+                  value={level}
+                  onChange={(e) => {
+                    const criteria = [...q.criteria];
+                    criteria[i] = e.target.value;
+                    onChangeQ({ ...q, criteria });
+                  }}
+                  aria-label={`Score level ${n}`}
+                />
+                <button
+                  type="button"
+                  className="btn tiny"
+                  onClick={() =>
+                    onChangeQ({
+                      ...q,
+                      criteria: q.criteria.filter((_, j) => j !== i),
+                    })
+                  }
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
           <button
             type="button"
             className="btn tiny"
@@ -1986,14 +1990,18 @@ function AnswerCard({
         <span className="stamp">
           {answer.type === "choice"
             ? `choice ${answer.choice}`
-            : `score ${answer.score}`}
+            : `score ${humanScoreIndex(answer.score)}`}
           {answer.confidence != null ? ` · conf ${pct(answer.confidence)}` : ""}
         </span>
       </header>
       <ul className="probs">
         {Object.entries(probs).map(([k, v]) => (
           <li key={k}>
-            <span>{probabilityBarLabel(k, legend)}</span>
+            <span>
+              {probabilityBarLabel(k, legend, {
+                humanScore: answer.type === "score",
+              })}
+            </span>
             <div className="bar">
               <span style={{ width: `${Math.min(100, Math.max(0, Number(v) * 100))}%` }} />
             </div>

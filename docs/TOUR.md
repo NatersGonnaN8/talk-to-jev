@@ -102,7 +102,7 @@ The raw To LLM / To Jev payloads. Keys never show up here — Close it if it cov
 - **hooks:** `jev`, `ask-jev`, `feed-jev`
 - **selectors:** `.pane.jev`
 
-Question types Jev answers: choice (rice or noodles?), noul (probability, 0-1), or score (How mad is the customer? 0: not mad, 1: mildly mad, 2: livid). Add questions, then Ask Jev. Send answers to LLM sits next to Ask Jev and sends typed answers to the LLM immediately for greater cooperation between multiple AI types.
+Question types Jev answers: choice (rice or noodles?), noul (probability, 0-1), or score (How mad is the customer? 1: not mad, 2: mildly mad, 3: livid). Add questions, then Ask Jev. Send answers to LLM sits next to Ask Jev and sends typed answers to the LLM immediately for greater cooperation between multiple AI types.
 
 ### 9. Example Uses
 
