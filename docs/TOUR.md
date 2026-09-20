@@ -73,7 +73,7 @@ Jev’s Questions: choice, noul, or score — not essays. Add questions, then As
 - **hooks:** `wire`
 - **selectors:** `.pane.llm .row-actions`
 
-Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). After Jev answers, Feed Jev to LLM drops those typed results into the chat.
+Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.
 
 ### 6. Use Cases
 
