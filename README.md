@@ -33,7 +33,9 @@ The LLM never answers a Jev question itself. It has tools to **read** the curren
 
 | Tool | Does |
 |---|---|
-| `read_jev_workshop` | Returns the current **Jev’s State** text + current questions map (same shapes the write tools consume). Call this **before** writing. No args. Does not call Jev. |
+| `read_jev_workshop` | Returns the current **Jev’s State** text + current questions map (same shapes the write tools consume). Call this **before** writing both sides. No args. Does not call Jev. |
+| `read_jev_state` | **Query** the current **Jev’s State** ticket only. No args. Does not return questions. Does not call Jev. |
+| `read_jev_questions` | **Query** the current **Jev’s Questions** cards only. No args. Does not return the ticket. Does not call Jev. |
 | `set_jev_state` | Writes **Jev’s State** — the TypeSafe `state` Jev judges (not a “case”). |
 | `set_jev_questions` | Replaces the typed questions. Real snake_case ids only. `choice` options become `"1"`, `"2"`, … with descriptions as values; `score` is an ordered legend; `noul` is optional `{ true, false }`. Blank ids are dropped, never invented. |
 | `ask_jev` | `POST /api/alpha/decisions` with the current state + questions. Only runs when every id is real. Returns probabilities, not prose. |

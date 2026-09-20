@@ -57,7 +57,7 @@ This is Jev's state: the briefing from which Jev makes decisions. New State star
 - **hooks:** `llm`
 - **selectors:** `.pane.llm`
 
-The LLM talks to Jev with four tools: read_jev_workshop (reads the current pane), set_jev_state (writes Jev's state), set_jev_questions (writes Jev's questions), ask_jev (asks Jev to answer the questions).
+The LLM talks to Jev with six tools: read_jev_workshop (reads the current pane), read_jev_state (queries Jev's State), read_jev_questions (queries Jev's Questions), set_jev_state (writes Jev's state), set_jev_questions (writes Jev's questions), ask_jev (asks Jev to answer the questions).
 
 ### 4. Random state
 
