@@ -57,12 +57,18 @@ import { SettingsPage } from "./pages/Settings";
 import { HistoryPanel } from "./HistoryPanel";
 import { TutorialOverlay } from "./TutorialOverlay";
 import { LlmBubble, ThinkingMill } from "./LlmBubble";
-import { RandomCaseMenu } from "./RandomCaseMenu";
+import { AgenticLoopMenu } from "./AgenticLoopMenu";
 import {
-  clampRandomCaseTurns,
-  randomCaseContinuePrompt,
-  randomCaseFirstTurnPrompt,
-} from "./randomCase";
+  AGENTIC_LOOP_NEED_MILL,
+  agenticLoopContinuePrompt,
+  agenticLoopFirstPrompt,
+  clampAgenticLoopTurns,
+  millReadyForAgenticLoop,
+} from "./agenticLoop";
+import {
+  randomStateAnalysisPrompt,
+  randomStateInventPrompt,
+} from "./randomState";
 import { isTutorialDone, TUTORIAL_UI, type TutorialPage } from "./tutorial";
 import {
   activeThread,
@@ -694,7 +700,7 @@ function Workshop({
 
   const locked = health?.hasKey === false || busy !== null;
 
-  type LlmClientMode = "chat" | "propose-questions" | "random-case";
+  type LlmClientMode = "chat" | "propose-questions" | "random-case" | "agentic-loop";
 
   const runLlmTurn = async (
     mode: LlmClientMode,
@@ -851,19 +857,54 @@ function Workshop({
     await runLlmTurn(mode, content, { clearDraft: !extra });
   };
 
-  const runRandomCase = async (rawTurns: number) => {
+  const runRandomState = async () => {
     if (health?.hasKey === false || busy !== null || agentLockRef.current) return;
-    const total = clampRandomCaseTurns(rawTurns);
     agentLockRef.current = true;
-    setAgentRun({ current: 1, total });
+    setAgentRun(null);
     setBusy("llm");
     answersRef.current = null;
     setAnswers(null);
     setJevMeta("");
     try {
+      const first = await runLlmTurn("random-case", randomStateInventPrompt(), {
+        keepBusy: true,
+      });
+      if (first.failed) return;
+      const note = answersRef.current
+        ? summarizeAnswers(answersRef.current)
+        : "";
+      if (note.trim()) {
+        const analysis = await runLlmTurn(
+          "chat",
+          randomStateAnalysisPrompt(note),
+          { keepBusy: true },
+        );
+        if (analysis.failed) return;
+      }
+      onToast("Random state done.");
+    } finally {
+      agentLockRef.current = false;
+      streamLockRef.current = false;
+      setBusy(null);
+      setAgentRun(null);
+    }
+  };
+
+  const runAgenticLoop = async (rawTurns: number) => {
+    if (health?.hasKey === false || busy !== null || agentLockRef.current) return;
+    const realQs = Object.keys(questionsForJev(questionsRef.current)).length;
+    if (!millReadyForAgenticLoop(stateRef.current, realQs)) {
+      onToast(AGENTIC_LOOP_NEED_MILL);
+      return;
+    }
+    const total = clampAgenticLoopTurns(rawTurns);
+    agentLockRef.current = true;
+    setAgentRun({ current: 1, total });
+    setBusy("llm");
+    try {
       const first = await runLlmTurn(
-        "random-case",
-        randomCaseFirstTurnPrompt(total),
+        "agentic-loop",
+        agenticLoopFirstPrompt(total),
         { keepBusy: true },
       );
       if (first.failed) return;
@@ -874,12 +915,12 @@ function Workshop({
           : "";
         const next = await runLlmTurn(
           "chat",
-          randomCaseContinuePrompt(t, total, note),
+          agenticLoopContinuePrompt(t, total, note),
           { keepBusy: true },
         );
         if (next.failed) return;
       }
-      onToast(`Random state · ${total} turns done.`);
+      onToast(`Agentic loop · ${total} turns done.`);
     } finally {
       agentLockRef.current = false;
       streamLockRef.current = false;
@@ -1088,10 +1129,27 @@ function Workshop({
                   }
                 />
               ) : (
-                <RandomCaseMenu
-                  disabled={locked}
-                  onConfirm={(n) => void runRandomCase(n)}
-                />
+                <>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={locked}
+                    onClick={() => void runRandomState()}
+                  >
+                    Random state
+                  </button>
+                  <AgenticLoopMenu
+                    disabled={locked}
+                    needMill={
+                      !millReadyForAgenticLoop(
+                        state,
+                        Object.keys(questionsForJev(questions)).length,
+                      )
+                    }
+                    onNeedMill={() => onToast(AGENTIC_LOOP_NEED_MILL)}
+                    onConfirm={(n) => void runAgenticLoop(n)}
+                  />
+                </>
               )}
             </div>
             <button

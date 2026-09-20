@@ -1,24 +1,30 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  RANDOM_CASE_MIN_TURNS,
-  randomCaseTurnOptions,
-} from "./randomCase";
+  AGENTIC_LOOP_MIN_TURNS,
+  AGENTIC_LOOP_NEED_MILL,
+  agenticLoopTurnOptions,
+} from "./agenticLoop";
+import { FlipTip } from "./FlipTip";
 
 const CHROME = 64;
 const PAD = 8;
 
-export function RandomCaseMenu({
+export function AgenticLoopMenu({
   disabled,
+  needMill,
+  onNeedMill,
   onConfirm,
 }: {
   disabled?: boolean;
+  needMill?: boolean;
+  onNeedMill?: () => void;
   onConfirm: (turns: number) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [turns, setTurns] = useState(RANDOM_CASE_MIN_TURNS);
+  const [turns, setTurns] = useState(AGENTIC_LOOP_MIN_TURNS);
   const [style, setStyle] = useState<React.CSSProperties>({
     position: "fixed",
     visibility: "hidden",
@@ -26,9 +32,11 @@ export function RandomCaseMenu({
     left: 0,
   });
 
+  const locked = Boolean(disabled || needMill);
+
   const close = () => {
     setOpen(false);
-    setTurns(RANDOM_CASE_MIN_TURNS);
+    setTurns(AGENTIC_LOOP_MIN_TURNS);
     btn.current?.focus();
   };
 
@@ -92,41 +100,54 @@ export function RandomCaseMenu({
     };
   }, [open]);
 
+  const button = (
+    <button
+      ref={btn}
+      type="button"
+      className="btn ghost mill-loop-btn"
+      disabled={locked}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-controls="agentic-loop-popover"
+      title={needMill && !disabled ? AGENTIC_LOOP_NEED_MILL : undefined}
+      onClick={() => {
+        if (needMill) {
+          onNeedMill?.();
+          return;
+        }
+        if (open) close();
+        else setOpen(true);
+      }}
+    >
+      Agentic loop
+    </button>
+  );
+
   return (
-    <div className="random-case-menu" ref={host}>
-      <button
-        ref={btn}
-        type="button"
-        className="btn ghost random-case-btn"
-        disabled={disabled}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls="random-case-popover"
-        onClick={() => {
-          if (open) close();
-          else setOpen(true);
-        }}
-      >
-        Random state
-      </button>
+    <div className="mill-loop-menu" ref={host}>
+      {needMill && !disabled ? (
+        <FlipTip text={AGENTIC_LOOP_NEED_MILL}>{button}</FlipTip>
+      ) : (
+        button
+      )}
       {open ? (
         <div
           ref={panel}
-          id="random-case-popover"
+          id="agentic-loop-popover"
           role="dialog"
-          aria-labelledby="random-case-title"
-          className="random-case-popover"
+          aria-labelledby="agentic-loop-title"
+          className="mill-loop-popover"
           style={style}
         >
-          <p id="random-case-title" className="random-case-title">
+          <p id="agentic-loop-title" className="mill-loop-title">
             How many turns do you want to do?
           </p>
-          <div className="random-case-options" role="group" aria-label="Turn count">
-            {randomCaseTurnOptions().map((n) => (
+          <div className="mill-loop-options" role="group" aria-label="Turn count">
+            {agenticLoopTurnOptions().map((n) => (
               <button
                 key={n}
                 type="button"
-                className={n === turns ? "random-case-opt on" : "random-case-opt"}
+                className={n === turns ? "mill-loop-opt on" : "mill-loop-opt"}
                 aria-pressed={n === turns}
                 onClick={() => setTurns(n)}
               >
@@ -134,7 +155,7 @@ export function RandomCaseMenu({
               </button>
             ))}
           </div>
-          <div className="random-case-actions">
+          <div className="mill-loop-actions">
             <button type="button" className="btn ghost" onClick={close}>
               Cancel
             </button>

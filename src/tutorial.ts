@@ -74,7 +74,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "wire",
     title: "Pass work across the wire",
-    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Propose) runs an autonomous LLM↔Jev loop. After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.",
+    body: "Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Agentic loop) invents a mill once. Agentic loop runs N LLM↔Jev turns on the current mill. After Jev answers, Feed Jev to LLM sends those typed results to the LLM immediately.",
     page: "workshop",
     hooks: ["wire"],
     selectors: [".pane.llm .row-actions"],
