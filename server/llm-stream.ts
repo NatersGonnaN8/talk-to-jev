@@ -177,7 +177,7 @@ export function summarizeToolArgs(name: string, args: Record<string, unknown>): 
     const extra = ids.length > 6 ? "…" : "";
     return `${ids.length} question${ids.length === 1 ? "" : "s"}${ids.length ? ` · ${shown}${extra}` : ""}`;
   }
-  if (name === "ask_jev") return "Current case + questions";
+  if (name === "ask_jev") return "Current state + questions";
   return "";
 }
 

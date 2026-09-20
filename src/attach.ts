@@ -1,4 +1,4 @@
-/** Local .md → Case ticket (Jev `state`). Browser File objects only.
+/** Local .md → Jev’s State ticket (Jev `state`). Browser File objects only.
  * Never reads `.env`. Never uploads. Never writes user files to disk.
  */
 

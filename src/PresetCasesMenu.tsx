@@ -26,8 +26,8 @@ export function PresetCasesMenu({
 
   const current = SAMPLES.find((s) => s.id === currentId);
   const aria = current
-    ? `Preset Cases, ${current.label} selected`
-    : "Preset Cases";
+    ? `Preset States, ${current.label} selected`
+    : "Preset States";
 
   const measure = () => {
     const b = btn.current;
@@ -104,14 +104,14 @@ export function PresetCasesMenu({
         aria-label={aria}
         onClick={() => setOpen((v) => !v)}
       >
-        Preset Cases
+        Preset States
       </button>
       {open ? (
         <ul
           ref={menu}
           id="preset-cases-menu"
           role="menu"
-          aria-label="Preset cases"
+          aria-label="Preset States"
           className="preset-menu-list"
           style={style}
         >

@@ -58,7 +58,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "llm",
     title: "The LLM pane talks",
-    body: "Manila side: draft the state, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s State or questions — not a JSON dump. Payloads (in this pane, off until you toggle it) always records what went to the LLM and to Jev. Jev never writes in this thread.",
+    body: "Manila side: draft the state, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s State or questions — not a JSON dump. Inspector (in this pane-head, off until you toggle it) always records what went to the LLM and to Jev. Jev never writes in this thread.",
     page: "workshop",
     hooks: ["llm"],
     selectors: [".pane.llm"],

@@ -55,7 +55,7 @@ This slip is Jev state. New State starts a blank workshop — not a preset. Pres
 - **hooks:** `llm`
 - **selectors:** `.pane.llm`
 
-Manila side: draft the state, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s State or questions — not a JSON dump. Payloads (in this pane, off until you toggle it) always records what went to the LLM and to Jev. Jev never writes in this thread.
+Manila side: draft the state, ask how to phrase a question, or chat. This is the prose half. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s State or questions — not a JSON dump. Inspector (in this pane-head, off until you toggle it) always records what went to the LLM and to Jev. Jev never writes in this thread.
 
 ### 4. Jev’s Questions
 

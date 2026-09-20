@@ -1,4 +1,5 @@
 import type { JevQuestion, QuestionType } from "./types";
+import { withPositionalChoiceKeys } from "./jevQuestions";
 import { weatherPlaceholder } from "./weather";
 
 export type SampleId =
@@ -25,10 +26,10 @@ export type SampleCase = {
   questions: Record<string, JevQuestion>;
 };
 
-/** First catalog preset (Invoice exception). Not loaded by New Case or first-open. */
+/** First catalog preset (Invoice exception). Not loaded by New State or first-open. */
 export const LANDING_SAMPLE_ID: SampleId = "invoice";
 
-/** The one weather case. Open-Meteo row is visible only here. */
+/** The one weather snap. Open-Meteo row is visible only here. */
 export const WEATHER_SAMPLE_ID: SampleId = "jacket";
 
 function caseText(kind: SampleKind, situation: string) {
@@ -65,7 +66,7 @@ function sample(
     kind,
     types: typesOf(questions),
     state: caseText(kind, situation),
-    questions,
+    questions: withPositionalChoiceKeys(questions),
   };
 }
 
@@ -488,7 +489,7 @@ Regional: US + UK inventory. Brand safety: this would run next to a live hospita
   ),
 ];
 
-/** Alias for Workshop Preset Cases — same ten as Use Cases. Do not fork this list. */
+/** Alias for Workshop Preset States — same ten as Example Uses. Do not fork this list. */
 export const SAMPLE_CASES = SAMPLES;
 
 export const SAMPLE_BY_ID: Record<SampleId, SampleCase> = Object.fromEntries(

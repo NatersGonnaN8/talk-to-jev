@@ -1,3 +1,8 @@
+import {
+  beginDevCall,
+  finishDevCall,
+  patchDevCall,
+} from "./devLog";
 import type { Health, JevAnswer, JevQuestion, SettingsResponse } from "./types";
 import type { WeatherResponse } from "./weather";
 
@@ -91,14 +96,45 @@ export async function askJev(payload: {
   transcript?: Array<{ role: string; content: string }>;
   includeTranscript?: boolean;
 }) {
-  const res = await fetch("/api/jev", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  const logId = beginDevCall("jev", "Ask Jev", {
+    path: "/api/jev",
+    state: payload.state,
+    questions: payload.questions,
+    includeTranscript: payload.includeTranscript ?? false,
+    transcript: payload.transcript,
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.message || "Jev request failed");
-  return body;
+  let finished = false;
+  try {
+    const res = await fetch("/api/jev", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      const message = body.message || "Jev request failed";
+      finishDevCall(logId, body, message);
+      finished = true;
+      throw new Error(message);
+    }
+    finishDevCall(logId, {
+      ok: body.ok,
+      model: body.model,
+      answers: body.answers,
+      usage: body.usage,
+    });
+    finished = true;
+    return body;
+  } catch (err) {
+    if (!finished) {
+      finishDevCall(
+        logId,
+        undefined,
+        err instanceof Error ? err.message : "Jev request failed",
+      );
+    }
+    throw err;
+  }
 }
 
 export type LlmStreamEvent =
@@ -121,6 +157,14 @@ export type LlmStreamEvent =
       answers: Record<string, JevAnswer>;
       model?: string;
       usage?: unknown;
+    }
+  | {
+      type: "inspect";
+      channel: "llm" | "jev";
+      phase: "request" | "response";
+      title?: string;
+      sent?: unknown;
+      received?: unknown;
     };
 
 type SsePayload = {
@@ -139,6 +183,11 @@ type SsePayload = {
   message?: string;
   argsSummary?: string;
   resultSummary?: string;
+  channel?: string;
+  phase?: string;
+  title?: string;
+  sent?: unknown;
+  received?: unknown;
   choices?: Array<{ delta?: { content?: string } }>;
 };
 
@@ -170,6 +219,16 @@ export function eventsFromPayload(json: SsePayload): LlmStreamEvent[] {
   }
   if (json.type === "done") return [];
   const out: LlmStreamEvent[] = [];
+  if (json.type === "inspect") {
+    out.push({
+      type: "inspect",
+      channel: json.channel === "jev" ? "jev" : "llm",
+      phase: json.phase === "response" ? "response" : "request",
+      ...(typeof json.title === "string" ? { title: json.title } : {}),
+      ...(json.sent !== undefined ? { sent: json.sent } : {}),
+      ...(json.received !== undefined ? { received: json.received } : {}),
+    });
+  }
   if (json.type === "thought" && typeof json.text === "string") {
     out.push({ type: "thought", text: json.text });
   }
@@ -244,59 +303,157 @@ export async function streamLlm(
   },
   onEvent: (ev: LlmStreamEvent) => void,
 ): Promise<string> {
-  const res = await fetch("/api/llm", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    let message = "LLM request failed";
-    try {
-      const body = await res.json();
-      message = body.message || message;
-    } catch {
-      /* */
-    }
-    throw new Error(message);
-  }
-  if (!res.body) throw new Error("LLM stream missing");
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let full = "";
-  let thoughts = "";
+  const title = payload.mode || "chat";
+  const clientBody = {
+    path: "/api/llm" as const,
+    mode: payload.mode || "chat",
+    state: payload.state,
+    questions: payload.questions,
+    jevAnswers: payload.jevAnswers,
+    includeTranscript: payload.includeTranscript ?? false,
+    messages: payload.messages,
+  };
+  const logId = beginDevCall("llm", title, clientBody);
+  const tools: Array<{ name: string; status: string; ok?: boolean; argsSummary?: string; resultSummary?: string }> = [];
+  let jevInspectId: string | null = null;
+  let finished = false;
 
-  const handleFrame = (frame: string) => {
-    const json = parseSseFrame(frame);
-    if (!json) return;
-    for (const ev of eventsFromPayload(json)) {
-      if (ev.type === "delta") {
-        full = ev.replace ? ev.text : full + ev.text;
-        onEvent({ type: "delta", text: full });
-        continue;
-      }
-      if (ev.type === "thought") {
-        thoughts += ev.text;
-        onEvent({ type: "thought", text: thoughts });
-        continue;
-      }
-      onEvent(ev);
-    }
+  const finish = (response?: unknown, error?: string) => {
+    if (finished) return;
+    finished = true;
+    finishDevCall(logId, response, error);
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const taken = takeSseFrames(buffer);
-    buffer = taken.rest;
-    for (const frame of taken.frames) handleFrame(frame);
+  try {
+    const res = await fetch("/api/llm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      let message = "LLM request failed";
+      try {
+        const body = await res.json();
+        message = body.message || message;
+      } catch {
+        /* */
+      }
+      finish(undefined, message);
+      throw new Error(message);
+    }
+    if (!res.body) {
+      finish(undefined, "LLM stream missing");
+      throw new Error("LLM stream missing");
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let full = "";
+    let thoughts = "";
+    let streamError: string | undefined;
+
+    const handleFrame = (frame: string) => {
+      const json = parseSseFrame(frame);
+      if (!json) return;
+      for (const ev of eventsFromPayload(json)) {
+        if (ev.type === "inspect") {
+          if (ev.channel === "llm" && ev.phase === "request" && ev.sent) {
+            patchDevCall(logId, {
+              title: ev.title || title,
+              request: { ...clientBody, upstream: ev.sent },
+            });
+          }
+          if (ev.channel === "jev") {
+            const jevReq = {
+              path: "/api/jev" as const,
+              via: "ask_jev",
+              ...(ev.sent &&
+              typeof ev.sent === "object" &&
+              !Array.isArray(ev.sent)
+                ? (ev.sent as Record<string, unknown>)
+                : { sent: ev.sent ?? { source: "ask_jev" } }),
+            };
+            if (ev.phase === "request") {
+              jevInspectId = beginDevCall(
+                "jev",
+                ev.title || "ask_jev",
+                jevReq,
+              );
+            } else if (jevInspectId) {
+              finishDevCall(
+                jevInspectId,
+                ev.received,
+                ev.received &&
+                  typeof ev.received === "object" &&
+                  (ev.received as { ok?: boolean }).ok === false
+                  ? "Jev request failed"
+                  : undefined,
+              );
+              jevInspectId = null;
+            } else {
+              const id = beginDevCall(
+                "jev",
+                ev.title || "ask_jev",
+                jevReq,
+              );
+              finishDevCall(id, ev.received);
+            }
+          }
+          continue;
+        }
+        if (ev.type === "delta") {
+          full = ev.replace ? ev.text : full + ev.text;
+          onEvent({ type: "delta", text: full });
+          continue;
+        }
+        if (ev.type === "thought") {
+          thoughts += ev.text;
+          onEvent({ type: "thought", text: thoughts });
+          continue;
+        }
+        if (ev.type === "tool") {
+          const prev = tools.findIndex((t) => t.name === ev.name && t.status === "running");
+          const row = {
+            name: ev.name,
+            status: ev.status,
+            ok: ev.ok,
+            argsSummary: ev.argsSummary,
+            resultSummary: ev.resultSummary,
+          };
+          if (prev >= 0) tools[prev] = row;
+          else tools.push(row);
+        }
+        if (ev.type === "error") streamError = ev.message;
+        onEvent(ev);
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const taken = takeSseFrames(buffer);
+      buffer = taken.rest;
+      for (const frame of taken.frames) handleFrame(frame);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) {
+      const taken = takeSseFrames(buffer.endsWith("\n\n") ? buffer : `${buffer}\n\n`);
+      for (const frame of taken.frames) handleFrame(frame);
+    }
+    finish({
+      reply: full,
+      thoughtsChars: thoughts.length,
+      tools,
+      ...(streamError ? { error: streamError } : {}),
+    }, streamError);
+    return full;
+  } catch (err) {
+    finish(
+      undefined,
+      err instanceof Error ? err.message : "LLM request failed",
+    );
+    throw err;
   }
-  buffer += decoder.decode();
-  if (buffer.trim()) {
-    const taken = takeSseFrames(buffer.endsWith("\n\n") ? buffer : `${buffer}\n\n`);
-    for (const frame of taken.frames) handleFrame(frame);
-  }
-  return full;
 }

@@ -192,7 +192,7 @@ export function ConvertPane({
     const bits: string[] = [];
     if (unsupported.length) bits.push(`Not supported: ${unsupported.join(", ")}`);
     if (markdown.length) {
-      bits.push("Drop .md on Jev’s case in Workshop — it attaches as state, no convert.");
+      bits.push("Drop .md on Jev’s State in Workshop — it attaches as state, no convert.");
     }
     setDropMsg(bits.filter(Boolean).join(" "));
     if (convert.length) onEnqueue(convert);
@@ -293,8 +293,8 @@ export function ConvertPane({
         <h1 className="pane-title">Convert to Markdown</h1>
         <p>
           Drop txt, html, docx, or pdf here. Files never leave this machine — no
-          OCR, no upload. Add the result to the LLM, to Jev’s case, or save a
-          .md. Dropping convertables on Jev’s case opens this tab. Drop .md on
+          OCR, no upload. Add the result to the LLM, to Jev’s State, or save a
+          .md. Dropping convertables on Jev’s State opens this tab. Drop .md on
           Workshop instead.
         </p>
       </section>
@@ -332,7 +332,7 @@ export function ConvertPane({
             />
           </header>
           <p className="convert-drop-hint">
-            Drop files on this page, or onto Jev’s case to land here.
+            Drop files on this page, or onto Jev’s State to land here.
           </p>
           {dropMsg ? (
             <p className="inline-error" role="alert">
@@ -412,10 +412,10 @@ export function ConvertPane({
                 >
                   ~{tokens.mdTokens.toLocaleString()} tokens in this file
                   {tokens.combinedTokens !== tokens.mdTokens
-                    ? ` · ~${tokens.combinedTokens.toLocaleString()} with Jev’s case`
+                    ? ` · ~${tokens.combinedTokens.toLocaleString()} with Jev’s State`
                     : ""}
                   {tokens.overRequest
-                    ? ` — over Jev’s ${JEV_REQUEST_TOKEN_BUDGET.toLocaleString()}-token request budget. Cannot add to Jev’s case.`
+                    ? ` — over Jev’s ${JEV_REQUEST_TOKEN_BUDGET.toLocaleString()}-token request budget. Cannot add to Jev’s State.`
                     : tokens.overState
                       ? ` — over the ${JEV_STATE_PLUS_LONGEST_Q.toLocaleString()}-token state + longest-question budget. Adding this may fail at Jev.`
                       : ""}
@@ -423,7 +423,7 @@ export function ConvertPane({
               ) : null}
               {tooLongForCase ? (
                 <p className="inline-error" role="alert">
-                  Over {MAX_ATTACH_CHARS.toLocaleString()} characters — too large for Jev’s case.
+                  Over {MAX_ATTACH_CHARS.toLocaleString()} characters — too large for Jev’s State.
                 </p>
               ) : null}
               <div className="row-actions convert-actions">
@@ -432,14 +432,14 @@ export function ConvertPane({
                     Add to the LLM
                   </button>
                 </FlipTip>
-                <FlipTip text="Merges into Jev’s case as an attach block. Stays in the browser.">
+                <FlipTip text="Merges into Jev’s State as an attach block. Stays in the browser.">
                   <button
                     type="button"
                     className="btn solid"
                     disabled={blockCase}
                     onClick={onAddCase}
                   >
-                    Add to Jev’s case
+                    Add to Jev’s State
                   </button>
                 </FlipTip>
                 <button type="button" className="btn ghost" onClick={onDownload}>

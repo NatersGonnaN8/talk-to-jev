@@ -1,4 +1,4 @@
-/** Random case autonomous LLM↔Jev loop. Turn = one /api/llm SSE session. */
+/** Random state autonomous LLM↔Jev loop. Turn = one /api/llm SSE session. */
 
 export const RANDOM_CASE_MIN_TURNS = 3;
 export const RANDOM_CASE_MAX_TURNS = 10;
@@ -22,7 +22,7 @@ export function randomCaseTurnOptions() {
 /** Visible You-bubble for turn 1. Full contract lives in server random-case mode. */
 export function randomCaseFirstTurnPrompt(total: number) {
   const n = clampRandomCaseTurns(total);
-  return `Random case · ${n} turns. Invent a short imaginary scenario (just enough to judge), call set_jev_case, then set_jev_questions with 3–5 atomic questions (at least one noul, one score, and one choice; snake_case ids; choice descriptions as values — mill numbers are the keys), then ask_jev. Do not paste JSON in the chat. Do not wait for me.`;
+  return `Random state · ${n} turns. Invent a short imaginary scenario (just enough to judge), call set_jev_case, then set_jev_questions with 3–5 atomic questions (at least one noul, one score, and one choice; snake_case ids; choice descriptions as values — mill numbers are the keys), then ask_jev. Do not paste JSON in the chat. Do not wait for me.`;
 }
 
 const AWARENESS =
@@ -39,7 +39,7 @@ export function randomCaseContinuePrompt(
   const last = t === n;
   const instruction = last
     ? `Agent turn ${t} of ${n} — last turn. Write analysis for the operator from Jev’s typed answers. Do not invent probabilities. Prefer not to call ask_jev unless there are still no answers. ${AWARENESS}`
-    : `Agent turn ${t} of ${n}. Continue the random-case loop. You may update Jev’s case or questions (set_jev_*), then ask_jev if you need a new snap. Reason about the probabilities. Do not wait for the operator. ${AWARENESS}`;
+    : `Agent turn ${t} of ${n}. Continue the random-case loop. You may update Jev’s State or questions (set_jev_*), then ask_jev if you need a new snap. Reason about the probabilities. Do not wait for the operator. ${AWARENESS}`;
   const feed = answersNote.trim();
   return feed ? `${feed}\n\n${instruction}` : instruction;
 }

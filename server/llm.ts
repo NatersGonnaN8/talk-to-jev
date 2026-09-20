@@ -29,13 +29,13 @@ export const LLM_TOOLS = [
     function: {
       name: "set_jev_case",
       description:
-        "Write Jev’s case (the ticket / Jev state). Replaces the case textarea. Use this instead of pasting case JSON into chat.",
+        "Write Jev’s State (the ticket / Jev state). Replaces the state textarea. Use this instead of pasting state JSON into chat.",
       parameters: {
         type: "object",
         properties: {
           state: {
             type: "string",
-            description: "Full Jev case text (situation, facts, optional weather/attach blocks).",
+            description: "Full Jev state text (situation, facts, optional weather/attach blocks).",
           },
         },
         required: ["state"],
@@ -75,7 +75,7 @@ export const LLM_TOOLS = [
     function: {
       name: "ask_jev",
       description:
-        "Call Jev (Decisions API) with the current case + questions if they are clean (real ids). Do not invent probabilities. Jev cannot invent answers that were not given: choice = listed options only, noul = P(true), score = a legend level. If you need a new option, set_jev_questions first then ask_jev again. If questions are not clean, use set_jev_questions. In random-case mode you MUST call this after questions are clean. Do not use this for the Propose Jev questions button.",
+        "Call Jev (Decisions API) with the current state + questions if they are clean (real ids). Do not invent probabilities. Jev cannot invent answers that were not given: choice = listed options only, noul = P(true), score = a legend level. If you need a new option, set_jev_questions first then ask_jev again. If questions are not clean, use set_jev_questions. In random-case mode you MUST call this after questions are clean. Do not use this for the Propose Jev questions button.",
       parameters: { type: "object", properties: {} },
     },
   },
@@ -182,20 +182,20 @@ export function llmSystem(opts: {
       ? `\n\nMode: propose-questions. You MUST call set_jev_questions with a complete valid map (typically 2–4 atomic questions). Do NOT call ask_jev. Do NOT reply with JSON only. After the tool, one short confirmation.`
       : opts.mode === "random-case"
         ? `\n\nMode: random-case. Autonomous loop. You MUST: (1) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_case. (2) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. (3) Call ask_jev once questions are clean. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation — analysis comes on the next Feed Jev turn.`
-        : `\n\nMode: chat. If the operator asks to write the case and/or propose Jev questions, call set_jev_case and/or set_jev_questions. Only call ask_jev when they want a snap now AND questions are clean. Otherwise leave Ask Jev as the click.`;
+        : `\n\nMode: chat. If the operator asks to write the state and/or propose Jev questions, call set_jev_case and/or set_jev_questions. Only call ask_jev when they want a snap now AND questions are clean. Otherwise leave Ask Jev as the click.`;
 
   return `You are the prose half of Talk to Jev. You talk. Jev decides.
 
 Jev is TypeSafe's System One model. It is NOT an LLM. It does not write. It evaluates a state against typed questions in one parallel call and returns choice / noul / score answers with probabilities. OpenRouter route: POST https://openrouter.ai/api/alpha/decisions (never chat/completions). Pin typesafe/jev-1.13.
 
-A weather block in the case (<!-- weather:start --> or ## Weather) is observational Open-Meteo input. Do not invent weather. Do not pretend to be Jev.
+A weather block in Jev’s State (<!-- weather:start --> or ## Weather) is observational Open-Meteo input. Do not invent weather. Do not pretend to be Jev.
 
-You have tools that mutate the Workshop. USE THEM. Do not paste case JSON or a questions map into the chat — the UI already shows the ticket and q-cards. After tools, write one short confirmation.
+You have tools that mutate the Workshop. USE THEM. Do not paste state JSON or a questions map into the chat — the UI already shows the ticket and q-cards. After tools, write one short confirmation.
 
 Tools:
-1. set_jev_case — write Jev’s case (the ticket / state).
+1. set_jev_case — write Jev’s State (the ticket / state).
 2. set_jev_questions — replace typed questions. Real ids. Types choice / noul / score. instructions hold the full question. choice criteria = option descriptions in visual order (semantic keys like refund/deny are rewritten to "1","2",… on the card and when calling Jev; never mint option_a). score criteria = ordered level strings. noul criteria = optional {true, false}. Skip blank ids; never invent q_* or empty ids.
-3. ask_jev — call Jev only if the case + questions are clean. Do not invent probabilities. If not clean: tools 1–2 (in random-case, keep going until ask_jev works).
+3. ask_jev — call Jev only if the state + questions are clean. Do not invent probabilities. If not clean: tools 1–2 (in random-case, keep going until ask_jev works).
 
 Never fake Jev answers in chat unless ask_jev just ran or Latest Jev answers are in this prompt. Jev cannot invent answers that were not given. Choice = listed options only. Noul = P(true) in [0,1]. Score = one of the legend levels. A new option requires set_jev_questions then ask_jev again.
 
@@ -206,7 +206,7 @@ Rules from the stored docs:
 - Noul is P(true) in [0,1], not a separate confidence.
 - A typed answer can still be wrong. Talk in probabilities.
 
-## Current case (Jev state)
+## Current Jev’s State
 ${opts.state || "(empty)"}
 ${editor}
 ${answers}
@@ -219,6 +219,38 @@ ${propose}`;
 function emit(res: ServerResponse, obj: unknown) {
   if (res.writableEnded) return;
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
+}
+
+function clipText(s: string, max: number) {
+  if (s.length <= max) return s;
+  return `${s.slice(0, max)}\n… [${s.length} chars]`;
+}
+
+function inspectLlmSent(opts: {
+  model: string;
+  mode: LlmMode;
+  messages: OrMessage[];
+}) {
+  return {
+    model: opts.model,
+    mode: opts.mode,
+    tools: LLM_TOOLS.map((t) => t.function.name),
+    messages: opts.messages.map((m) => {
+      if (m.role === "system") {
+        const c = typeof m.content === "string" ? m.content : "";
+        return { role: "system", chars: c.length, content: clipText(c, 8_000) };
+      }
+      if (m.role === "tool") {
+        return {
+          role: "tool",
+          name: m.name,
+          content: clipText(String(m.content ?? ""), 4_000),
+        };
+      }
+      const c = "content" in m ? String(m.content ?? "") : "";
+      return { role: m.role, content: clipText(c, 40_000) };
+    }),
+  };
 }
 
 function looksLikeJsonDump(text: string): boolean {
@@ -248,21 +280,21 @@ function confirmationFor(work: Working, mode: LlmMode): string {
   if (work.askedJev) return "Jev answered.";
   if (mode === "random-case") {
     if (work.appliedCase && work.appliedQuestions) {
-      return `Updated Jev’s case and loaded ${work.questionCount} question${work.questionCount === 1 ? "" : "s"}.`;
+      return `Updated Jev’s State and loaded ${work.questionCount} question${work.questionCount === 1 ? "" : "s"}.`;
     }
     if (work.appliedQuestions) {
       return `Loaded ${work.questionCount} question${work.questionCount === 1 ? "" : "s"} into Jev’s Questions.`;
     }
-    if (work.appliedCase) return "Updated Jev’s case.";
-    return "Still setting up the random case.";
+    if (work.appliedCase) return "Updated Jev’s State.";
+    return "Still setting up the random state.";
   }
   if (work.appliedCase && work.appliedQuestions) {
-    return `Updated Jev’s case and loaded ${work.questionCount} question${work.questionCount === 1 ? "" : "s"}. Click Ask Jev when you’re ready.`;
+    return `Updated Jev’s State and loaded ${work.questionCount} question${work.questionCount === 1 ? "" : "s"}. Click Ask Jev when you’re ready.`;
   }
   if (work.appliedQuestions) {
     return `Loaded ${work.questionCount} question${work.questionCount === 1 ? "" : "s"} into Jev’s Questions. Click Ask Jev when you’re ready.`;
   }
-  if (work.appliedCase) return "Updated Jev’s case.";
+  if (work.appliedCase) return "Updated Jev’s State.";
   return "Done.";
 }
 
@@ -428,6 +460,23 @@ async function executeTool(
       ctx.includeTranscript && ctx.transcript.length
         ? { case: work.state, transcript: ctx.transcript }
         : work.state;
+    emit(res, {
+      type: "inspect",
+      channel: "jev",
+      phase: "request",
+      title: "ask_jev",
+      sent: { model: ctx.jevModel, state, questions: clean },
+    });
+    try {
+      console.info(
+        "[Talk to Jev · To Jev]",
+        "ask_jev",
+        ctx.jevModel,
+        `questions=${Object.keys(clean).length}`,
+      );
+    } catch {
+      /* ignore */
+    }
     const result = await callJev({
       apiKey: ctx.env.OPENROUTER_API_KEY,
       model: ctx.jevModel,
@@ -435,6 +484,13 @@ async function executeTool(
       questions: clean,
     });
     if (!result.ok) {
+      emit(res, {
+        type: "inspect",
+        channel: "jev",
+        phase: "response",
+        title: "ask_jev",
+        received: { ok: false, message: result.message },
+      });
       emit(res, {
         type: "tool",
         ...base,
@@ -448,6 +504,18 @@ async function executeTool(
     const count = result.answers && typeof result.answers === "object"
       ? Object.keys(result.answers as object).length
       : 0;
+    emit(res, {
+      type: "inspect",
+      channel: "jev",
+      phase: "response",
+      title: "ask_jev",
+      received: {
+        ok: true,
+        model: result.model,
+        answers: result.answers,
+        usage: result.usage,
+      },
+    });
     emit(res, {
       type: "tool",
       ...base,
@@ -517,6 +585,24 @@ export async function runLlmSession(opts: {
     { role: "system", content: system },
     ...transcript.map((m) => ({ role: m.role, content: m.content })),
   ];
+
+  emit(opts.res, {
+    type: "inspect",
+    channel: "llm",
+    phase: "request",
+    title: mode,
+    sent: inspectLlmSent({ model: opts.model, mode, messages }),
+  });
+  try {
+    console.info(
+      "[Talk to Jev · To LLM]",
+      mode,
+      opts.model,
+      `messages=${messages.length}`,
+    );
+  } catch {
+    /* ignore */
+  }
 
   let toolChoice: ToolChoice =
     mode === "propose-questions"
@@ -678,7 +764,7 @@ export async function runLlmSession(opts: {
       text: work.appliedQuestions || work.appliedCase || work.askedJev
         ? confirmationFor(work, mode)
         : mode === "random-case"
-          ? "I could not finish the random case. Try Random case again."
+          ? "I could not finish the random state. Try Random state again."
           : "I could not apply Jev questions. Try Propose Jev questions again.",
     });
     emit(opts.res, { type: "done" });

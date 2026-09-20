@@ -14,6 +14,7 @@ import type {
   JevQuestion,
   QuestionType,
 } from "./types";
+import { DevInspector } from "./DevInspector";
 import { DocsPage } from "./pages/Docs";
 import {
   cloneSample,
@@ -186,6 +187,7 @@ export function App() {
   const [toast, setToast] = useState("");
   const [updating, setUpdating] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(() => !isTutorialDone());
   const [tourKey, setTourKey] = useState(0);
   const [docsTick, setDocsTick] = useState(0);
@@ -327,7 +329,7 @@ export function App() {
             data-tutorial="use-cases"
             onClick={() => go("use-cases")}
           >
-            Use Cases
+            Example Uses
           </button>
           <button
             className={page === "docs" ? "nav-btn on" : "nav-btn"}
@@ -408,6 +410,8 @@ export function App() {
           onToast={setToast}
           historyOpen={historyOpen}
           onHistoryOpenChange={setHistoryOpen}
+          inspectorOpen={inspectorOpen}
+          onInspectorOpenChange={setInspectorOpen}
           presetId={caseId}
           presetNonce={presetNonce}
           onOpenSample={(id: SampleId) => go("workshop", id)}
@@ -447,6 +451,8 @@ function Workshop({
   onToast,
   historyOpen,
   onHistoryOpenChange,
+  inspectorOpen,
+  onInspectorOpenChange,
   presetId,
   presetNonce,
   onOpenSample,
@@ -460,6 +466,8 @@ function Workshop({
   onToast: (s: string) => void;
   historyOpen: boolean;
   onHistoryOpenChange: (open: boolean) => void;
+  inspectorOpen: boolean;
+  onInspectorOpenChange: (open: boolean) => void;
   presetId: string | null;
   presetNonce: number;
   onOpenSample: (id: SampleId) => void;
@@ -647,7 +655,7 @@ function Workshop({
     applySnapshot(emptySnapshot());
     onBlankWorkshop();
     onHistoryOpenChange(false);
-    onToast("New case.");
+    onToast("New state.");
   };
 
   const onClearCurrent = () => {
@@ -697,7 +705,7 @@ function Workshop({
         ? {
             role: "user",
             content:
-              "Propose atomic Jev questions for this case. Call set_jev_questions. Do not paste JSON in the chat.",
+              "Propose atomic Jev questions for this state. Call set_jev_questions. Do not paste JSON in the chat.",
           }
         : { role: "user", content };
     const history = [...messagesRef.current, nextUser];
@@ -774,7 +782,7 @@ function Workshop({
           if (ev.type === "set_jev_case") {
             stateRef.current = ev.state;
             setState(ev.state);
-            onToast("Updated Jev’s case.");
+            onToast("Updated Jev’s State.");
             return;
           }
           if (ev.type === "set_jev_questions") {
@@ -867,7 +875,7 @@ function Workshop({
         );
         if (next.failed) return;
       }
-      onToast(`Random case · ${total} turns done.`);
+      onToast(`Random state · ${total} turns done.`);
     } finally {
       agentLockRef.current = false;
       streamLockRef.current = false;
@@ -960,11 +968,11 @@ function Workshop({
     if (markdown.length > MAX_ATTACH_CHARS) {
       return {
         ok: false,
-        message: `Too large for Jev’s case (max ${MAX_ATTACH_CHARS.toLocaleString()} characters)`,
+        message: `Too large for Jev’s State (max ${MAX_ATTACH_CHARS.toLocaleString()} characters)`,
       };
     }
     let ok = true;
-    let message = `Added ${name} to Jev’s case.`;
+    let message = `Added ${name} to Jev’s State.`;
     setState((s) => {
       const already = listAttachedNames(s);
       const replacing = already.includes(name);
@@ -1099,6 +1107,17 @@ function Workshop({
             >
               Feed Jev to LLM
             </button>
+            <FlipTip text="Always recording. Keys never appear here.">
+              <button
+                type="button"
+                className={inspectorOpen ? "btn ghost on" : "btn ghost"}
+                aria-pressed={inspectorOpen}
+                aria-controls="dev-inspector"
+                onClick={() => onInspectorOpenChange(!inspectorOpen)}
+              >
+                Inspector
+              </button>
+            </FlipTip>
           </div>
         </header>
         <div
@@ -1108,7 +1127,7 @@ function Workshop({
         >
           {messages.length === 0 ? (
             <p className="empty">
-              Draft the case, or ask how to phrase a Jev question.
+              Draft the state, or ask how to phrase a Jev question.
             </p>
           ) : (
             messages.map((m, i) => {
@@ -1134,6 +1153,10 @@ function Workshop({
             })
           )}
         </div>
+        <DevInspector
+          open={inspectorOpen}
+          onClose={() => onInspectorOpenChange(false)}
+        />
         <form
           className="composer"
           onSubmit={(e) => {
@@ -1238,7 +1261,7 @@ function Workshop({
         onDrop={onTicketDrop}
       >
         <div className="ticket-head">
-          <h2 className="pane-title">Jev’s case</h2>
+          <h2 className="pane-title">Jev’s State</h2>
           <label className="check">
             <input
               type="checkbox"
@@ -1248,7 +1271,7 @@ function Workshop({
             Include LLM chat in Jev state
           </label>
         </div>
-        <div className="case-tools" role="group" aria-label="Case session">
+        <div className="case-tools" role="group" aria-label="State session">
           <FlipTip text="Starts a blank workshop — not a preset. Saves the open thread if it is worth keeping.">
             <button
               type="button"
@@ -1257,7 +1280,7 @@ function Workshop({
               disabled={busy !== null}
               onClick={onNewCase}
             >
-              New Case
+              New State
             </button>
           </FlipTip>
           <PresetCasesMenu
@@ -1323,8 +1346,8 @@ function Workshop({
         />
         <p className="hint">
           {isWeatherSample(samplePresetId)
-            ? "Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf go to Convert. Weather is Open-Meteo input, not a model."
-            : "Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf go to Convert."}
+            ? "Jev judges this. The LLM can draft it. Drop .md into Jev’s State. txt / html / docx / pdf go to Convert. Weather is Open-Meteo input, not a model."
+            : "Jev judges this. The LLM can draft it. Drop .md into Jev’s State. txt / html / docx / pdf go to Convert."}
         </p>
       </section>
 

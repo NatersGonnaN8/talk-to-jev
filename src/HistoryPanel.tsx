@@ -87,7 +87,7 @@ export function HistoryPanel({
         </div>
         {store.chats.length === 0 ? (
           <p className="empty hist-empty">
-            Send a message or change the case — threads stay on this machine.
+            Send a message or change the state — threads stay on this machine.
           </p>
         ) : (
           <ul className="hist-list">

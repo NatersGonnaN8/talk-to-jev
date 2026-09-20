@@ -46,7 +46,7 @@ Weather is **Open-Meteo** input (free, no key) on the **Jacket** preset only —
 | **Convert** | `/convert` | Convert txt / html / docx / pdf to markdown in this browser. Add to the LLM, add to Jev’s State, download, or save as MD. |
 | **History** | Jev’s State row | Local threads in `localStorage` (this browser only). Not a server. Not in the header. |
 
-Chrome **Tour** restarts the coach overlay. **Update Jev docs** refreshes `docs/jev/`. History is on **Jev’s State**, not next to Tour. Workshop **Payloads** (LLM pane, off by default) shows logged `/api/llm` and `/api/jev` request/response JSON — always recording, never keys.
+Chrome **Tour** restarts the coach overlay. **Update Jev docs** refreshes `docs/jev/`. History is on **Jev’s State**, not next to Tour. Workshop **Inspector** (LLM pane, off by default) shows logged `/api/llm` and `/api/jev` request/response JSON — always recording, never keys.
 
 ---
 

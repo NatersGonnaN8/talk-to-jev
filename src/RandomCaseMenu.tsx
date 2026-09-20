@@ -107,7 +107,7 @@ export function RandomCaseMenu({
           else setOpen(true);
         }}
       >
-        Random case
+        Random state
       </button>
       {open ? (
         <div

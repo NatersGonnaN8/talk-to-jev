@@ -81,7 +81,7 @@ export function autoTitle(messages: ChatMessage[], state: string): string {
   if (firstUser) return clipTitle(firstUser.content);
   const caseLine = firstMeaningfulCaseLine(state);
   if (caseLine) return clipTitle(caseLine);
-  return "Untitled case";
+  return "Untitled state";
 }
 
 function firstMeaningfulCaseLine(state: string) {
@@ -194,7 +194,7 @@ export function selectChat(store: ChatStore, id: string): ChatStore {
 }
 
 export function renameChat(store: ChatStore, id: string, title: string): ChatStore {
-  const nextTitle = title.trim() || "Untitled case";
+  const nextTitle = title.trim() || "Untitled state";
   const chats = store.chats.map((c) =>
     c.id === id
       ? { ...c, title: nextTitle, titleLocked: true, updatedAt: Date.now() }
@@ -220,7 +220,7 @@ function newChatId() {
 
 function clipTitle(text: string) {
   const line = text.trim().split(/\r?\n/)[0]?.replace(/\s+/g, " ") ?? "";
-  if (line.length <= 48) return line || "Untitled case";
+  if (line.length <= 48) return line || "Untitled state";
   return `${line.slice(0, 45).trimEnd()}…`;
 }
 

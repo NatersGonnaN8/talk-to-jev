@@ -1,10 +1,10 @@
 # Talk to Jev — handoff
 
-**2026-09-19** — BYOK Settings live. GitHub is **public** (https://github.com/NatersGonnaN8/talk-to-jev). Local `http://127.0.0.1:5182`. Use Cases: `http://127.0.0.1:5182/use-cases`. Settings: `http://127.0.0.1:5182/settings`.
+**2026-09-19** — BYOK Settings live. GitHub is **public** (https://github.com/NatersGonnaN8/talk-to-jev). Local `http://127.0.0.1:5182`. Example Uses: `http://127.0.0.1:5182/use-cases`. Settings: `http://127.0.0.1:5182/settings`.
 
 ## What it is
 
-Two AIs through **OpenRouter**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Case** ticket is Jev `state`. Ten snaps: **nine operator decisions** plus **Jacket** (Open-Meteo, the one weather case). Workshop first-open and **New Case** are an **empty** Workshop — Invoice is a Preset Cases pick.
+Two AIs through **OpenRouter**. LLM talks (`deepseek/deepseek-v4-flash`). Jev judges (`typesafe/jev-1.13` Decisions API). Shared **Jev’s State** ticket is Jev `state`. Ten snaps: **nine operator decisions** plus **Jacket** (Open-Meteo, the one weather snap). Workshop first-open and **New State** are an **empty** Workshop — Invoice is a Preset States pick.
 
 ## Keys (BYOK)
 
@@ -25,8 +25,8 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 ## How to try
 
 1. Open `http://127.0.0.1:5182/settings`. OpenRouter should show **Key ready** (not the secret).
-2. Workshop first-open is **empty** (no Invoice). **Preset Cases** holds the operator snaps; **Jacket** is the weather case (**Load weather** → **Ask Jev**). **New Case** starts a blank workshop. **History** is on that row.
-3. Docs overlay still on `/docs`. History is local-only (Jev’s case row). Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
+2. Workshop first-open is **empty** (no Invoice). **Preset States** holds the operator snaps; **Jacket** is the weather snap (**Load weather** → **Ask Jev**). **New State** starts a blank workshop. **History** is on that row.
+3. Docs overlay still on `/docs`. History is local-only (Jev’s State row). Tour is chrome **Tour**. Copy: `docs/TOUR.md` (live import: `src/tutorial.ts`).
 
 ## How to start the tour
 
@@ -46,4 +46,4 @@ Contributors: empty slots in `env.local.template`. Never commit `.env.local`. Ne
 - Search / direct OpenAI / Anthropic / Tavily / Brave are **not** wired yet — Settings is the home.
 - Pin Jev 1.13 unless Nate asks for latest.
 
-SPEC: `docs/SPEC.md` (v0.10) §6.1 case tools, §12, §14.
+SPEC: `docs/SPEC.md` (v0.23) §6.1 state tools, §6.7 Inspector, §12, §14.

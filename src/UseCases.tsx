@@ -17,10 +17,10 @@ export function UseCasesPage({
     <main className="use-cases">
       <section className="cases-intro">
         <span className="eyebrow">Ten snaps</span>
-        <h1 className="pane-title">Use Cases</h1>
+        <h1 className="pane-title">Example Uses</h1>
         <p>
-          Nine operator snaps plus one weather case — the same list as
-          Workshop Preset Cases. Click a card to load the case and Jev questions.
+          Nine operator snaps plus one weather snap — the same list as
+          Workshop Preset States. Click a card to load the state and Jev questions.
           Jev is not a chatbot — it returns choice, noul, and score. Open-Meteo
           is optional input on Jacket only, not a third model.
         </p>
