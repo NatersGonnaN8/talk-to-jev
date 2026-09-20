@@ -88,11 +88,11 @@ Nine operator snaps plus Jacket — the same list as Workshop Preset States. Ope
 
 - **id:** `docs`
 - **page:** docs
-- **hooks:** `docs-view`, `docs`
+- **hooks:** `update-docs`, `docs-view`, `docs`
 - **selectors:** `.doc-overlay`
 - **texts:** Docs
 
-Official Jev docs live in this repo. Open a page, then Nice view, Code view, or the boxed-i Iframe when the live page will actually embed. Iframe hides for primer and sites that block framing.
+Official Jev docs live in this repo. **Update Jev docs** is on this page (not the header). Open a page, then Nice view, Code view, or the boxed-i Iframe when the live page will actually embed. Iframe hides for primer and sites that block framing.
 
 ### 8. Settings — bring your own key
 

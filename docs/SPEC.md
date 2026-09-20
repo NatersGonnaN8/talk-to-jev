@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.35 — 2026-09-20  
+**Status:** v0.36 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -74,7 +74,7 @@ Env names (standard):
 Referer headers on outbound OpenRouter calls:
 
 - `HTTP-Referer`: `http://127.0.0.1:5182`
-- `X-OpenRouter-Title`: `Talk to Jev`
+- `X-Title`: `Talk to Jev` (OpenRouter’s documented app-name header)
 
 ---
 
@@ -99,7 +99,7 @@ Each file starts with a YAML-ish header: `source`, `fetched_at`. `docs/jev/INDEX
 
 Two ways, same code (`scripts/update-jev-docs.mjs`):
 
-1. **UI:** header button **Update Jev docs** on every page → `POST /api/docs/update` → rewrite snapshot → toast with counts. After a **successful** update, refresh the Docs list **and** re-fetch the currently selected page (same slug/path, cache-bust so the reader is not leftover bytes). Keep that page selected if it still exists. If it vanished, clear to the empty picker. If the Tour overlay is open, still reload the doc behind it.
+1. **UI:** **Update Jev docs** on the **Docs** page (`/docs`) — not chrome-right, not a lonely header action. Same `POST /api/docs/update` → rewrite snapshot → toast with counts. After a **successful** update, refresh the Docs list **and** re-fetch the currently selected page (same slug/path, cache-bust so the reader is not leftover bytes). Keep that page selected if it still exists. If it vanished, clear to the empty picker. If the Tour overlay is open, still reload the doc behind it.
 2. **CLI:** `npm run update-jev-docs`
 
 Failed fetches are recorded in the index; a partial update is still committed-worthy. The button does not require the OpenRouter key (docs are public).
@@ -199,8 +199,8 @@ Global chrome (all pages):
 - Left: product name **Talk to Jev** (links home Workshop)
 - Nav: **Workshop** | **Example Uses** | **Docs** | **Settings** | **Convert**
 - **Convert** sits **after** Settings. Visible label **Convert**; `title` and accessible name **Convert to Markdown**. Route `/convert`.
-- Right: **Tour** (Help — restarts the first-run coach overlay), **Update Jev docs** (after success: refresh the Docs catalog and the open reader — §6.2)
-- **History is not in chrome-right.** It lives on the **Jev’s State** row only (Workshop). Same local-thread drawer. Tour / Update Jev docs stay in the header. **Inspector** lives on the LLM pane (§6.7), not in chrome.
+- Right: **Tour** only (Help — restarts the first-run coach overlay). **Update Jev docs** is **not** in the header. It lives on the **Docs** page (§6.2).
+- **History is not in chrome-right.** It lives on the **Jev’s State** row only (Workshop). Same local-thread drawer. Chrome-right is **Tour** only. **Inspector** lives on the LLM pane (§6.7), not in chrome. **Update Jev docs** lives on `/docs`.
 - **No chrome key-status pill** (no Key ready / Need key / Checking…). Keys live in **Settings** (nav tab + `/settings`). `/api/health` still runs so Ask buttons can lock when OpenRouter is missing. Never show the full key.
 - No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch). Jev’s State vs the board uses a custom **horizontal** splitter on the shared edge (same mill/pine seam, `row-resize`).
 - No native `<dialog>` / iframe for the coach. See §6.4.
@@ -311,7 +311,7 @@ Convert is **not** a third Workshop pane — it is its own tab (§6.6). That pag
 **History** (local threads, overlay drawer — not a permanent sidebar):
 
 - **Jev’s State row History** opens a left drawer over the Workshop (sage mill, like the Docs rail). Backdrop click or Escape closes it. No native resize grips. Drawer behavior (localStorage) is unchanged; only the **opener** moved off chrome-right.
-- Chrome-right stays **Tour** / **Update Jev docs**. Do not duplicate History there.
+- Chrome-right stays **Tour** only. Do not duplicate History there. Do not put **Update Jev docs** back in the header.
 - Drawer **New chat** — same full reset as row **New State**: save the open thread if it has anything worth keeping, then start an **empty** Workshop (no sample id, blank state text, one blank-id question, empty LLM thread, no Jev answers, **Preset States** none selected).
 - **Clear current** — empty the open LLM thread and last Jev answers; keep the state ticket, include-chat checkbox, and question editor. This is the half-reset. **New State** is not this.
 - Click a past thread to restore it: LLM messages, state text, include-chat, Jev questions (including blank-id `__blank__:…` cards), last Jev answers (if any), jevMeta, and selected sample preset id. Apply the **disk** copy of that thread; do not persist the open empty pane over it first.
@@ -330,14 +330,15 @@ Convert is **not** a third Workshop pane — it is its own tab (§6.6). That pag
 Layout:
 
 ```
-[ chrome ]                                          ← stays
+[ chrome ]                                          ← stays; chrome-right = Tour only
+[ Docs toolbar — Update Jev docs ]
 [ search + sort + type chips (pinned in rail)
   file list scrolls inside the rail  |  [fold] |  reader ]
 ```
 
 - Left: filterable list from `GET /api/docs` (path, title, source, fetched_at)
 - Right: the selected file (`GET /api/docs/file?path=`)
-- First paint may flash empty until `GET /api/docs` returns. Empty snapshot (after that fetch): explain **Update Jev docs** / `npm run update-jev-docs`.
+- First paint may flash empty until `GET /api/docs` returns. Empty snapshot (after that fetch): explain **Update Jev docs** on this page / `npm run update-jev-docs`.
 - **Viewport rail (2026-09-20).** Nater selected `aside.doc-rail` (measured height ~6131): the rail grew with every snapshot page instead of staying in the viewport. Chrome stays. `main.docs` is a row under chrome filling the **remaining viewport** — **not** document-tall. `aside.doc-rail` is a viewport-height column. Search + sort + type chips stay pinned at the **top of the rail**. The file list (`.doc-list`) is the scroller (`overflow-y: auto`). The reader (Nice / Code / Iframe) fills the remaining column and also stays in the viewport. Custom pane — no native resize grips. If a tip is added on chips/sort: fully on-screen, opaque (FlipTip).
 - **Master–detail swipe (2026-09-20).** Classic side master–detail for `aside.doc-rail` vs the reader. A mill chevron on the **shared edge** (custom pane control — **not** a native `resize` grip, **not** `col-resize`): **open** = rail in; **closed** = rail slides out and the reader takes the remaining width. Animate `transform` / width — not a hard jump. `prefers-reduced-motion: reduce` → no motion, still toggles. Persist collapsed in `talk-to-jev:docs-rail`. Accessible: real `<button>`, `aria-expanded`, `aria-controls` the rail, keyboard (Enter/Space). When closed, the rail is `inert` / not tabbable; focus returns to the chevron. Tip on the chevron is opaque and fully on-screen (FlipTip). Default **open**.
 
@@ -368,8 +369,8 @@ Layout:
 - JSON files still get Nice + Code; nice view pretty-prints JSON. Iframe follows the same source rules as markdown pages.
 - **Sanitizer (2026-09-20).** Nice-view HTML is `marked` then **DOMPurify** (`src/markdown.ts` `toNiceHtml`). The `docs/jev/` snapshot is untrusted third-party input: XSS on this origin can POST `/api/settings` same-origin (the CSRF gate does not stop same-origin). Use a real sanitizer — never a hand-rolled tag strip list. HTML profile only (no SVG/MathML). Forbid `style`, `form`, `svg`, `base`, `template`; drop `srcdoc` and `data:` URLs. Keep the `toNiceHtml(raw, path)` API so the Docs overlay does not grow a second sanitizer.
 - Empty pane (no file yet): no overlay; “Pick a page from the snapshot.”
-- **Update Jev docs** in chrome (same as Workshop). After a **successful** update: refetch `GET /api/docs` **and**, if a page is selected, refetch `GET /api/docs/file?path=` for that same path with cache-bust so the reader is not leftover bytes. Stay on that page if it still exists. If the path vanished, clear to the empty picker. If the Tour overlay is open, still reload the doc behind it.
-- Empty snapshot: explain the button / `npm run update-jev-docs`
+- **Update Jev docs** is the **primary** control on this page — a Docs toolbar above the rail + reader (stays visible when the rail is collapsed). Mixed case, Public Sans like `.btn.ghost` / `.nav-btn`. Never ALL CAPS. `data-tutorial="update-docs"` (Tour must target this control, not a ghost header button). Click → `POST /api/docs/update` (same snapshotter as `npm run update-jev-docs`). Toast with counts (app-level). After a **successful** update: refetch `GET /api/docs` **and**, if a page is selected, refetch `GET /api/docs/file?path=` for that same path with cache-bust so the reader is not leftover bytes. Stay on that page if it still exists. If the path vanished, clear to the empty picker. If the Tour overlay is open, still reload the doc behind it. **Do not** put this button in chrome-right.
+- Empty snapshot: explain this page’s button / `npm run update-jev-docs`
 
 ### 6.3 Example Uses — `/use-cases` (`/cases` alias)
 
@@ -419,7 +420,7 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 4. **Jev’s Questions** pane — typed `choice` / `noul` / `score` + **Ask Jev**. **Send answers to LLM** sits next to Ask Jev on this pane-head (sends typed answers to the LLM immediately).
 5. **Propose Jev questions** (tools fill the q-cards) / **Random state** (invent once) / **Agentic loop** (turn picker on the current mill) / **Inspector** on the LLM mill if those buttons exist. **Send answers to LLM** is on Jev’s Questions, not this mill.
 6. **Example Uses** — nine operator snaps plus one weather snap (Jacket), same list as Workshop **Preset States**.
-7. **Docs** — Nice view (rendered Markdown), Code view (raw snapshot), boxed-i Iframe **only when the live page will embed**. May navigate to `/docs`.
+7. **Docs** — Nice view (rendered Markdown), Code view (raw snapshot), boxed-i Iframe **only when the live page will embed**. **Update Jev docs** is on this page (toolbar), not the header. May navigate to `/docs`.
 8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
 9. **Convert** — chrome **Convert** tab (`/convert`). Drop txt / html / docx / pdf here, or onto Jev’s State (that still opens this tab). Files stay in the browser.
 10. **History** if the Jev’s State row control exists (not chrome-right).
@@ -519,7 +520,7 @@ Nater (2026-09-20): always log LLM and Jev payloads; inspector **hidden by defau
   - **Logged (redacted):** `/api/llm` request `{ messages, state, questions, jevAnswers, includeTranscript, mode, instructions? }` and a useful response (reply / thoughts char count / tool summaries, plus inspect `sent`/`received` when the server emits it — `sent.instructions` when standing instructions are on). `/api/jev` request `{ state, questions, transcript?, includeTranscript? }` and response `{ ok, model, answers, usage }` or `{ ok: false, message }`. No `instructions` on Jev.
   - **Never logged:** API keys, `.env.local`, Settings POST bodies, health/settings last-4, Authorization headers.
 
-**Do not** put this control on Settings. **Do not** put it in chrome-right (that stays Tour / Update Jev docs).
+**Do not** put this control on Settings. **Do not** put it in chrome-right (that stays **Tour** only). **Update Jev docs** is on `/docs`, not here.
 
 ---
 
@@ -935,7 +936,7 @@ Before calling Workshop done:
 4. **Propose Jev questions** (and chat that asks to send to state / propose) uses **tools**: Jev’s State and/or q-cards update immediately; the LLM thread is a short confirmation, **not** a JSON dump
 5. **Send answers to LLM** is on **Jev’s Questions** pane-head, immediately **left of Ask Jev** (not the LLM mill). With live Jev answers: click sends immediately — You bubble appears, `/api/llm` returns 200 SSE, mill thinking, then a streamed assistant reply (not a canned one-liner). Composer may stay empty; Send stays disabled until they type. With no Jev answers, the button stays disabled (FlipTip **Ask Jev first — nothing to send.**). LLM mill row is **Random state · Agentic loop · Propose Jev questions · Inspector**.
 6. Docs page lists snapshot files; open one. Type chips appear (from snapshot paths). Toggle A→Z / Z→A; click a type (e.g. `cloudflare`) and `cloudflare/jev.md` stays selectable. Search still AND-filters. Reload keeps sort + tags + rail collapsed (`talk-to-jev:docs-rail`). Filtering out the open page keeps the reader, hides that row. The rail is viewport-tall; the file list scrolls **inside** the aside; window `scrollY` stays ~0. Chevron swipe-out hides the rail (reader full remaining width); swipe-in restores it.
-7. Update Jev docs button completes and the list refreshes; if a page was open, that page’s markdown reloads (same path) or the empty picker if the path is gone. Tour overlay still reloads the doc behind it.
+7. On `/docs`, **Update Jev docs** (Docs toolbar, not the header) completes and the list refreshes; if a page was open, that page’s markdown reloads (same path) or the empty picker if the path is gone. Tour overlay still reloads the doc behind it. Chrome-right has **Tour** only — no Update Jev docs.
 8. Splitters drag; textareas have no native corner grip. Both the **horizontal** Jev’s State / board bar and the **vertical** LLM \| Jev bar read as thin quiet mill/pine seams (not a dashed orange candy-cane stripe); hover/drag shows a slightly wider pine handle. Dragging the horizontal bar grows/shrinks Jev’s State; the board fills the leftover column (LLM and Jev stay a row). Refresh restores `talk-to-jev:ticket-height`. Focus the bar and Arrow keys nudge. Window `scrollY` stays ~0.
 9. `/docs` deep link works after refresh
 10. Docs overlay: Nice view shows rendered Markdown; Code view shows raw snapshot; boxed-i Iframe loads the live https source **only when that page can embed**. Primer / INDEX / README / manifest / TypeSafe DENY: Iframe button is **gone** (not disabled); Nice (or Code) is the view — not “This page won’t embed.” Tips stay fully visible. Reload keeps the last mode (`talk-to-jev:docs-view`) and embed blocks (`talk-to-jev:docs-embed-block`).
@@ -960,7 +961,7 @@ Before calling Workshop done:
 29. `/settings` loads; OpenRouter shows Key ready (not the secret); unused slots show missing if empty
 30. Saving an empty unused key (e.g. OpenAI) does not echo a full key in the UI or JSON
 31. `GET /api/settings` has `present` / `last4` only — no full key
-32. Chrome right-side has Tour / Update Jev docs only — **no** History, **no** Inspector, **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. **History** is on the Jev’s State row. **Inspector** is on the LLM pane-head (starts off). Nav **Settings** and `/settings` remain the key home **and** the **LLM instructions** home.
+32. Chrome right-side has **Tour** only — **no** Update Jev docs, **no** History, **no** Inspector, **no** Key ready / Need OpenRouter key / Checking key… / Key check failed pill. **Update Jev docs** is on `/docs`. **History** is on the Jev’s State row. **Inspector** is on the LLM pane-head (starts off). Nav **Settings** and `/settings` remain the key home **and** the **LLM instructions** home.
 33. `localStorage["talk-to-jev:chats"]` still has no API key after using Settings
 34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`) and puts the caret in that id field. Typing several characters into a blank or filled id (e.g. `action`, `vendor_claim_valid`) keeps focus — the field does not deselect after one character. Space in the id field inserts `_` (`wear jacket` → `wear_jacket`). **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled. Instructions textarea still accepts spaces.
 35. Ticket heading reads **Jev’s State** (`h2.pane-title`, not **Case**, not uppercase **JEV’S STATE**). Same Public Sans **size** as **Jev’s Questions** (1.05rem / 650 / 0.01em). Product mark **Talk to Jev** stays larger (1.25rem / 700). Example Uses gallery title stays **Example Uses** at that same pane-title size. Nav **Workshop / Example Uses / Docs** stay `.nav-btn` size — not header size.
