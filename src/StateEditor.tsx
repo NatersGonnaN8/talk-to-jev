@@ -45,14 +45,7 @@ export function StateEditor({
         className="case"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onBlur={(e) => {
-          const next = e.relatedTarget;
-          if (next instanceof Element && next.closest(".mill-bar")) {
-            e.currentTarget.focus();
-            return;
-          }
-          setEditing(false);
-        }}
+        onBlur={() => setEditing(false)}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
