@@ -383,14 +383,6 @@ export function App() {
           >
             {TUTORIAL_UI.chromeLabel}
           </button>
-          <button
-            className="btn ghost"
-            type="button"
-            disabled={updating}
-            onClick={() => void onUpdateDocs()}
-          >
-            {updating ? "Updating…" : "Update Jev docs"}
-          </button>
         </div>
       </header>
       {toast ? (
@@ -401,7 +393,13 @@ export function App() {
           </button>
         </div>
       ) : null}
-      {page === "docs" ? <DocsPage snapshotTick={docsTick} /> : null}
+      {page === "docs" ? (
+        <DocsPage
+          snapshotTick={docsTick}
+          updating={updating}
+          onUpdateDocs={onUpdateDocs}
+        />
+      ) : null}
       {page === "use-cases" ? (
         <div data-tutorial="use-cases-page">
           <UseCasesPage onOpen={(id) => go("workshop", id)} />

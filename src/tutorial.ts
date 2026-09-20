@@ -90,9 +90,9 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "docs",
     title: "Docs: Nice, Code, Iframe",
-    body: "Official Jev docs live in this repo. Open a page, then Nice view, Code view, or the boxed-i Iframe when the live page will actually embed. Iframe hides for primer and sites that block framing.",
+    body: "Official Jev docs live in this repo. Update Jev docs is on this page (not the header). Open a page, then Nice view, Code view, or the boxed-i Iframe when the live page will actually embed. Iframe hides for primer and sites that block framing.",
     page: "docs",
-    hooks: ["docs-view", "docs"],
+    hooks: ["docs-view", "update-docs", "docs"],
     selectors: [".doc-overlay"],
     texts: ["Docs"],
   },

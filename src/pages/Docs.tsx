@@ -166,7 +166,15 @@ function DocIframe({
   );
 }
 
-export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
+export function DocsPage({
+  snapshotTick,
+  updating,
+  onUpdateDocs,
+}: {
+  snapshotTick: number;
+  updating: boolean;
+  onUpdateDocs: () => void | Promise<void>;
+}) {
   const boot = useMemo(() => loadDocsRailPrefs(), []);
   const [files, setFiles] = useState<DocListItem[]>([]);
   const [ready, setReady] = useState(false);
@@ -338,6 +346,22 @@ export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
 
   return (
     <main className={collapsed ? "docs is-collapsed" : "docs"}>
+      <div className="docs-tools">
+        <button
+          className="btn ghost"
+          type="button"
+          data-tutorial="update-docs"
+          disabled={updating}
+          onClick={() => void onUpdateDocs()}
+        >
+          {updating ? "Updating…" : "Update Jev docs"}
+        </button>
+        <p className="docs-tools-why">
+          Refresh the official Jev snapshot in this repo. Same as{" "}
+          <code>npm run update-jev-docs</code>.
+        </p>
+      </div>
+      <div className="docs-body">
       <aside
         ref={railRef}
         id="doc-rail"
@@ -496,6 +520,7 @@ export function DocsPage({ snapshotTick }: { snapshotTick: number }) {
           />
         )}
       </article>
+      </div>
     </main>
   );
 }

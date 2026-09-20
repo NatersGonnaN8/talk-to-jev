@@ -88,7 +88,7 @@ Nine operator snaps plus Jacket — the same list as Workshop Preset States. Ope
 
 - **id:** `docs`
 - **page:** docs
-- **hooks:** `update-docs`, `docs-view`, `docs`
+- **hooks:** `docs-view`, `update-docs`, `docs`
 - **selectors:** `.doc-overlay`
 - **texts:** Docs
 

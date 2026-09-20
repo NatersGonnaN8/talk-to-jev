@@ -34,7 +34,11 @@ export async function saveSetting(
 }
 
 export async function updateDocs() {
-  const res = await fetch("/api/docs/update", { method: "POST" });
+  const res = await fetch("/api/docs/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
   const body = await res.json();
   if (!res.ok) throw new Error(body.message || "Docs update failed");
   return body as {
