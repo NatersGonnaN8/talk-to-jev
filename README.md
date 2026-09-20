@@ -4,7 +4,7 @@
 
 This is a local **prototype** for riding the [Jev](https://jevai.dev/) wave: wire a cheap LLM to TypeSafe’s **System One** model without paying a wrapper tax.
 
-Talk to Jev is an open-source Workshop so you can see **what Jev is** at a glance. It is labeled prototype and inspiration — not the last mill, and not a claim to beat people who will play this at higher levels.
+Talk to Jev is a weekend open-source Workshop so you can see **how Jev works** at a glance. Practice an LLM next to Jev, get inspired for your own apps, get your feet wet, learn a different type of AI, then go build it yourself. Labeled prototype and inspiration — not deep serious work, not the last mill, and not a claim to beat people who will play this at higher levels.
 
 **Jev is not a chatbot and not an LLM.** You send `state` plus typed questions (`choice` / `noul` / `score`) to TypeSafe’s Decisions API. You get **probabilities** back. Named after Jevons. Pin: `typesafe/jev-1.13`.
 
@@ -109,9 +109,9 @@ Contract: [`docs/SPEC.md`](docs/SPEC.md).
 
 ## What it is / isn’t
 
-**Is:** an OSS Workshop so you can see what Jev is at a glance — labeled prototype and inspiration, on your laptop, with your key.
+**Is:** a weekend OSS Workshop so you can see how Jev works at a glance — practice LLM + Jev, get inspired, then go build your own, on your laptop, with your key.
 
-**Isn’t:** the last mill, a claim to beat higher-level play, production SaaS, accounts, billing, search, direct OpenAI/Anthropic calls, OCR, a second weather API, or “Jev the chatbot.” Jev 1.13 is pinned; this app does not silently follow `jev-latest`.
+**Isn’t:** deep serious work, the last mill, a claim to beat higher-level play, production SaaS, accounts, billing, search, direct OpenAI/Anthropic calls, OCR, a second weather API, or “Jev the chatbot.” Jev 1.13 is pinned; this app does not silently follow `jev-latest`.
 
 Some floor models put reasoning in a **Thoughts** channel and leave the pane body thin. That is the model, not an app bug.
 

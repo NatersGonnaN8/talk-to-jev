@@ -2,7 +2,7 @@
 
 **Status:** v0.45 — 2026-09-20  
 **Product:** Talk to Jev  
-**Position:** OSS Workshop — a very quick at-a-glance of **what Jev is**; labeled **prototype** / **inspiration**; not the last mill  
+**Position:** Weekend OSS Workshop — at-a-glance of **how Jev works**; practice LLM + Jev, then go build your own; labeled **prototype** / **inspiration**; not deep serious work, not the last mill  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
 **Local:** Vite UI + API on `http://127.0.0.1:5182` (`strictPort`, bind `127.0.0.1` only)
@@ -13,7 +13,7 @@ This file is the contract. Code trails these decisions.
 
 ## 1. What it is
 
-Talk to Jev is an **OSS Workshop** for a **very quick and easy at-a-glance** of **what Jev is**. It is a labeled **prototype** and **inspiration** — not the last mill, not a claim to beat every higher-level player. People will play this stack at higher levels; this repo does not have the AI bandwidth to keep up with all of them. Nater (2026-09-20, presenting): not the definitive app; inspiration; not the final answer by any means.
+Talk to Jev is a **weekend OSS Workshop** so you can **see at a glance how Jev works**. Jev is about a week old (as of 2026-09-20). This is **not** the definitive app and **not** deep serious work. It is a labeled **prototype** and **inspiration**: practice working with an **LLM + Jev**, get inspired for **your own apps**, get your feet wet, learn a different type of AI, **then go build it on your own**. Not the last mill, not a claim to beat every higher-level player. People at higher levels will exist; this repo does not have the AI bandwidth to keep up with all of them. Nater (2026-09-20, presenting): not the definitive app; inspiration; not the final answer by any means. Same day (metric for “show a basic preliminary”): weekend Workshop to see at a glance how Jev works; practice LLM + Jev; feet wet; go build it on your own.
 
 An MVP workshop that **wires two different AIs** through **one OpenRouter key**:
 
@@ -1151,11 +1151,11 @@ Rough estimate: `ceil(chars / 4)`. Show estimated tokens on the Convert page for
 
 ## Remaining (prototype)
 
-Not a new product contract — known leftover work as of **2026-09-20**. Core loop, ten snaps, Docs, Convert, and basic Settings are in. **Do not** treat DeepSeek empty pane prose / answers-in-Thoughts as an app bug. Leftover mill here is still that **prototype**: at-a-glance **inspiration** of what Jev is, not a roadmap to the last mill, not a claim to beat higher-level play.
+Not a new product contract — known leftover work as of **2026-09-20**. Core loop, ten snaps, Docs, Convert, and basic Settings are in. **Do not** treat DeepSeek empty pane prose / answers-in-Thoughts as an app bug. Leftover mill here is still that **weekend Workshop**: at-a-glance of **how Jev works**, practice + inspiration so people go build their own — not a roadmap to the last mill, not deep serious work, not a claim to beat higher-level play. Inspector overlay, Docs first-paint, mill-bar polish, and extra tools are **not** this metric.
 
 ### Blocker for a public showcase tweet
 
-A public showcase, when it happens, is that at-a-glance — **what Jev is**, as inspiration. Do **not** pitch Talk to Jev as the definitive mill or as beating every higher-level player.
+A public showcase, when it happens, is that weekend glance — **how Jev works**, as practice and inspiration so people go build their own apps. Do **not** pitch Talk to Jev as the definitive mill, as deep serious work, or as beating every higher-level player.
 
 - **Mill-bar hover** — signed off (2026-09-20). Stay/pin is the **14px `.mill-bar` strip** only. Click-in-**pane** (LLM / Jev / Inspector body) does not pin; moving off the strip starts hold+fade. User-facing board name is **pane**, not mill/module.
 - **Nater walks the Tour** — agent-owned copy is in `src/tutorial.ts` + `docs/TOUR.md`. He will personally click through. Do not call the Tour “done” without him.
