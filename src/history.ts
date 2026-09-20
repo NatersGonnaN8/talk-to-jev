@@ -1,4 +1,4 @@
-import type { ChatMessage, JevAnswer, JevQuestion } from "./types";
+import type { ChatMessage, ChatToolCall, JevAnswer, JevQuestion } from "./types";
 import {
   DEFAULT_QUESTIONS,
   DEFAULT_STATE,
@@ -52,10 +52,19 @@ export function emptySnapshot(): WorkshopSnapshot {
   };
 }
 
+export function cloneChatMessage(m: ChatMessage): ChatMessage {
+  return {
+    role: m.role,
+    content: m.content,
+    ...(m.thoughts ? { thoughts: m.thoughts } : {}),
+    ...(m.tools?.length ? { tools: m.tools.map((t) => ({ ...t })) } : {}),
+  };
+}
+
 /** Detached copy so React state is not aliased to the store object. */
 export function cloneSnapshot(snap: WorkshopSnapshot): WorkshopSnapshot {
   return {
-    messages: snap.messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: snap.messages.map(cloneChatMessage),
     state: snap.state,
     includeChat: snap.includeChat,
     questions: structuredClone(snap.questions),
@@ -90,7 +99,7 @@ function firstMeaningfulCaseLine(state: string) {
 
 export function snapshotWorthSaving(snap: WorkshopSnapshot, titleLocked = false): boolean {
   if (titleLocked) return true;
-  if (snap.messages.some((m) => m.content.trim())) return true;
+  if (snap.messages.some((m) => m.content.trim() || m.thoughts?.trim() || (m.tools && m.tools.length))) return true;
   if (snap.answers && Object.keys(snap.answers).length) return true;
   if (snap.jevMeta.trim()) return true;
   if (snap.includeChat === false) return true;
@@ -339,7 +348,37 @@ function normalizeMessages(raw: unknown): ChatMessage[] {
     const rec = item as Record<string, unknown>;
     if (rec.role !== "user" && rec.role !== "assistant") continue;
     if (typeof rec.content !== "string") continue;
-    out.push({ role: rec.role, content: rec.content });
+    const tools = normalizeTools(rec.tools);
+    out.push({
+      role: rec.role,
+      content: rec.content,
+      ...(typeof rec.thoughts === "string" && rec.thoughts
+        ? { thoughts: rec.thoughts }
+        : {}),
+      ...(tools.length ? { tools } : {}),
+    });
+  }
+  return out;
+}
+
+function normalizeTools(raw: unknown): ChatToolCall[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ChatToolCall[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    if (typeof rec.name !== "string" || !rec.name) continue;
+    const status = rec.status === "running" ? "running" : "done";
+    out.push({
+      id: typeof rec.id === "string" && rec.id ? rec.id : rec.name,
+      name: rec.name,
+      status,
+      ...(typeof rec.ok === "boolean" ? { ok: rec.ok } : {}),
+      argsSummary: typeof rec.argsSummary === "string" ? rec.argsSummary : "",
+      ...(typeof rec.resultSummary === "string"
+        ? { resultSummary: rec.resultSummary }
+        : {}),
+    });
   }
   return out;
 }

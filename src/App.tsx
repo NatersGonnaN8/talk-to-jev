@@ -10,6 +10,7 @@ import {
 } from "./api";
 import type {
   ChatMessage,
+  ChatToolCall,
   Health,
   JevAnswer,
   JevQuestion,
@@ -49,10 +50,12 @@ import { UseCasesPage } from "./UseCases";
 import { SettingsPage } from "./pages/Settings";
 import { HistoryPanel } from "./HistoryPanel";
 import { TutorialOverlay } from "./TutorialOverlay";
+import { LlmBubble } from "./LlmBubble";
 import { isTutorialDone, TUTORIAL_UI, type TutorialPage } from "./tutorial";
 import {
   activeThread,
   cloneSnapshot,
+  cloneChatMessage,
   deleteChat,
   emptySnapshot,
   loadStore,
@@ -116,18 +119,52 @@ function summarizeAnswers(answers: Record<string, JevAnswer>) {
   return lines.join("\n");
 }
 
+function cloneMsg(m: ChatMessage): ChatMessage {
+  return cloneChatMessage(m);
+}
+
 function patchLastAssistant(
   messages: ChatMessage[],
-  content: string,
+  patch: Partial<Pick<ChatMessage, "content" | "thoughts" | "tools">>,
 ): ChatMessage[] {
-  const copy = messages.map((m) => ({ role: m.role, content: m.content }));
+  const copy = messages.map(cloneMsg);
   for (let i = copy.length - 1; i >= 0; i--) {
-    if (copy[i].role === "assistant") {
-      copy[i] = { role: "assistant", content };
-      return copy;
-    }
+    if (copy[i].role !== "assistant") continue;
+    const prev = copy[i];
+    copy[i] = cloneMsg({
+      role: "assistant",
+      content: patch.content ?? prev.content,
+      thoughts: patch.thoughts ?? prev.thoughts,
+      tools: patch.tools ?? prev.tools,
+    });
+    return copy;
   }
-  return [...copy, { role: "assistant", content }];
+  return [
+    ...copy,
+    cloneMsg({
+      role: "assistant",
+      content: patch.content ?? "",
+      thoughts: patch.thoughts,
+      tools: patch.tools,
+    }),
+  ];
+}
+
+function upsertLastAssistantTool(
+  messages: ChatMessage[],
+  tool: ChatToolCall,
+): ChatMessage[] {
+  const copy = messages.map(cloneMsg);
+  for (let i = copy.length - 1; i >= 0; i--) {
+    if (copy[i].role !== "assistant") continue;
+    const tools = [...(copy[i].tools ?? [])];
+    const idx = tools.findIndex((t) => t.id === tool.id);
+    if (idx >= 0) tools[idx] = { ...tools[idx], ...tool };
+    else tools.push(tool);
+    copy[i] = { ...copy[i], tools };
+    return copy;
+  }
+  return [...copy, { role: "assistant", content: "", tools: [tool] }];
 }
 
 export function App() {
@@ -430,7 +467,7 @@ function Workshop({
   const [state, setState] = useState(() => boot?.state ?? "");
   const [includeChat, setIncludeChat] = useState(() => boot?.includeChat ?? true);
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    (boot?.messages ?? []).map((m) => ({ role: m.role, content: m.content })),
+    (boot?.messages ?? []).map(cloneChatMessage),
   );
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState<"llm" | "jev" | "propose" | "weather" | null>(
@@ -645,11 +682,28 @@ function Workshop({
         },
         (ev) => {
           if (ev.type === "delta") {
-            setMessages((m) => patchLastAssistant(m, ev.text));
+            setMessages((m) => patchLastAssistant(m, { content: ev.text }));
+            return;
+          }
+          if (ev.type === "thought") {
+            setMessages((m) => patchLastAssistant(m, { thoughts: ev.text }));
+            return;
+          }
+          if (ev.type === "tool") {
+            setMessages((m) =>
+              upsertLastAssistantTool(m, {
+                id: ev.id,
+                name: ev.name,
+                status: ev.status,
+                ok: ev.ok,
+                argsSummary: ev.argsSummary,
+                resultSummary: ev.resultSummary,
+              }),
+            );
             return;
           }
           if (ev.type === "error") {
-            setMessages((m) => patchLastAssistant(m, ev.message));
+            setMessages((m) => patchLastAssistant(m, { content: ev.message }));
             return;
           }
           if (ev.type === "set_jev_case") {
@@ -681,16 +735,15 @@ function Workshop({
       );
       if (!full.trim() && appliedQs) {
         setMessages((m) =>
-          patchLastAssistant(
-            m,
-            `Loaded ${appliedQs} questions into Jev’s Questions. Click Ask Jev when you’re ready.`,
-          ),
+          patchLastAssistant(m, {
+            content: `Loaded ${appliedQs} questions into Jev’s Questions. Click Ask Jev when you’re ready.`,
+          }),
         );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "LLM failed";
       onToast(message);
-      setMessages((m) => patchLastAssistant(m, message));
+      setMessages((m) => patchLastAssistant(m, { content: message }));
     } finally {
       streamLockRef.current = false;
       setBusy(null);
@@ -898,18 +951,37 @@ function Workshop({
             </button>
           </div>
         </header>
-        <div className="thread" ref={threadRef}>
+        <div
+          className="thread"
+          ref={threadRef}
+          aria-busy={busy === "llm" || busy === "propose"}
+        >
           {messages.length === 0 ? (
             <p className="empty">
               Draft the case, or ask how to phrase a Jev question.
             </p>
           ) : (
-            messages.map((m, i) => (
-              <div key={`${m.role}-${i}`} className={`bubble ${m.role}`}>
-                <span className="who">{m.role === "user" ? "You" : "LLM"}</span>
-                <pre>{m.content || (busy && i === messages.length - 1 ? "…" : "")}</pre>
-              </div>
-            ))
+            messages.map((m, i) => {
+              const streaming =
+                Boolean(busy === "llm" || busy === "propose") &&
+                i === messages.length - 1 &&
+                m.role === "assistant";
+              if (m.role === "assistant") {
+                return (
+                  <LlmBubble
+                    key={`${m.role}-${i}`}
+                    message={m}
+                    streaming={streaming}
+                  />
+                );
+              }
+              return (
+                <div key={`${m.role}-${i}`} className="bubble user">
+                  <span className="who">You</span>
+                  <pre>{m.content}</pre>
+                </div>
+              );
+            })
           )}
         </div>
         <form
@@ -932,7 +1004,7 @@ function Workshop({
             }}
           />
           <button className="btn solid" type="submit" disabled={locked || !draft.trim()}>
-            {busy === "llm" ? "Sending…" : "Send"}
+            {busy === "llm" ? "Thinking…" : "Send"}
           </button>
         </form>
       </article>

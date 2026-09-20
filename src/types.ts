@@ -1,8 +1,21 @@
 export type ChatRole = "user" | "assistant";
 
+export type ChatToolStatus = "running" | "done";
+
+export type ChatToolCall = {
+  id: string;
+  name: string;
+  status: ChatToolStatus;
+  ok?: boolean;
+  argsSummary: string;
+  resultSummary?: string;
+};
+
 export type ChatMessage = {
   role: ChatRole;
   content: string;
+  thoughts?: string;
+  tools?: ChatToolCall[];
 };
 
 export type QuestionType = "choice" | "noul" | "score";

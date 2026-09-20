@@ -89,7 +89,17 @@ export async function askJev(payload: {
 
 export type LlmStreamEvent =
   | { type: "delta"; text: string }
+  | { type: "thought"; text: string }
   | { type: "error"; message: string }
+  | {
+      type: "tool";
+      id: string;
+      name: string;
+      status: "running" | "done";
+      ok?: boolean;
+      argsSummary: string;
+      resultSummary?: string;
+    }
   | { type: "set_jev_case"; state: string }
   | { type: "set_jev_questions"; questions: Record<string, JevQuestion> }
   | {
@@ -101,7 +111,9 @@ export type LlmStreamEvent =
 
 type SsePayload = {
   type?: string;
+  id?: string;
   name?: string;
+  status?: string;
   ok?: boolean;
   text?: string;
   state?: string;
@@ -110,6 +122,8 @@ type SsePayload = {
   model?: string;
   usage?: unknown;
   message?: string;
+  argsSummary?: string;
+  resultSummary?: string;
   choices?: Array<{ delta?: { content?: string } }>;
 };
 
@@ -135,34 +149,69 @@ export function parseSseFrame(frame: string): SsePayload | null {
   }
 }
 
-export function eventFromPayload(
-  json: SsePayload,
-): LlmStreamEvent | null {
+export function eventsFromPayload(json: SsePayload): LlmStreamEvent[] {
   if (json.type === "error") {
-    return { type: "error", message: json.message || "LLM request failed" };
+    return [{ type: "error", message: json.message || "LLM request failed" }];
   }
-  if (json.type === "done") return null;
+  if (json.type === "done") return [];
+  const out: LlmStreamEvent[] = [];
+  if (json.type === "thought" && typeof json.text === "string") {
+    out.push({ type: "thought", text: json.text });
+  }
   if (json.type === "delta" && typeof json.text === "string") {
-    return { type: "delta", text: json.text };
+    out.push({ type: "delta", text: json.text });
   }
-  const toolName = json.type === "tool" || json.type === "tool_call" ? json.name : json.type;
-  if (json.ok && toolName === "set_jev_case" && typeof json.state === "string") {
-    return { type: "set_jev_case", state: json.state };
+  const toolName =
+    json.type === "tool" || json.type === "tool_call" ? json.name : undefined;
+  if (toolName) {
+    const status = json.status === "running" ? "running" : "done";
+    out.push({
+      type: "tool",
+      id: (typeof json.id === "string" && json.id) || toolName,
+      name: toolName,
+      status,
+      ...(typeof json.ok === "boolean" ? { ok: json.ok } : {}),
+      argsSummary: json.argsSummary || "",
+      ...(typeof json.resultSummary === "string"
+        ? { resultSummary: json.resultSummary }
+        : {}),
+    });
+    if (json.ok && toolName === "set_jev_case" && typeof json.state === "string") {
+      out.push({ type: "set_jev_case", state: json.state });
+    }
+    if (json.ok && toolName === "set_jev_questions" && json.questions) {
+      out.push({ type: "set_jev_questions", questions: json.questions });
+    }
+    if (json.ok && toolName === "ask_jev" && json.answers) {
+      out.push({
+        type: "ask_jev",
+        answers: json.answers,
+        model: json.model,
+        usage: json.usage,
+      });
+    }
   }
-  if (json.ok && toolName === "set_jev_questions" && json.questions) {
-    return { type: "set_jev_questions", questions: json.questions };
+  if (!out.length) {
+    const legacy = json.choices?.[0]?.delta?.content;
+    if (typeof legacy === "string" && legacy) out.push({ type: "delta", text: legacy });
   }
-  if (json.ok && toolName === "ask_jev" && json.answers) {
-    return {
-      type: "ask_jev",
-      answers: json.answers,
-      model: json.model,
-      usage: json.usage,
-    };
-  }
-  const legacy = json.choices?.[0]?.delta?.content;
-  if (typeof legacy === "string" && legacy) return { type: "delta", text: legacy };
-  return null;
+  return out;
+}
+
+export function eventFromPayload(json: SsePayload): LlmStreamEvent | null {
+  const all = eventsFromPayload(json);
+  return (
+    all.find(
+      (e) =>
+        e.type === "set_jev_case" ||
+        e.type === "set_jev_questions" ||
+        e.type === "ask_jev" ||
+        e.type === "delta" ||
+        e.type === "error",
+    ) ??
+    all[0] ??
+    null
+  );
 }
 
 export async function streamLlm(
@@ -197,18 +246,24 @@ export async function streamLlm(
   const decoder = new TextDecoder();
   let buffer = "";
   let full = "";
+  let thoughts = "";
 
   const handleFrame = (frame: string) => {
     const json = parseSseFrame(frame);
     if (!json) return;
-    const ev = eventFromPayload(json);
-    if (!ev) return;
-    if (ev.type === "delta") {
-      full += ev.text;
-      onEvent({ type: "delta", text: full });
-      return;
+    for (const ev of eventsFromPayload(json)) {
+      if (ev.type === "delta") {
+        full += ev.text;
+        onEvent({ type: "delta", text: full });
+        continue;
+      }
+      if (ev.type === "thought") {
+        thoughts += ev.text;
+        onEvent({ type: "thought", text: thoughts });
+        continue;
+      }
+      onEvent(ev);
     }
-    onEvent(ev);
   };
 
   while (true) {
