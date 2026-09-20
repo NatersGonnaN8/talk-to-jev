@@ -79,7 +79,7 @@ Referer headers on outbound OpenRouter calls:
 
 ### Stored snapshot
 
-`docs/jev/` is a **checked-in snapshot** of official Jev / System One documentation so the app (and the LLM) can know it offline.
+`docs/jev/` is a **checked-in snapshot** of official Jev / System One documentation so the app (and the LLM) can know it offline. The snapshot is third-party prose (TypeSafe, OpenRouter, Cloudflare, Pydantic), not covered by this repo's MIT license.
 
 Sources (refresh pulls these):
 
@@ -96,7 +96,7 @@ Each file starts with a YAML-ish header: `source`, `fetched_at`. `docs/jev/INDEX
 
 Two ways, same code (`scripts/update-jev-docs.mjs`):
 
-1. **UI:** header button **Update Jev docs** on every page → `POST /api/docs/update` → rewrite snapshot → toast with counts.
+1. **UI:** header button **Update Jev docs** on every page → `POST /api/docs/update` → rewrite snapshot → toast with counts. After a **successful** update, refresh the Docs list **and** re-fetch the currently selected page (same slug/path, cache-bust so the reader is not leftover bytes). Keep that page selected if it still exists. If it vanished, clear to the empty picker. If the Tour overlay is open, still reload the doc behind it.
 2. **CLI:** `npm run update-jev-docs`
 
 Failed fetches are recorded in the index; a partial update is still committed-worthy. The button does not require the OpenRouter key (docs are public).
@@ -130,7 +130,7 @@ Global chrome (all pages):
 - Left: product name **Talk to Jev** (links home Workshop)
 - Nav: **Workshop** | **Use Cases** | **Docs** | **Settings** | **Convert**
 - **Convert** sits **after** Settings. Visible label **Convert**; `title` and accessible name **Convert to Markdown**. Route `/convert`.
-- Right: **Tour** (Help — restarts the first-run coach overlay), **Update Jev docs**
+- Right: **Tour** (Help — restarts the first-run coach overlay), **Update Jev docs** (after success: refresh the Docs catalog and the open reader — §6.2)
 - **History is not in chrome-right.** It lives on the **Jev’s case** row only (Workshop). Same local-thread drawer. Tour / Update Jev docs stay in the header.
 - **No chrome key-status pill** (no Key ready / Need key / Checking…). Keys live in **Settings** (nav tab + `/settings`). `/api/health` still runs so Ask buttons can lock when OpenRouter is missing. Never show the full key.
 - No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch).
@@ -238,7 +238,7 @@ Layout:
 - Overlay tips are opaque, sit **below** the icons (overlay is at the top; flip would clip under chrome), and stay fully on-screen
 - JSON files still get both modes; nice view pretty-prints JSON
 - Empty pane (no file yet): no overlay; “Pick a page from the snapshot.”
-- **Update Jev docs** in chrome (same as Workshop)
+- **Update Jev docs** in chrome (same as Workshop). After a **successful** update: refetch `GET /api/docs` **and**, if a page is selected, refetch `GET /api/docs/file?path=` for that same path with cache-bust so the reader is not leftover bytes. Stay on that page if it still exists. If the path vanished, clear to the empty picker. If the Tour overlay is open, still reload the doc behind it.
 - Empty snapshot: explain the button / `npm run update-jev-docs`
 
 ### 6.3 Use Cases — `/use-cases` (`/cases` alias)
@@ -701,7 +701,7 @@ Before calling Workshop done:
 4. **Propose Jev questions** (and chat that asks to send to case / propose) uses **tools**: Jev’s case and/or q-cards update immediately; the LLM thread is a short confirmation, **not** a JSON dump
 5. Feed Jev → LLM injects a visible note
 6. Docs page lists snapshot files; open one
-7. Update Jev docs button completes and the list refreshes
+7. Update Jev docs button completes and the list refreshes; if a page was open, that page’s markdown reloads (same path) or the empty picker if the path is gone. Tour overlay still reloads the doc behind it.
 8. Splitter drags; textareas have no native corner grip. Splitter reads as a thin quiet seam (not a dashed orange candy-cane stripe); hover/drag shows a slightly wider pine handle
 9. `/docs` deep link works after refresh
 10. Docs overlay: eyeball shows rendered Markdown; code icon shows raw source; tips stay fully visible

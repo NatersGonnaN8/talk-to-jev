@@ -90,4 +90,4 @@ Contract: [`docs/SPEC.md`](docs/SPEC.md).
 
 ## License
 
-MIT. Copyright Nathan Uttley, 2026. See [LICENSE](LICENSE).
+MIT. Copyright Nathan Uttley, 2026. See [LICENSE](LICENSE). The [`docs/jev`](docs/jev/README.md) snapshot is third-party copyright, not MIT.
