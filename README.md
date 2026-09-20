@@ -27,6 +27,31 @@ Weather is **one** example (Jacket + free Open-Meteo). Nine of the ten snaps are
 
 ---
 
+## The loop
+
+The LLM never answers a Jev question itself. It has three tools, and the server refuses to let it fake the third:
+
+| Tool | Does |
+|---|---|
+| `set_jev_case` | Writes **Jev’s State** — the `state` Jev judges. |
+| `set_jev_questions` | Replaces the typed questions. Real snake_case ids only. `choice` options become `"1"`, `"2"`, … with descriptions as values; `score` is an ordered legend; `noul` is optional `{ true, false }`. Blank ids are dropped, never invented. |
+| `ask_jev` | `POST /api/alpha/decisions` with the current state + questions. Only runs when every id is real. Returns probabilities, not prose. |
+
+**Agentic loop** (LLM pane) runs *N* turns on the current state:
+
+```text
+turn 1     LLM ─set_jev_questions─▶ editor
+           LLM ─ask_jev───────────▶ Jev ─answers + probabilities─▶ LLM     (forced: tool_choice=ask_jev, then "required" until Jev has answered)
+turn 2…N   typed answers are summarized into the next You bubble ─▶ LLM reasons, may re-ask Jev
+last turn  LLM writes the operator analysis from Jev’s numbers — it may not invent probabilities
+```
+
+Honest shape: only **turn 1 is guaranteed** to hit Jev. Turns 2…*N* run in chat mode with the answers fed back, so the LLM re-asks only when it decides a new option or question is needed. Every request and response is visible in the **Inspector** (LLM pane, off by default): model, mode, tools, the exact Decisions payload, and Jev’s `usage.cost`.
+
+Measured on the **Refund call** preset, 2 turns: one Jev call, 1,725 input tokens, **$0.00007**; `decision` → option 2 at 100%, `policy_allows_full` → P(true) 0.06, `abuse_risk` → 0.98 on a 0–2 legend. Server: `server/llm.ts` (tool loop, max 8 rounds per turn, SSE), `server/jev.ts`, `server/questions.ts`. Client: `src/agenticLoop.ts`, `runAgenticLoop` in `src/App.tsx`.
+
+---
+
 ## Run locally
 
 Port **5182** is this app (`127.0.0.1` only, `strictPort`).
