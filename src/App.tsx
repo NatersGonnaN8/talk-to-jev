@@ -1311,6 +1311,7 @@ function Workshop({
                   <button
                     type="button"
                     className="btn ghost"
+                    data-tutorial="random-state"
                     disabled={locked}
                     onClick={() => void runRandomState()}
                   >
@@ -1333,6 +1334,7 @@ function Workshop({
             <button
               type="button"
               className="btn ghost"
+              data-tutorial="propose-questions"
               disabled={locked}
               onClick={() => void sendLlm("propose-questions")}
             >
@@ -1342,6 +1344,7 @@ function Workshop({
               <button
                 type="button"
                 className={inspectorOpen ? "btn ghost on" : "btn ghost"}
+                data-tutorial="inspector"
                 aria-pressed={inspectorOpen}
                 aria-controls="dev-inspector"
                 onClick={() => onInspectorOpenChange(!inspectorOpen)}

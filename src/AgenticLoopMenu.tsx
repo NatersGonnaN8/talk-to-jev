@@ -105,6 +105,7 @@ export function AgenticLoopMenu({
       ref={btn}
       type="button"
       className="btn ghost mill-loop-btn"
+      data-tutorial="agentic-loop"
       disabled={locked}
       aria-haspopup="dialog"
       aria-expanded={open}

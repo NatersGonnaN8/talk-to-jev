@@ -27,9 +27,11 @@ Storage: `localStorage["talk-to-jev:tutorial-done"]` = `"1"` after Skip or Done.
 
 ---
 
-## Steps (11)
+## Steps (14)
 
 Each step is independent. **page** is where the overlay navigates. **hooks** are `data-tutorial` ids (first match wins). **selectors** / **texts** are fallbacks.
+
+LLM mill buttons sit after the LLM pane step, left to right: Random state, Agentic loop, Propose Jev questions, Inspector. Spotlight those buttons — not `.row-actions` (`data-tutorial="wire"` stays on the row; it is not a Tour step).
 
 ### 1. Two AIs, one key
 
@@ -37,7 +39,7 @@ Each step is independent. **page** is where the overlay navigates. **hooks** are
 - **page:** workshop
 - **target:** none (centered welcome — no spotlight)
 
-Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRouter key runs chat completions and the Decisions API. Jev is System One: state plus typed questions, then probabilities — not a chatbot.
+Talk to Jev wires an LLM that chats to Jev which decides using a single OpenRouter key.
 
 ### 2. Jev’s State
 
@@ -46,7 +48,7 @@ Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRou
 - **hooks:** `case`
 - **selectors:** `.ticket`
 
-This slip is Jev state. New State starts a blank workshop — not a preset. Preset States loads one of the ten snaps. History is on this row, not in the header. Drop .md here; other files open Convert. Jacket can add Open-Meteo weather.
+This is Jev's state: the briefing from which Jev makes decisions. New State starts a blank workshop — not a preset. Preset States loads one of the ten prewritten example uses (states). Drop .md here; other text files can be dropped to convert them to markdown.
 
 ### 3. The LLM pane talks
 
@@ -55,27 +57,54 @@ This slip is Jev state. New State starts a blank workshop — not a preset. Pres
 - **hooks:** `llm`
 - **selectors:** `.pane.llm`
 
-Manila side: draft the state, ask how to phrase a question, or chat. This is the prose half with three tools: `set_jev_state` (writes TypeSafe state / Jev’s State), `set_jev_questions`, and `ask_jev`. While it works you get mill thinking, real thoughts if the model streams them, and tool cards when it writes Jev’s State or questions — not a JSON dump. Inspector (in this pane-head, off until you toggle it) always records what went to the LLM and to Jev. Jev never writes in this thread.
+Classic LLM with 3 tools to interact with Jev: set_jev_state (writes Jev's state), set_jev_questions (writes Jev's questions), ask_jev (asks Jev to answer the questions).
 
-### 4. Jev’s Questions
+### 4. Random state
+
+- **id:** `random-state`
+- **page:** workshop
+- **hooks:** `random-state`
+- **texts:** Random state
+
+This invents a short fake ticket so you can try the mill without writing one. It does not call Jev — Ask Jev still does that.
+
+### 5. Agentic loop
+
+- **id:** `agentic-loop`
+- **page:** workshop
+- **hooks:** `agentic-loop`
+- **texts:** Agentic loop
+
+A few LLM turns on this ticket — questions, then Jev, then talk from the numbers. You pick how many (1–10, default 3); empty mill disables it.
+
+### 6. Propose Jev questions
+
+- **id:** `propose-questions`
+- **page:** workshop
+- **hooks:** `propose-questions`
+- **texts:** Propose Jev questions
+
+Have the LLM write typed questions for whatever is in Jev’s State right now.
+
+### 7. Inspector
+
+- **id:** `inspector`
+- **page:** workshop
+- **hooks:** `inspector`
+- **texts:** Inspector
+
+The raw To LLM / To Jev payloads. Keys never show up here — Close it if it covers Send.
+
+### 8. Jev’s Questions
 
 - **id:** `jev`
 - **page:** workshop
 - **hooks:** `jev`, `ask-jev`, `feed-jev`
 - **selectors:** `.pane.jev`
 
-Jev’s Questions: choice, noul, or score — not essays. Add questions, then Ask Jev. Send answers to LLM sits next to Ask Jev and sends typed answers to the LLM immediately. You get probabilities, not a paragraph.
+Question types Jev answers: choice (rice or noodles?), noul (probability, 0-1), or score (How mad is the customer? 0: not mad, 1: mildly mad, 2: livid). Add questions, then Ask Jev. Send answers to LLM sits next to Ask Jev and sends typed answers to the LLM immediately for greater cooperation between multiple AI types.
 
-### 5. Pass work across the wire
-
-- **id:** `wire`
-- **page:** workshop
-- **hooks:** `wire`
-- **selectors:** `.pane.llm .row-actions`
-
-Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Agentic loop) invents a mill once. Agentic loop runs N LLM↔Jev turns on the current mill. Inspector is on this mill row. Send answers to LLM lives on Jev’s Questions, next to Ask Jev — after Jev answers, it sends those typed results to the LLM immediately.
-
-### 6. Example Uses
+### 9. Example Uses
 
 - **id:** `use-cases`
 - **page:** use-cases
@@ -84,7 +113,7 @@ Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON du
 
 Nine operator snaps plus Jacket — the same list as Workshop Preset States. Open a card to load the state and Jev questions.
 
-### 7. Docs: Nice, Code, Iframe
+### 10. Docs: Nice, Code, Iframe
 
 - **id:** `docs`
 - **page:** docs
@@ -92,9 +121,9 @@ Nine operator snaps plus Jacket — the same list as Workshop Preset States. Ope
 - **selectors:** `.doc-overlay`
 - **texts:** Docs
 
-Official Jev docs live in this repo. **Update Jev docs** is on this page (not the header). Open a page, then Nice view, Code view, or the boxed-i Iframe when the live page will actually embed. Iframe hides for primer and sites that block framing.
+Official Jev docs live in this repo. Update Jev docs is on this page (not the header). Open a page, then Nice view, Code view, or the boxed-i Iframe when the live page will actually embed. Iframe hides for primer and sites that block framing.
 
-### 8. Settings — bring your own key
+### 11. Settings — bring your own key
 
 - **id:** `settings`
 - **page:** settings
@@ -103,7 +132,7 @@ Official Jev docs live in this repo. **Update Jev docs** is on this page (not th
 
 Paste your OpenRouter key here. It stays on the server — never in git, never in the browser. Optional later: OpenAI, Anthropic, Tavily, Brave. They are saved only until those features land.
 
-### 9. Convert to Markdown
+### 12. Convert to Markdown
 
 - **id:** `convert`
 - **page:** convert
@@ -112,7 +141,7 @@ Paste your OpenRouter key here. It stays on the server — never in git, never i
 
 Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev’s State, which brings you here. Files stay in the browser. Add the markdown to the LLM, to Jev’s State, or save it.
 
-### 10. History stays on this machine
+### 13. History stays on this machine
 
 - **id:** `history`
 - **page:** workshop
@@ -121,7 +150,7 @@ Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev
 
 History lives on Jev’s State, not in the header. Threads stay in this browser’s localStorage. Refresh restores them. Keys are never stored here.
 
-### 11. Load weather
+### 14. Load weather
 
 - **id:** `weather`
 - **page:** workshop
