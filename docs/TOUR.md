@@ -64,7 +64,7 @@ Manila side: draft the state, ask how to phrase a question, or chat. This is the
 - **hooks:** `jev`, `ask-jev`, `feed-jev`
 - **selectors:** `.pane.jev`
 
-Jev’s Questions: choice, noul, or score — not essays. Add questions, then Ask Jev. Feed Jev to LLM sits next to Ask Jev and sends typed answers to the LLM immediately. You get probabilities, not a paragraph.
+Jev’s Questions: choice, noul, or score — not essays. Add questions, then Ask Jev. Send answers to LLM sits next to Ask Jev and sends typed answers to the LLM immediately. You get probabilities, not a paragraph.
 
 ### 5. Pass work across the wire
 
@@ -73,7 +73,7 @@ Jev’s Questions: choice, noul, or score — not essays. Add questions, then As
 - **hooks:** `wire`
 - **selectors:** `.pane.llm .row-actions`
 
-Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Agentic loop) invents a mill once. Agentic loop runs N LLM↔Jev turns on the current mill. Inspector is on this mill row. Feed Jev to LLM lives on Jev’s Questions, next to Ask Jev — after Jev answers, it sends those typed results to the LLM immediately.
+Propose Jev questions asks the LLM to fill the q-cards with tools (not a JSON dump in chat). Random state (left of Agentic loop) invents a mill once. Agentic loop runs N LLM↔Jev turns on the current mill. Inspector is on this mill row. Send answers to LLM lives on Jev’s Questions, next to Ask Jev — after Jev answers, it sends those typed results to the LLM immediately.
 
 ### 6. Example Uses
 

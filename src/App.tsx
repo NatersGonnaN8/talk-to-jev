@@ -62,7 +62,7 @@ import {
   AGENTIC_LOOP_NEED_MILL,
   agenticLoopContinuePrompt,
   agenticLoopFirstPrompt,
-  clampAgenticLoopTurns,
+  agenticLoopSessionCount,
   millReadyForAgenticLoop,
 } from "./agenticLoop";
 import {
@@ -940,7 +940,7 @@ function Workshop({
       onToast(AGENTIC_LOOP_NEED_MILL);
       return;
     }
-    const total = clampAgenticLoopTurns(rawTurns);
+    const { total } = agenticLoopSessionCount(rawTurns);
     agentLockRef.current = true;
     setAgentRun({ current: 1, total });
     setBusy("llm");
@@ -963,7 +963,9 @@ function Workshop({
         );
         if (next.failed) return;
       }
-      onToast(`Agentic loop · ${total} turns done.`);
+      onToast(
+        `Agentic loop · ${total === 1 ? "1 turn" : `${total} turns`} done.`,
+      );
     } finally {
       agentLockRef.current = false;
       streamLockRef.current = false;
@@ -1011,15 +1013,15 @@ function Workshop({
 
   const feedJev = () => {
     if (!answers) {
-      onToast("Ask Jev first — nothing to feed.");
+      onToast("Ask Jev first — nothing to send.");
       return;
     }
     const note = summarizeAnswers(answers);
     if (!note.trim()) {
-      onToast("Ask Jev first — nothing to feed.");
+      onToast("Ask Jev first — nothing to send.");
       return;
     }
-    onToast("Fed Jev’s answers into the LLM thread.");
+    onToast("Sent Jev’s answers into the LLM thread.");
     void sendLlm("chat", note);
   };
 
@@ -1260,10 +1262,14 @@ function Workshop({
       className="btn ghost"
       data-tutorial="feed-jev"
       disabled={feedNothing || locked}
-      title={feedNothing ? "Ask Jev first — nothing to feed." : undefined}
+      title={
+        feedNothing
+          ? "Ask Jev first — nothing to send."
+          : "Sends Jev’s answers into the LLM thread."
+      }
       onClick={feedJev}
     >
-      Feed Jev to LLM
+      Send answers to LLM
     </button>
   );
 
@@ -1408,7 +1414,7 @@ function Workshop({
           </div>
           <div className="row-actions">
             {feedNothing ? (
-              <FlipTip text="Ask Jev first — nothing to feed.">{feedJevButton}</FlipTip>
+              <FlipTip text="Ask Jev first — nothing to send.">{feedJevButton}</FlipTip>
             ) : (
               feedJevButton
             )}

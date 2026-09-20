@@ -1,17 +1,25 @@
 /** Agentic loop: N-turn LLM↔Jev on the current mill. Does not invent a random state. */
 
-export const AGENTIC_LOOP_MIN_TURNS = 3;
+export const AGENTIC_LOOP_MIN_TURNS = 1;
 export const AGENTIC_LOOP_MAX_TURNS = 10;
+/** Picker default. Not MIN — Nater asked to add 1 and 2, not to start on 1. */
+export const AGENTIC_LOOP_DEFAULT_TURNS = 3;
 
 export const AGENTIC_LOOP_NEED_MILL =
   "Agentic loop needs Jev’s State and at least one question. Use Random state to invent, or load a preset / write them first.";
 
 export function clampAgenticLoopTurns(n: number) {
-  if (!Number.isFinite(n)) return AGENTIC_LOOP_MIN_TURNS;
+  if (!Number.isFinite(n)) return AGENTIC_LOOP_DEFAULT_TURNS;
   return Math.min(
     AGENTIC_LOOP_MAX_TURNS,
     Math.max(AGENTIC_LOOP_MIN_TURNS, Math.round(n)),
   );
+}
+
+/** How many `/api/llm` sessions `runAgenticLoop` will fire after clamp. */
+export function agenticLoopSessionCount(rawTurns: number) {
+  const total = clampAgenticLoopTurns(rawTurns);
+  return { total, laterTurns: Math.max(0, total - 1) };
 }
 
 export function agenticLoopTurnOptions() {
@@ -32,10 +40,11 @@ const AWARENESS =
 /** Visible You-bubble for turn 1. Full contract lives in server agentic-loop mode. */
 export function agenticLoopFirstPrompt(total: number) {
   const n = clampAgenticLoopTurns(total);
-  return `Agentic loop · ${n} turns. Use the current Jev’s State and current questions. Do not invent a new random state. Call ask_jev. Do not paste JSON in the chat. Do not wait for me.`;
+  const count = n === 1 ? "1 turn" : `${n} turns`;
+  return `Agentic loop · ${count}. Use the current Jev’s State and current questions. Do not invent a new random state. Call ask_jev. Do not paste JSON in the chat. Do not wait for me.`;
 }
 
-/** Later turns: Feed Jev send-now note + agent instruction. */
+/** Later turns: Send answers to LLM send-now note + agent instruction. */
 export function agenticLoopContinuePrompt(
   turn: number,
   total: number,
