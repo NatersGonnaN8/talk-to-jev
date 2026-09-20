@@ -31,6 +31,7 @@ Re-run those probes before any future security claim. Do not relax the gate or a
 ## Working here
 
 - SPEC first. If Nater says something the SPEC does not, update SPEC in the same change set.
+- Violence gate (SPEC §5.4): `server/violenceGate.ts` blocks sexual violence / rape / CSA / graphic violent harm on tool apply and `/api/jev`. Do not Ask Jev on a live poisoned card; `npm test` is the check. Do not scold the floor LLM.
 - `npm run build` (typechecks both tsconfigs + Vite build) must be green before a commit that touches code. CI runs the same on push/PR.
 - `npm run dev` is usually already running in a Cursor terminal on 5182 (`strictPort`) — check before starting another.
 - Conventional commits, why-focused. Stage only your files; other agent sessions may have `docs/SPEC.md` dirty at the same time.

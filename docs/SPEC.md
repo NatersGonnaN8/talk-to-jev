@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.42 — 2026-09-20  
+**Status:** v0.43 — 2026-09-20  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -189,6 +189,26 @@ Nater (2026-09-20): “in settings, let there be a user prompt with instructions
 **Every LLM entry point** (all share `streamLlm` → `/api/llm`): **Send**, **Send answers to LLM**, **Propose Jev questions**, **Random state** (invent once), **Agentic loop** (every turn).
 
 **Inspector:** the `/api/llm` client log includes `instructions` when present. The SSE `inspect` `sent` object includes `instructions` (same string) plus the system message that starts with the standing block. Empty / off: no `instructions` field and no extra system section. Never log keys.
+
+### 5.4 Violence gate (2026-09-20)
+
+Nater (2026-09-20): a mill card listed a sexual-violence choice option; Jev put ~39% mass on it vs ~48% on refuse. **YES PLEASE** block that class from the mill. He was **testing**. Do **not** scold the floor LLM in this SPEC, in prompts, or in tool errors.
+
+**Jev has no conscience.** It is System One: it assigns probability over the listed options. If a blocked option is on the card, it will put mass on it. That is expected model behavior, not a Jev bug. The mill must never write those options onto the panes and must never POST them to `/api/jev`.
+
+**Blocked class** (ticket `state`, question ids, instructions, and criteria — including choice option descriptions): sexual violence, rape, sexual exploitation of minors, or graphic violent harm. Do **not** put graphic examples in this SPEC or in tests — abstract fixtures only (category words).
+
+**Narrow:** refund, abuse-risk, chargeback, T&S “kill the post”, and similar **operator / business** tickets stay allowed. Do not treat the words abuse, harm, kill (as take-down), or a violence-policy classification label as this class by themselves.
+
+**Server (source of truth).** Code: `server/violenceGate.ts`.
+
+- `set_jev_state` / `set_jev_questions`: if the payload matches, return a tool error `{ ok: false, code: "blocked-violence", message }`. Do **not** mutate the working copy. Do **not** SSE-apply `state` / `questions`. Panes stay as they were. Tool `message` (to the LLM): **Rejected. Write operator-appropriate questions. Do not list violence as options.**
+- `POST /api/jev` and `ask_jev`: same match on ticket `state` + `questions` (**not** the LLM transcript). **400** `{ ok: false, code: "blocked-violence", message }`. Do **not** call OpenRouter / Decisions. Operator `message`: **These questions are not allowed. Use operator-appropriate options — no violence.** Jev’s Questions shows that string as an **inline** error (same `.inline-error` as blank ids) — mixed case, Public Sans, never ALL CAPS. User-facing copy says **questions** / **options**, not mill.
+- `callJev` refuses the same class before fetch (backstop so nothing in this class reaches Decisions).
+
+**Prompt (short, not a sermon):** operator-appropriate questions; do not list violence as options. No LLM-shaming.
+
+**Verify** with unit tests on the matcher (`npm test`). Do **not** Ask Jev on a live poisoned card.
 
 ---
 
@@ -547,7 +567,7 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 | GET | `/api/settings` | `{ ok, keys: [{ id, env, label, why, required, present, last4 }] }`. `last4` is four characters or `null`. Never the full key. May append empty unused slots to `.env.local` (does not change existing values). |
 | POST | `/api/settings` | Body `{ id, value }`. `id` is `openrouter` \| `openai` \| `anthropic` \| `tavily` \| `brave`. Writes `.env.local`. Empty `value` clears that key. Response same shape as GET. **Never log the body.** Never echo `value`. |
 | POST | `/api/llm` | Body: `{ messages, state, questions?, jevAnswers?, includeTranscript?, mode?: "chat" \| "propose-questions" \| "random-case" \| "agentic-loop", instructions? }`. `instructions` is the trimmed Settings **LLM instructions** string (omit or empty = off; cap 8,000). The server prepends it **once** to the mill **system** message — never a user message, never onto each user string, never onto `/api/jev`. Streams `text/event-stream`. Server runs an OpenRouter **tool loop** (key stays server-side). OpenRouter chat is requested with `stream: true` so thoughts and tokens can paint mid-round. Send `include_reasoning: true` (legacy; same as `reasoning: {}`) so models that expose reasoning will; if that 400s, retry the round without it. Do **not** send a high `reasoning.effort` on the cheap floor model. Each SSE `data` line is JSON: `{ type: "thought", text }` (omit if the model streams none — never fake), `{ type: "delta", text, replace? }` (`replace: true` replaces that turn’s accumulated prose), `{ type: "tool", id, name, status: "running"\|"done", ok?, argsSummary, resultSummary?, state?, questions?, answers?, model?, usage?, message? }`, `{ type: "inspect", channel: "llm"\|"jev", phase: "request"\|"response", title?, sent?, received? }` (redacted payload log — no keys; primer truncated), `{ type: "error", message }`, `{ type: "done" }`. Emit `status: "running"` when a tool’s arguments are ready, then `status: "done"` after execute (same `id`). Tool names: `read_jev_workshop`, `set_jev_state`, `set_jev_questions`, `ask_jev`. `read_jev_workshop` is offered on every `/api/llm` mode (`chat`, `propose-questions`, `random-case`, `agentic-loop`); the server fills it from this request’s `state` + `questions` (no extra OpenRouter or Decisions call). `random-case` still does not offer `ask_jev`. `ask_jev` reuses the Decisions call (`POST /api/jev` path). Include latest `jevAnswers` on later turns so results round-trip. `argsSummary` / `resultSummary` are short (ids, char counts) — not a questions JSON dump. Never echo the key. Never dump a questions map as the chat product. The browser always records scrubbed `/api/llm` and nested `/api/jev` shapes in `talk-to-jev:dev-logs` (§6.7). **Composer Stop / client disconnect:** aborting the browser fetch (or the Node/Vite request `close`) ends this SSE. The mill must abort the in-flight OpenRouter chat fetch for that round so it stops eating the upstream body. Do not emit a scary `{ type: "error" }` for a user abort. Do **not** change the CSRF gate. |
-| POST | `/api/jev` | Body: `{ state, questions, transcript? }`. JSON Decisions response (or `{ ok:false, message }`). Same path the `ask_jev` tool uses. |
+| POST | `/api/jev` | Body: `{ state, questions, transcript? }`. JSON Decisions response (or `{ ok:false, message }`). Same path the `ask_jev` tool uses. If ticket `state` or `questions` match the §5.4 violence class: **400** `{ ok: false, code: "blocked-violence", message }` — do **not** call OpenRouter. Transcript is not part of the match. |
 | GET | `/api/docs` | Index of snapshot files |
 | GET | `/api/docs/file` | Query `path` relative to `docs/jev`. Reject `..` |
 | GET | `/api/docs/embed` | Query `url` = the live https source. `{ ok, embed, src }`. `embed: false` when X-Frame-Options / CSP would blank the iframe, or the URL is not a catalog source. No keys. |
@@ -555,7 +575,7 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 | GET | `/api/weather` | Open-Meteo proxy. Query `q` (city or `lat,lon`) or `latitude`+`longitude`. Default `q=Columbus, OH`. Returns `{ ok, place, current, daily, hourly, text, json }`. `text` is the Jev’s State weather block. No OpenRouter key. |
 | GET | `/api/geo` | Open-Meteo geocoding helper. Query `q`. Returns `{ ok, results: [{ name, admin1, country, latitude, longitude }] }`. Optional; **Load weather** may geocode internally. |
 
-Errors: 403 cross-site, 413 body over **2 MiB**, 415 non-JSON body, 501 missing key, 400 bad body, 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter. `POST /api/jev` and `POST /api/llm` return 501 when the key is missing. Error strings that look like keys (`Bearer`, `sk-or-`, `OPENROUTER_API_KEY`) are replaced with a generic failure. Jev success JSON is `ok`, `model`, `answers`, `usage` — do not spread the raw upstream object.
+Errors: 403 cross-site, 413 body over **2 MiB**, 415 non-JSON body, 501 missing key, 400 bad body (including §5.4 `blocked-violence`), 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter. `POST /api/jev` and `POST /api/llm` return 501 when the key is missing. Error strings that look like keys (`Bearer`, `sk-or-`, `OPENROUTER_API_KEY`) are replaced with a generic failure. Jev success JSON is `ok`, `model`, `answers`, `usage` — do not spread the raw upstream object.
 
 ---
 
@@ -626,6 +646,7 @@ The LLM is told, every request:
   2. **`set_jev_state`** — write the TypeSafe **state** (Jev’s State mill ticket). Not a “case”.
   3. **`set_jev_questions`** — replace typed questions. Shape matches `src/types.ts` / the editor: `choice` (option descriptions in visual order; keys become 1-based `"1"`, `"2"`, …), `noul` (optional true/false criteria), `score` (ordered legend strings). Real **snake_case** ids. Choice option **descriptions** are free human text (spaces OK); do not snake_case them. Instructions on every kept question. Semantic choice keys (`refund`/`deny`) are rewritten to positional numbers on the card and when calling Jev.
   4. **`ask_jev`** — only if state + questions are **clean** (at least one real-id question, no blank ids in the payload). Calls existing `/api/jev` (OpenRouter Decisions). If not clean: write tools only, and tell the operator to click **Ask Jev** (except **agentic-loop** mode: keep using tools until `ask_jev` succeeds or rounds run out). **`random-case` does not call `ask_jev`.** Typed answers in the tool result **and** on the SSE event must round-trip: the UI applies them, and the **next** `/api/llm` turn sends `jevAnswers` plus the Send answers to LLM send-now user note.
+- Write **operator-appropriate** questions. Do **not** list violence as options. Do **not** put sexual violence, rape, sexual exploitation of minors, or graphic violent harm in state or questions. Short constraint — not a sermon about the LLM.
 - After tools: a **short confirmation**. The UI already shows the ticket and q-cards.
 - Never invent Jev probabilities. Only mention typed answers if `ask_jev` just returned them or Latest Jev answers are in this prompt. **Jev cannot invent answers that were not given.** Choice = listed options only; noul = P(true); score = legend levels. New option → `set_jev_questions` then `ask_jev` again.
 - When `mode` is `propose-questions`, **must** call `read_jev_workshop` then `set_jev_questions`. Do not call `ask_jev` from that button. Do not reply with JSON only.
@@ -649,7 +670,9 @@ OpenAI-style tools on the chat-completions call. The server executes them, then 
 { "state": "<full Jev state text>" }
 ```
 
-**`set_jev_questions`** — replace the editor. Map of id → question (array of `{ id, type, … }` is also accepted). Skip blank ids.
+If `state` matches §5.4: `{ ok: false, code: "blocked-violence" }` to the model; do **not** write the pane.
+
+**`set_jev_questions`** — replace the editor. Map of id → question (array of `{ id, type, … }` is also accepted). Skip blank ids. If the map matches §5.4: `{ ok: false, code: "blocked-violence" }` to the model; do **not** write the pane.
 
 ```
 {
@@ -675,7 +698,7 @@ OpenAI-style tools on the chat-completions call. The server executes them, then 
 
 Choice `criteria` in this example may use semantic keys (`pay` / `hold` / `reject`). The editor and the Decisions payload rewrite them to `"1"` / `"2"` / `"3"` in object order. **Descriptions stay as the map values** (`"1": "Pay the invoice as billed"`, not `"1": "1"`). The LLM does not need to number them and must not mint `option_a`.
 
-**`ask_jev`** — `{}`. Uses the working state + working questions from this request (after any `set_*` in the same loop). Choice keys in that call are the positional numbers. If not clean: `{ ok: false }` to the model; do not call Decisions; the operator clicks **Ask Jev** (agentic-loop mode keeps trying tools; **random-case** does not call this tool). On success, the tool payload includes `answers` so the model can reason in-loop, and the SSE event carries those answers so the **next client turn** can send `jevAnswers` + the Send answers to LLM note.
+**`ask_jev`** — `{}`. Uses the working state + working questions from this request (after any `set_*` in the same loop). Choice keys in that call are the positional numbers. If not clean: `{ ok: false }` to the model; do not call Decisions; the operator clicks **Ask Jev** (agentic-loop mode keeps trying tools; **random-case** does not call this tool). If working state + questions match §5.4: `{ ok: false, code: "blocked-violence" }`; do **not** call Decisions. On success, the tool payload includes `answers` so the model can reason in-loop, and the SSE event carries those answers so the **next client turn** can send `jevAnswers` + the Send answers to LLM note.
 
 ---
 
@@ -1010,6 +1033,7 @@ Before calling Workshop done:
 59. `/settings` **LLM instructions** mill card sits below the key rows. Save a short standing line; reload Settings — text still there (`talk-to-jev:llm-instructions`). Workshop Send: Inspector **To LLM** shows that string once on the `/api/llm` body **and** in inspect `sent.instructions` / the system message start; the visible thread does **not** grow a fake You bubble for it. Empty save: next `/api/llm` has no extra system section and no `instructions` field. **Ask Jev** payload has no `instructions`. Propose / Send answers to LLM / Random state / Agentic loop share the same `streamLlm` injection. Textarea `resize: none`. No Bricolage / ALL CAPS stamp. Not in `.env.local`.
 60. Idle LLM composer shows **Send** (disabled when empty). Start a long `/api/llm` stream (Send, or any other LLM busy path that freezes that slot): composer shows **Stop** (filled square in a circle, `aria-label` **Stop**), not a disabled **Thinking…**. Click Stop mid-stream: SSE ends, partial assistant text remains, mill toast **Stopped.**, Send returns, window does not scroll, unpinned `.thread` scroll stays. Idle Send still sends. Ask Jev is unchanged. No CSRF edits. Public Sans / Fragment Mono only.
 61. Workshop markdown: put `**hello**` in Jev’s State (or an LLM user/assistant bubble). **Read view / bubble shows hello in bold**, not asterisks. Click State: raw `**hello**` in the textarea. Blur: bold again. Refresh: the raw string is still in `talk-to-jev:chats` and still renders. Thoughts mill and tool cards stay as now (not a second Docs iframe). Drop .md still attaches. Streaming deltas do not yank an unpinned `.thread`. No CSRF change.
+62. **Violence gate.** `npm test` covers `server/violenceGate.ts`: abstract blocked fixtures fail closed; refund / abuse-risk / “kill the post” fixtures stay allowed. Do **not** Ask Jev on a live poisoned card. A matching `POST /api/jev` is **400** `blocked-violence` (inline error on Jev’s Questions). A matching `set_jev_state` / `set_jev_questions` is a tool error and does **not** write panes. No CSRF change. No `docs/jev` rewrite.
 
 ---
 
@@ -1149,6 +1173,7 @@ Not a new product contract — known leftover work as of **2026-09-20**. Core lo
 - CSRF gate (`dbe5102`) — do not retouch.
 - Keys server-side in gitignored `.env.local`; health booleans; settings last-4.
 - Core Workshop loop (LLM tools + Ask Jev + Send answers to LLM).
+- Violence gate (`server/violenceGate.ts`, SPEC §5.4) — refund / abuse-risk tickets still work; blocked class never reaches Decisions.
 - Ten Example Uses / Preset States snaps (reviewed).
 - Convert tab (browser-only txt/html/docx/pdf).
 - Basic Settings (OpenRouter + unused slots + LLM instructions).

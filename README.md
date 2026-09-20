@@ -38,6 +38,8 @@ The LLM never answers a Jev question itself. It has tools to **read** the curren
 | `set_jev_questions` | Replaces the typed questions. Real snake_case ids only. `choice` options become `"1"`, `"2"`, … with descriptions as values; `score` is an ordered legend; `noul` is optional `{ true, false }`. Blank ids are dropped, never invented. |
 | `ask_jev` | `POST /api/alpha/decisions` with the current state + questions. Only runs when every id is real. Returns probabilities, not prose. |
 
+The server refuses `set_jev_state` / `set_jev_questions` / `POST /api/jev` when the payload is sexual violence, rape, sexual exploitation of minors, or graphic violent harm (Jev has no conscience — it will score whatever is listed). Refund and abuse-risk tickets still work.
+
 **Agentic loop** (LLM pane) runs *N* turns on the current state:
 
 ```text
