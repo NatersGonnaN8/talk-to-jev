@@ -188,6 +188,7 @@ export function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(() => !isTutorialDone());
   const [tourKey, setTourKey] = useState(0);
+  const [docsTick, setDocsTick] = useState(0);
   const [convertBatch, setConvertBatch] = useState<{
     id: string;
     files: File[];
@@ -281,6 +282,7 @@ export function App() {
       setToast(
         `Docs updated: ${r.fetched} ok, ${r.failed} failed, ${r.files} listed.`,
       );
+      setDocsTick((n) => n + 1);
       try {
         setHealth(await getHealth());
       } catch {
@@ -377,7 +379,7 @@ export function App() {
           </button>
         </div>
       ) : null}
-      {page === "docs" ? <DocsPage /> : null}
+      {page === "docs" ? <DocsPage snapshotTick={docsTick} /> : null}
       {page === "use-cases" ? (
         <div data-tutorial="use-cases-page">
           <UseCasesPage onOpen={(id) => go("workshop", id)} />
@@ -1382,7 +1384,7 @@ function IconCode() {
   );
 }
 
-function DocsPage() {
+function DocsPage({ snapshotTick }: { snapshotTick: number }) {
   const [files, setFiles] = useState<
     Array<{ path: string; title: string; source: string; fetchedAt: string }>
   >([]);
@@ -1391,20 +1393,41 @@ function DocsPage() {
   const [text, setText] = useState("");
   const [view, setView] = useState<"nice" | "code">("nice");
   const [err, setErr] = useState("");
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     try {
       const data = await listDocs();
+      if (seq !== loadSeq.current) return;
       setFiles(data.files);
+      const selected = activeRef.current;
+      if (!selected) {
+        setErr("");
+        return;
+      }
+      if (!data.files.some((f) => f.path === selected)) {
+        setActive("");
+        setText("");
+        setErr("");
+        return;
+      }
+      const doc = await readDoc(selected);
+      if (seq !== loadSeq.current) return;
+      if (activeRef.current !== selected) return;
+      setText(doc.text);
       setErr("");
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setErr(e instanceof Error ? e.message : "Could not list docs");
     }
   }, []);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, snapshotTick]);
 
   const shown = files.filter((f) => {
     const hay = `${f.path} ${f.title} ${f.source}`.toLowerCase();
@@ -1417,12 +1440,15 @@ function DocsPage() {
   }, [active, text]);
 
   const open = async (path: string) => {
+    const seq = ++loadSeq.current;
     setActive(path);
     try {
       const doc = await readDoc(path);
+      if (seq !== loadSeq.current) return;
       setText(doc.text);
       setErr("");
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setErr(e instanceof Error ? e.message : "Could not open doc");
     }
   };

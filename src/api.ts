@@ -40,8 +40,13 @@ export async function updateDocs() {
   };
 }
 
+function docsGet(url: string) {
+  const join = url.includes("?") ? "&" : "?";
+  return fetch(`${url}${join}t=${Date.now()}`, { cache: "no-store" });
+}
+
 export async function listDocs() {
-  const res = await fetch("/api/docs");
+  const res = await docsGet("/api/docs");
   return (await res.json()) as {
     files: Array<{ path: string; title: string; source: string; fetchedAt: string }>;
     fetchedAt: string;
@@ -49,7 +54,9 @@ export async function listDocs() {
 }
 
 export async function readDoc(path: string) {
-  const res = await fetch(`/api/docs/file?path=${encodeURIComponent(path)}`);
+  const res = await docsGet(
+    `/api/docs/file?path=${encodeURIComponent(path)}`,
+  );
   const body = await res.json();
   if (!res.ok) throw new Error(body.message || "Doc not found");
   return body as { ok: true; path: string; text: string };
