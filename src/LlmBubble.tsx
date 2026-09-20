@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ChatMessage, ChatToolCall } from "./types";
+import { MdProse } from "./MdProse";
 
 const TOOL_LABEL: Record<string, string> = {
   read_jev_workshop: "Read pane",
@@ -120,7 +121,7 @@ export function LlmBubble({
       {tools.map((t) => (
         <ToolCard key={t.id} tool={t} />
       ))}
-      {prose ? <pre>{prose}</pre> : null}
+      {prose ? <MdProse text={prose} /> : null}
     </div>
   );
 }

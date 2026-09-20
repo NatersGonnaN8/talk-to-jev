@@ -35,6 +35,12 @@ export function stripFrontmatter(text: string): string {
   return text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
 }
 
+/** Shared marked + DOMPurify path for LLM bubbles and Jev’s State read view. */
+export function toProseHtml(md: string): string {
+  const parsed = marked.parse(md, { async: false });
+  return sanitize(typeof parsed === "string" ? parsed : "");
+}
+
 export function toNiceHtml(raw: string, path: string): string {
   const body = stripFrontmatter(raw).trim();
   let md = body;
@@ -45,6 +51,5 @@ export function toNiceHtml(raw: string, path: string): string {
       md = `\`\`\`\n${body}\n\`\`\``;
     }
   }
-  const parsed = marked.parse(md, { async: false });
-  return sanitize(typeof parsed === "string" ? parsed : "");
+  return toProseHtml(md);
 }

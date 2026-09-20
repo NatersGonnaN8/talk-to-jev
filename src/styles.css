@@ -852,6 +852,99 @@ textarea.case {
   font-size: 0.95rem;
 }
 
+.md-prose {
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+
+.bubble .md-prose {
+  margin: 0.2rem 0 0;
+}
+
+.md-prose > :first-child {
+  margin-top: 0;
+}
+
+.md-prose > :last-child {
+  margin-bottom: 0;
+}
+
+.md-prose p,
+.md-prose ul,
+.md-prose ol,
+.md-prose blockquote {
+  margin: 0.4rem 0;
+}
+
+.md-prose ul,
+.md-prose ol {
+  padding-left: 1.25rem;
+}
+
+.md-prose a {
+  color: var(--pine);
+}
+
+.md-prose strong {
+  font-weight: 700;
+}
+
+.md-prose h1,
+.md-prose h2,
+.md-prose h3,
+.md-prose h4 {
+  font-family: var(--font-ui);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  text-transform: none;
+  margin: 0.55rem 0 0.3rem;
+}
+
+.md-prose h1 {
+  font-size: 1.05rem;
+}
+
+.md-prose h2,
+.md-prose h3,
+.md-prose h4 {
+  font-size: 1rem;
+}
+
+.md-prose code {
+  font-family: var(--font-code);
+  font-size: 0.84em;
+  background: #efe6d4;
+  padding: 0.08rem 0.28rem;
+  border-radius: 4px;
+}
+
+.md-prose pre {
+  background: #142018;
+  color: #eef6ee;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  overflow: auto;
+  font-family: var(--font-code);
+  white-space: pre-wrap;
+}
+
+.md-prose pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.md-prose blockquote {
+  padding: 0.05rem 0 0.05rem 0.75rem;
+  border-left: 3px solid var(--pine);
+  color: var(--mute);
+}
+
 .bubble .who {
   font-family: var(--font-ui);
   font-size: 0.8rem;

@@ -59,6 +59,7 @@ import { SettingsPage } from "./pages/Settings";
 import { HistoryPanel } from "./HistoryPanel";
 import { TutorialOverlay } from "./TutorialOverlay";
 import { LlmBubble, ThinkingMill } from "./LlmBubble";
+import { MdProse } from "./MdProse";
 import { AgenticLoopMenu } from "./AgenticLoopMenu";
 import {
   AGENTIC_LOOP_NEED_MILL,
@@ -1383,7 +1384,7 @@ function Workshop({
                 return (
                   <div key={`${m.role}-${i}`} className="bubble user">
                     <span className="who">You</span>
-                    <pre>{m.content}</pre>
+                    <MdProse text={m.content} />
                   </div>
                 );
               })
