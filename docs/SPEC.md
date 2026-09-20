@@ -351,6 +351,8 @@ Libraries, caps, and never-list: **§16**.
 
 All JSON unless noted. Never echo the API key. Never dump upstream bodies that might contain secrets. Bind `127.0.0.1` only; do **not** set wide-open CORS (`Access-Control-Allow-Origin: *`). Same-origin UI does not need CORS.
 
+**CSRF gate (2026-09-19).** `cors: false` only stops other sites from *reading* responses; a malicious page in the operator's browser can still *send* a preflight-free POST to `127.0.0.1:5182` and swap the OpenRouter key or burn credits. So every `/api/*` request is refused with **403** when `Sec-Fetch-Site` is present and not `same-origin` / `none`, or when `Origin` is present and is not `http(s)://<Host>` (Host is trusted because Vite `allowedHosts` already 403s foreign hosts). POST bodies must be `Content-Type: application/json` or the server returns **415** (cross-site preflight-free POSTs can only be `text/plain` / form types). Requests with neither header (curl, address bar, same-origin GET) pass. Never relax this to `Access-Control-Allow-Origin`.
+
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | `{ ok, hasKey, keys: { openrouter, openai, anthropic, tavily, brave }, jevModel, llmModel, docs: { files, fetchedAt } }`. All key fields are booleans. `hasKey` === `keys.openrouter`. Never last-4, never the secret. |
@@ -364,7 +366,7 @@ All JSON unless noted. Never echo the API key. Never dump upstream bodies that m
 | GET | `/api/weather` | Open-Meteo proxy. Query `q` (city or `lat,lon`) or `latitude`+`longitude`. Default `q=Columbus, OH`. Returns `{ ok, place, current, daily, hourly, text, json }`. `text` is the Jev’s case weather block. No OpenRouter key. |
 | GET | `/api/geo` | Open-Meteo geocoding helper. Query `q`. Returns `{ ok, results: [{ name, admin1, country, latitude, longitude }] }`. Optional; **Load weather** may geocode internally. |
 
-Errors: 501 missing key, 400 bad body, 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter. `POST /api/jev` and `POST /api/llm` return 501 when the key is missing. Error strings that look like keys (`Bearer`, `sk-or-`, `OPENROUTER_API_KEY`) are replaced with a generic failure. Jev success JSON is `ok`, `model`, `answers`, `usage` — do not spread the raw upstream object.
+Errors: 403 cross-site, 415 non-JSON body, 501 missing key, 400 bad body, 404 unknown place, 502 upstream. Messages may say “Jev request failed” without dumping upstream secrets. Weather errors must not mention OpenRouter. `POST /api/jev` and `POST /api/llm` return 501 when the key is missing. Error strings that look like keys (`Bearer`, `sk-or-`, `OPENROUTER_API_KEY`) are replaced with a generic failure. Jev success JSON is `ok`, `model`, `answers`, `usage` — do not spread the raw upstream object.
 
 ---
 
@@ -708,7 +710,7 @@ Nater wants this public soon (Jev wave). Flip GitHub to **public** only if all a
 6. History JSON in `localStorage` has no API key
 7. `env.local.template` (if present) has **empty** values only — never real secrets
 
-If any fail: **keep private**, fix what we can, report. LICENSE is MIT, copyright Nathan Utley, 2026.
+If any fail: **keep private**, fix what we can, report. LICENSE is MIT, copyright Nathan Uttley, 2026.
 
 ---
 

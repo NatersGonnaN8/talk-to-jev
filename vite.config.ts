@@ -26,6 +26,36 @@ function publicError(err: unknown): string {
   return sanitizePublicError(raw);
 }
 
+class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/**
+ * CSRF gate. The UI is same-origin, so any /api/* request that carries a
+ * foreign Origin or a cross-site Sec-Fetch-Site came from another website
+ * running in the user's browser. Browsers always stamp cross-site POSTs with
+ * Origin, and pages cannot forge either header. Requests with neither header
+ * (curl, address bar, same-origin GET) pass.
+ */
+function isSameOrigin(req: IncomingMessage): boolean {
+  const site = req.headers["sec-fetch-site"];
+  if (typeof site === "string" && site !== "same-origin" && site !== "none") {
+    return false;
+  }
+  const origin = req.headers.origin;
+  if (typeof origin === "string") {
+    const host = req.headers.host;
+    if (!host) return false;
+    // Vite already 403s foreign Host headers (allowedHosts), so Host is trusted.
+    if (origin !== `http://${host}` && origin !== `https://${host}`) return false;
+  }
+  return true;
+}
+
 function send(res: ServerResponse, code: number, body: unknown) {
   res.statusCode = code;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -45,6 +75,12 @@ function readBody(req: IncomingMessage): Promise<string> {
 async function jsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   const raw = await readBody(req);
   if (!raw.trim()) return {};
+  // A cross-site POST can only be sent preflight-free as text/plain or a form
+  // type. Our client always sends application/json, so anything else is not us.
+  const type = String(req.headers["content-type"] || "");
+  if (!type.toLowerCase().startsWith("application/json")) {
+    throw new HttpError(415, "Expected application/json.");
+  }
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
@@ -151,6 +187,9 @@ function workshopApi(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         const url = req.url?.split("?")[0] ?? "";
         if (!url.startsWith("/api/")) return next();
+        if (!isSameOrigin(req)) {
+          return send(res, 403, { ok: false, message: "Cross-site request refused." });
+        }
         const env = loadDotenv();
         try {
           if (req.method === "GET" && url === "/api/health") {
@@ -335,6 +374,9 @@ function workshopApi(): Plugin {
 
           return send(res, 404, { ok: false, message: "unknown api" });
         } catch (err) {
+          if (err instanceof HttpError) {
+            return send(res, err.status, { ok: false, message: err.message });
+          }
           return send(res, 500, { ok: false, message: publicError(err) });
         }
       });
