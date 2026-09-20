@@ -5,7 +5,12 @@
 
 export const TUTORIAL_DONE_KEY = "talk-to-jev:tutorial-done";
 
-export type TutorialPage = "workshop" | "docs" | "use-cases" | "settings";
+export type TutorialPage =
+  | "workshop"
+  | "docs"
+  | "use-cases"
+  | "settings"
+  | "convert";
 
 export type TutorialStep = {
   id: string;
@@ -45,7 +50,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "case",
     title: "Jev’s case is Jev state",
-    body: "This slip is what Jev judges. The LLM can draft it. Operator snaps, local .md you drop in, converted files you add from Convert to Markdown, and (on Jacket) weather all live here as state — not as a chat with Jev.",
+    body: "This slip is what Jev judges. The LLM can draft it. Operator snaps, local .md you drop in, converted files you add from the Convert tab, and (on Jacket) weather all live here as state — not as a chat with Jev.",
     page: "workshop",
     hooks: ["case"],
     selectors: [".ticket"],
@@ -98,6 +103,14 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     page: "settings",
     hooks: ["settings-page", "settings"],
     texts: ["Settings"],
+  },
+  {
+    id: "convert",
+    title: "Convert to Markdown",
+    body: "Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev’s case, which brings you here. Files stay in the browser. Add the markdown to the LLM, to Jev’s case, or save it.",
+    page: "convert",
+    hooks: ["convert-page", "convert", "convert-nav"],
+    texts: ["Convert"],
   },
   {
     id: "history",

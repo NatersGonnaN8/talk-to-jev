@@ -1,22 +1,19 @@
 import { useRef } from "react";
 import { FlipTip } from "./FlipTip";
-import { CONVERT_ACCEPT, MARKDOWN_ACCEPT } from "./convert/formats";
+import { MARKDOWN_ACCEPT } from "./convert/formats";
 
 export function AttachBar({
   names,
   error,
   onPickMarkdown,
-  onPickConvert,
   onRemove,
 }: {
   names: string[];
   error: string;
   onPickMarkdown: (files: FileList) => void;
-  onPickConvert: (files: FileList) => void;
   onRemove: (name: string) => void;
 }) {
   const mdRef = useRef<HTMLInputElement>(null);
-  const convertRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="attach-bar">
@@ -30,15 +27,6 @@ export function AttachBar({
             Add .md
           </button>
         </FlipTip>
-        <FlipTip text="Convert txt, html, docx, or pdf in this browser. Files never leave the machine.">
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => convertRef.current?.click()}
-          >
-            Convert to Markdown
-          </button>
-        </FlipTip>
         <input
           ref={mdRef}
           className="attach-file"
@@ -49,19 +37,6 @@ export function AttachBar({
           onChange={(e) => {
             const list = e.currentTarget.files;
             if (list?.length) onPickMarkdown(list);
-            e.currentTarget.value = "";
-          }}
-        />
-        <input
-          ref={convertRef}
-          className="attach-file"
-          type="file"
-          accept={CONVERT_ACCEPT}
-          multiple
-          aria-label="Convert files to markdown"
-          onChange={(e) => {
-            const list = e.currentTarget.files;
-            if (list?.length) onPickConvert(list);
             e.currentTarget.value = "";
           }}
         />

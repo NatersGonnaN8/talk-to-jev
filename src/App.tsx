@@ -57,12 +57,13 @@ import {
   type WorkshopSnapshot,
 } from "./history";
 
-type Page = "workshop" | "docs" | "use-cases" | "settings";
+type Page = "workshop" | "docs" | "use-cases" | "settings" | "convert";
 
 function pageFromPath(): Page {
   const p = window.location.pathname;
   if (p.startsWith("/docs")) return "docs";
   if (p.startsWith("/settings")) return "settings";
+  if (p.startsWith("/convert")) return "convert";
   if (p.startsWith("/use-cases") || p.startsWith("/cases")) return "use-cases";
   return "workshop";
 }
@@ -252,6 +253,19 @@ export function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(() => !isTutorialDone());
   const [tourKey, setTourKey] = useState(0);
+  const [convertBatch, setConvertBatch] = useState<{
+    id: string;
+    files: File[];
+  } | null>(null);
+  const [convertCaseText, setConvertCaseText] = useState("");
+  const convertAddToCase = useRef<
+    (filename: string, markdown: string) => { ok: boolean; message: string }
+  >(() => ({ ok: false, message: "Workshop is still loading." }));
+  const convertAddToLlm = useRef<(filename: string, markdown: string) => void>(
+    () => {},
+  );
+  const pageRef = useRef(page);
+  pageRef.current = page;
 
   useEffect(() => {
     const onPop = () => {
@@ -275,6 +289,10 @@ export function App() {
   }, []);
 
   const go = (next: Page, sampleId?: SampleId) => {
+    if (next === pageRef.current && !sampleId) {
+      if (next !== "workshop") setHistoryOpen(false);
+      return;
+    }
     if (next === "docs") {
       window.history.pushState({}, "", "/docs");
       setCaseId(null);
@@ -283,6 +301,9 @@ export function App() {
       setCaseId(null);
     } else if (next === "settings") {
       window.history.pushState({}, "", "/settings");
+      setCaseId(null);
+    } else if (next === "convert") {
+      window.history.pushState({}, "", "/convert");
       setCaseId(null);
     } else if (sampleId) {
       window.history.pushState({}, "", `/?case=${encodeURIComponent(sampleId)}`);
@@ -294,6 +315,20 @@ export function App() {
     }
     setPage(next);
     if (next !== "workshop") setHistoryOpen(false);
+  };
+
+  const consumeConvertBatch = useCallback(() => {
+    setConvertBatch(null);
+  }, []);
+
+  const queueConvertFiles = (files: File[]) => {
+    if (!files.length) return;
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    setConvertBatch({ id, files });
+    go("convert");
   };
 
   const goTour = (next: TutorialPage) => {
@@ -373,6 +408,16 @@ export function App() {
           >
             Settings
           </button>
+          <button
+            className={page === "convert" ? "nav-btn on" : "nav-btn"}
+            type="button"
+            data-tutorial="convert-nav"
+            title="Convert to Markdown"
+            aria-label="Convert to Markdown"
+            onClick={() => go("convert")}
+          >
+            Convert
+          </button>
         </nav>
         <div className="chrome-right">
           <button
@@ -442,7 +487,7 @@ export function App() {
           }}
         />
       ) : null}
-      <div hidden={page !== "workshop"}>
+      <div className="page-mount" hidden={page !== "workshop"}>
         <Workshop
           health={health}
           onToast={setToast}
@@ -452,6 +497,24 @@ export function App() {
           presetNonce={presetNonce}
           onOpenSample={(id: SampleId) => go("workshop", id)}
           onBlankWorkshop={() => go("workshop")}
+          onQueueConvert={queueConvertFiles}
+          onCaseText={setConvertCaseText}
+          convertAddToCase={convertAddToCase}
+          convertAddToLlm={convertAddToLlm}
+        />
+      </div>
+      <div className="page-mount" hidden={page !== "convert"}>
+        <ConvertPane
+          batch={convertBatch}
+          caseText={convertCaseText}
+          onBatchConsumed={consumeConvertBatch}
+          onAddToCase={(filename, markdown) =>
+            convertAddToCase.current(filename, markdown)
+          }
+          onAddToLlm={(filename, markdown) =>
+            convertAddToLlm.current(filename, markdown)
+          }
+          onEnqueue={queueConvertFiles}
         />
       </div>
       <TutorialOverlay
@@ -473,6 +536,10 @@ function Workshop({
   presetNonce,
   onOpenSample,
   onBlankWorkshop,
+  onQueueConvert,
+  onCaseText,
+  convertAddToCase,
+  convertAddToLlm,
 }: {
   health: Health | null;
   onToast: (s: string) => void;
@@ -482,6 +549,14 @@ function Workshop({
   presetNonce: number;
   onOpenSample: (id: SampleId) => void;
   onBlankWorkshop: () => void;
+  onQueueConvert: (files: File[]) => void;
+  onCaseText: (text: string) => void;
+  convertAddToCase: React.MutableRefObject<
+    (filename: string, markdown: string) => { ok: boolean; message: string }
+  >;
+  convertAddToLlm: React.MutableRefObject<
+    (filename: string, markdown: string) => void
+  >;
 }) {
   const [store, setStore] = useState<ChatStore>(() => loadStore());
   const boot = activeThread(store);
@@ -510,12 +585,6 @@ function Workshop({
   const [weatherLine, setWeatherLine] = useState("");
   const [attachError, setAttachError] = useState("");
   const [dropOn, setDropOn] = useState(false);
-  const [convertOpen, setConvertOpen] = useState(false);
-  const [convertBatch, setConvertBatch] = useState<{
-    id: string;
-    files: File[];
-  } | null>(null);
-  const [convertSplit, setConvertSplit] = useState(50);
   const dragDepth = useRef(0);
   const threadRef = useRef<HTMLDivElement>(null);
   const snapRef = useRef<WorkshopSnapshot>(emptySnapshot());
@@ -552,8 +621,6 @@ function Workshop({
     setAttachError("");
     setDropOn(false);
     dragDepth.current = 0;
-    setConvertOpen(false);
-    setConvertBatch(null);
   };
 
   useEffect(() => {
@@ -739,20 +806,6 @@ function Workshop({
 
   const attachedNames = useMemo(() => listAttachedNames(state), [state]);
 
-  const consumeConvertBatch = useCallback(() => {
-    setConvertBatch(null);
-  }, []);
-
-  const queueConvertFiles = (files: File[]) => {
-    if (!files.length) return;
-    const id =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    setConvertBatch({ id, files });
-    setConvertOpen(true);
-  };
-
   const onTicketFiles = async (list: FileList | File[]) => {
     const files = Array.from(list);
     if (!files.length) return;
@@ -766,15 +819,11 @@ function Workshop({
       setState(result.state);
       errors.push(...result.errors);
     }
-    if (convert.length) queueConvertFiles(convert);
+    if (convert.length) onQueueConvert(convert);
     setAttachError(errors.filter(Boolean).join(" "));
   };
 
   const onPickMarkdown = (list: FileList) => {
-    void onTicketFiles(list);
-  };
-
-  const onPickConvert = (list: FileList) => {
     void onTicketFiles(list);
   };
 
@@ -816,6 +865,13 @@ function Workshop({
     ]);
     onToast("Added converted markdown to the LLM thread.");
   };
+
+  convertAddToCase.current = onConvertAddToCase;
+  convertAddToLlm.current = onConvertAddToLlm;
+
+  useEffect(() => {
+    onCaseText(state);
+  }, [state, onCaseText]);
 
   const onTicketDragEnter = (e: React.DragEvent<HTMLElement>) => {
     e.preventDefault();
@@ -875,26 +931,6 @@ function Workshop({
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   }, []);
-
-  const onConvertSplitPointer = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      const rail = e.currentTarget.parentElement;
-      if (!rail) return;
-      e.currentTarget.setPointerCapture(e.pointerId);
-      const move = (ev: PointerEvent) => {
-        const rect = rail.getBoundingClientRect();
-        const x = ((ev.clientX - rect.left) / rect.width) * 100;
-        setConvertSplit(Math.min(72, Math.max(28, x)));
-      };
-      const up = () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-      };
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-    },
-    [],
-  );
 
   const llmJevBoard = (
     <>
@@ -1095,46 +1131,16 @@ function Workshop({
           names={attachedNames}
           error={attachError}
           onPickMarkdown={onPickMarkdown}
-          onPickConvert={onPickConvert}
           onRemove={onRemoveAttach}
         />
         <p className="hint">
           {isWeatherSample(samplePresetId)
-            ? "Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf open Convert to Markdown. Weather is Open-Meteo input, not a model."
-            : "Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf open Convert to Markdown."}
+            ? "Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf go to Convert. Weather is Open-Meteo input, not a model."
+            : "Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf go to Convert."}
         </p>
       </section>
 
-      <section className="board">
-        {convertOpen ? (
-          <>
-            <ConvertPane
-              batch={convertBatch}
-              caseText={state}
-              onBatchConsumed={consumeConvertBatch}
-              onAddToCase={onConvertAddToCase}
-              onAddToLlm={onConvertAddToLlm}
-              onClose={() => setConvertOpen(false)}
-              style={{ flex: `${convertSplit} 1 0` }}
-            />
-            <div
-              className="splitter"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize convert pane"
-              onPointerDown={onConvertSplitPointer}
-            />
-            <div
-              className="board-rest"
-              style={{ flex: `${100 - convertSplit} 1 0` }}
-            >
-              {llmJevBoard}
-            </div>
-          </>
-        ) : (
-          llmJevBoard
-        )}
-      </section>
+      <section className="board">{llmJevBoard}</section>
     </main>
   );
 }

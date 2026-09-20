@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.7 — 2026-09-19  
+**Status:** v0.8 — 2026-09-19  
 **Product:** Talk to Jev  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
 **GitHub:** public [`talk-to-jev`](https://github.com/NatersGonnaN8/talk-to-jev) (flipped 2026-09-19 after the §14 security checklist)  
@@ -127,7 +127,8 @@ Code owns routing. The UI shows probabilities; it does not pretend a typed answe
 Global chrome (all pages):
 
 - Left: product name **Talk to Jev** (links home Workshop)
-- Nav: **Workshop** | **Use Cases** | **Docs** | **Settings**
+- Nav: **Workshop** | **Use Cases** | **Docs** | **Settings** | **Convert**
+- **Convert** sits **after** Settings. Visible label **Convert**; `title` and accessible name **Convert to Markdown**. Route `/convert`.
 - Right: **Tour** (Help — restarts the first-run coach overlay), **History** (Workshop only — opens the local thread drawer), **key pill** (status text; shortcut to Settings — see **Chrome key pill**), **Update Jev docs**
 - No native textarea resize grips. Pane widths use a custom vertical splitter (quiet mill/pine seam — not a dashed orange hatch).
 - No native `<dialog>` / iframe for the coach. See §6.4.
@@ -162,10 +163,10 @@ Layout (desktop):
   [ samples: 10 chips — 9 business + Jacket ]
   [ location field + Load weather ]   ← Jacket only; hidden on business chips
   [ include-chat checkbox ]
-  [ Add .md + Convert to Markdown + attached-file chips ]
+  [ Add .md + attached-file chips ]
   [ shared state textarea ]
-  [ drop .md into Jev’s case; other formats open Convert ]
-[ CONVERT PANE (when open, half) | LLM pane | splitter | JEV pane ]
+  [ drop .md into Jev’s case; convert formats go to the Convert tab ]
+[ LLM pane | splitter | JEV pane ]
 ```
 
 **Jev’s case** (the state ticket — **not** Use Cases cards)
@@ -175,14 +176,13 @@ Layout (desktop):
 - **Samples** row: ten one-click chips (see §12). Active chip is visually on. **First-open** and **New chat** load **Invoice exception** (`invoice`) — a business snap — not Jacket.
 - **Weather row:** shown **only** when the active preset is **Jacket?** (`jacket`). Location field (default **Columbus, OH**) + **Load weather**. **Hide** the row on the nine business presets (do not leave a disabled weather form that still makes the Workshop look like a weather app). Accepts a city / “City, ST” (Open-Meteo geocoding) or `lat, lon`. Loading does not require the OpenRouter key.
 - Textarea, `resize: none`, fills the ticket. **Load weather** (Jacket only) replaces the marked weather block (or prepends one).
-- **Add .md** (file picker, `accept=".md,.markdown,text/markdown"`, multiple): local user markdown is inserted into Jev’s case as `state`. Official `docs/jev/` snapshot stays in Docs; do not auto-insert it.
-- **Convert to Markdown** (file picker for `.txt`, `.html`, `.htm`, `.docx`, `.pdf`, `.doc`): opens the convert pane (§16). Does not attach until the operator picks an action.
-- **Drag-and-drop** onto the whole Jev’s case ticket (including the textarea). **Mix:** `.md` / `.markdown` go **into Jev’s case** (no convert window). Convert formats open Convert to Markdown with **per-file progress**. Unsupported types: inline error. See **§15** and **§16**.
+- **Add .md** (file picker, `accept=".md,.markdown,text/markdown"`, multiple): local user markdown is inserted into Jev’s case as `state`. Official `docs/jev/` snapshot stays in Docs; do not auto-insert it. There is **no** Convert to Markdown button on this ticket — that UI lives on the **Convert** tab (§6.6 / §16).
+- **Drag-and-drop** onto the whole Jev’s case ticket (including the textarea). **Mix:** `.md` / `.markdown` stay on Workshop and go **into Jev’s case**. Convert formats **navigate to `/convert`** (the Convert tab) with **per-file progress**. Do not dump convert UI back into the case row. Unsupported types: inline error on the ticket. See **§15** and **§16**.
 - Attached names list near the ticket. Remove one = strip that attach block. Weather / situation text stay.
-- Helper: “Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf open Convert to Markdown.” On Jacket only, add: “Weather is Open-Meteo input, not a model.”
+- Helper: “Jev judges this. The LLM can draft it. Drop .md into Jev’s case. txt / html / docx / pdf go to Convert.” On Jacket only, add: “Weather is Open-Meteo input, not a model.”
 - After a successful weather load, a one-line status under the row: resolved place + now summary (e.g. `Columbus, Ohio · 72°F · Partly cloudy`). Toast on failure.
 - Size-cap attachments so a huge dump cannot freeze the UI. See **§15**. Convert caps: **§16**.
-- Tips on **Add .md** / **Convert to Markdown** are fully opaque, flip above/below so they stay on-screen.
+- Tip on **Add .md** is fully opaque, flip above/below so it stays on-screen. Convert-file tips live on `/convert`.
 
 **LLM pane** (manila / prose)
 
@@ -213,7 +213,7 @@ Layout (desktop):
 - Usage line: input tokens + cost when OpenRouter returns them
 - Empty answers: “Define questions, then ask Jev.”
 
-**Splitter:** drag the shared vertical edge. Not a native resize handle. Nater (2026-09-19): the old style looked like “a sick candy cane” — dashed orange hatch on cream with a pine stripe. **Visual:** a thin, quiet mill/pine divider (hit target stays wide enough to grab). Rest: 1px `--line` seam, mill-floor gutter, `cursor: col-resize`. Hover / while dragging: the seam widens slightly to pine so it reads as a handle — no dashed circus stripe, no orange/blue hatch, no garnish. Hidden on mobile; panes stack full width. `resize: none` on textareas; never CSS `resize` for layout. When Convert to Markdown is open, a **second** quiet splitter sits between the convert pane (half) and the LLM \| Jev pair.
+**Splitter:** drag the shared vertical edge between LLM and Jev. Not a native resize handle. Nater (2026-09-19): the old style looked like “a sick candy cane” — dashed orange hatch on cream with a pine stripe. **Visual:** a thin, quiet mill/pine divider (hit target stays wide enough to grab). Rest: 1px `--line` seam, mill-floor gutter, `cursor: col-resize`. Hover / while dragging: the seam widens slightly to pine so it reads as a handle — no dashed circus stripe, no orange/blue hatch, no garnish. Hidden on mobile; panes stack full width. `resize: none` on textareas; never CSS `resize` for layout. Convert is **not** a third Workshop pane — it is its own tab (§6.6). That page may use the same quiet splitter between its file list and preview.
 
 **History** (local threads, overlay drawer — not a permanent sidebar):
 
@@ -293,15 +293,16 @@ Visual: mill floor, manila cards, blueprint type chips, pine ink. Slick and usab
 **Steps** (each is independent). If the target is missing because a sibling page/control has not landed, **skip that step** — do not block the tour.
 
 1. **Welcome** — two AIs, one OpenRouter key. The LLM talks. Jev does not write.
-2. **Jev’s case** — this slip is Jev `state`. Drop `.md` here; other files open Convert to Markdown.
+2. **Jev’s case** — this slip is Jev `state`. Drop `.md` here; other files open the **Convert** tab.
 3. **LLM pane** — prose / draft / chat.
 4. **Jev pane** — typed `choice` / `noul` / `score` + **Ask Jev**.
 5. **Propose Jev questions** / **Feed Jev to LLM** if those buttons exist.
 6. **Use Cases** — nine operator snaps plus one weather case (Jacket), same list as Workshop chips.
 7. **Docs** — eyeball (nice Markdown) vs code (raw snapshot). May navigate to `/docs`.
 8. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
-9. **History** if the chrome control exists.
-10. **Load weather** if that control is **visible** (Jacket preset only; Open-Meteo input, not a third model). Skip when the weather row is hidden on a business preset.
+9. **Convert** — chrome **Convert** tab (`/convert`). Drop txt / html / docx / pdf here, or onto Jev’s case (that still opens this tab). Files stay in the browser.
+10. **History** if the chrome control exists.
+11. **Load weather** if that control is **visible** (Jacket preset only; Open-Meteo input, not a third model). Skip when the weather row is hidden on a business preset.
 
 **Code:** `src/tutorial.ts` (step list + storage helpers) and `src/TutorialOverlay.tsx`. Hook live controls with `data-tutorial` attributes. Overlay may switch Workshop ↔ Docs for those steps, then continue.
 
@@ -329,6 +330,31 @@ Each row, in this order: **OpenRouter**, **OpenAI**, **Anthropic**, **Tavily**, 
 - Tips (status / last-4 help) are **opaque**, fully on-screen, and **flip** (below if there is room; above if the row is low — never under sticky chrome)
 
 Saving one row POSTs `/api/settings` `{ id, value }` and writes that env var on the server. Empty save clears the slot. Clear the input after a successful save. OpenRouter still powers LLM + Jev; do not wire Tavily / Brave / OpenAI / Anthropic live calls in MVP.
+
+### 6.6 Convert — `/convert`
+
+Nater (2026-09-19): “Move the Convert to Markdown button to a separate tab at the top next to Settings.” Chrome order is Settings, then **Convert**.
+
+**Job:** turn local txt / html / docx / pdf into markdown **in this browser**. Then **Add to the LLM**, **Add to Jev’s case**, **Download**, or **Save as MD**. Files never leave the machine.
+
+Layout:
+
+```
+[ chrome ]
+[ manila intro slip ]
+[ drop / choose files | quiet splitter | preview + actions ]
+```
+
+- Full Convert to Markdown UI — not a half-pane on Workshop, not a button on Jev’s case.
+- Drop zone + file picker (`accept` for `.txt,.html,.htm,.docx,.pdf,.doc` plus matching MIME types, `multiple`).
+- Per-file progress. 64k / 32k TypeSafe note. Preview textarea `resize: none`.
+- Actions on the selected resulting MD: **Add to the LLM** / **Add to Jev’s case** / **Download** / **Save as MD**.
+- Quiet custom splitter between the file list and the preview (same mill/pine seam as Workshop). Hidden on mobile; stack.
+- Tips opaque, flip, fully on-screen.
+- Leave via chrome nav. Jobs stay if the operator switches tabs and comes back (Workshop stays mounted too).
+- Dropping convert formats onto **Jev’s case** still **navigates here** with those files queued. `.md` on Jev’s case never opens this tab.
+
+Libraries, caps, and never-list: **§16**.
 
 ---
 
@@ -480,7 +506,7 @@ Nater (2026-09-19): “can we add .md files to the case for jev?” **Yes.** Loc
 - **Drag-and-drop** onto **Jev’s case** (the whole slip, including the textarea).
 - Multiple files OK. Re-adding the **same sanitized filename** **replaces** that attach block. New names **append** (do not clobber the situation or the weather block).
 - List attached names near the ticket. Remove one = strip that file’s attach block only.
-- **Mix drops:** `.md` / `.markdown` attach immediately. Convert formats (`.txt`, `.html`, `.htm`, `.docx`, `.pdf`, `.doc`) open **Convert to Markdown** (§16) — they are **not** an error. Truly unsupported types: short **inline** error (`role="alert"`), not `window.alert`.
+- **Mix drops:** `.md` / `.markdown` attach immediately (stay on Workshop). Convert formats (`.txt`, `.html`, `.htm`, `.docx`, `.pdf`, `.doc`) **open the Convert tab** (`/convert`, §16) — they are **not** an error. Truly unsupported types: short **inline** error (`role="alert"`), not `window.alert`.
 - Tip on **Add .md**: fully opaque, flip above/below so it stays on-screen, never a translucent fill.
 
 **Markers** (HTML comments in Jev’s case text):
@@ -666,15 +692,16 @@ Before calling Workshop done:
 34. **Add question** inserts a card whose id field is **empty** (placeholder `question id`, not `q_*`). Typing an id works. **Ask Jev** with that field still blank shows an inline error and does not invent an id or call Jev. Preset ids (`wear_jacket`, business ids) stay filled.
 35. Ticket label reads **Jev’s case** (not **Case**). Use Cases gallery title stays **Use Cases**.
 36. **Add .md** (or drop `.md` onto Jev’s case) inserts a marked attach block into the textarea; chips list the filename. Ask Jev / the LLM see that text as `state`.
-37. Drop a **mix** (`.md` + `.txt` or `.pdf`): markdown attaches; the convert pane opens for the rest with per-file progress. A truly unsupported type shows an inline error (no native `alert`). A huge markdown file (over the §15 cap) is rejected without freezing the UI.
+37. Drop a **mix** (`.md` + `.txt` or `.pdf`): markdown attaches on Workshop; the **Convert** tab (`/convert`) opens for the rest with per-file progress. A truly unsupported type shows an inline error on the ticket (no native `alert`). A huge markdown file (over the §15 cap) is rejected without freezing the UI.
 38. Remove a chip: that attach block is gone; weather / situation text stay.
 39. Re-adding the same filename replaces that attach block (does not duplicate it).
 40. Opening Docs does **not** dump the official snapshot into Jev’s case. Attach is local user files only.
-41. Drop `.txt` / `.html` / `.docx` / `.pdf` onto Jev’s case: Convert to Markdown opens and takes **half** the Workshop board. Quiet splitter (not candy-cane). Per-file progress. Resulting MD can **Add to the LLM**, **Add to Jev’s case**, **Download**, **Save as MD**.
-42. PDF: text layer via **pdfjs-dist** in the browser. No network upload of the file. A scan / image-only PDF errors **scan / no selectable text**. Convert pane footnotes Pandoc as a heavier local option.
-43. `.doc` (legacy): convert pane says **save as .docx** (no cheap browser path).
-44. Convert pane shows Jev token copy from TypeSafe (`docs/jev/typesafe/models.md`): **~64,000 tokens per request**; **32k** for state + longest question. Warn if converted MD would blow 32k; block **Add to Jev’s case** if it would blow 64k. Download / Save still work.
-45. Convert pane textareas `resize: none`. Tips opaque and fully on-screen.
+41. Drop `.txt` / `.html` / `.docx` / `.pdf` onto Jev’s case: the **Convert** tab (`/convert`) opens (not a half-pane on Workshop, not a case-row button). Per-file progress. Resulting MD can **Add to the LLM**, **Add to Jev’s case**, **Download**, **Save as MD**. Chrome nav is Workshop | Use Cases | Docs | Settings | **Convert** (Convert after Settings; visible label Convert; title/aria Convert to Markdown).
+42. PDF: text layer via **pdfjs-dist** in the browser. No network upload of the file. A scan / image-only PDF errors **scan / no selectable text**. Convert page footnotes Pandoc as a heavier local option.
+43. `.doc` (legacy): Convert page says **save as .docx** (no cheap browser path).
+44. Convert page shows Jev token copy from TypeSafe (`docs/jev/typesafe/models.md`): **~64,000 tokens per request**; **32k** for state + longest question. Warn if converted MD would blow 32k; block **Add to Jev’s case** if it would blow 64k. Download / Save still work.
+45. Convert page textareas `resize: none`. Tips opaque and fully on-screen. Workshop still has the quiet LLM \| Jev splitter (not candy-cane). Convert page uses the same quiet splitter between file list and preview.
+46. Jev’s case toolbar has **Add .md** only — no Convert to Markdown chrome button in that row. `.md` drop stays on Workshop (attach chips).
 
 ---
 
@@ -696,31 +723,33 @@ If any fail: **keep private**, fix what we can, report. LICENSE is MIT, copyrigh
 
 ## 16. Convert to Markdown (client-side)
 
-Nater (2026-09-19): drop files on **Jev’s case**. Markdown goes into Jev state. Other text-ish files open **Convert to Markdown**. PDFs are **text layer only** via OSS **pdf.js** (`pdfjs-dist`) in the browser. **No images, no OCR, no upload to a SaaS converter.** Files never leave the machine.
+Nater (2026-09-19): drop files on **Jev’s case**. Markdown goes into Jev state. Other text-ish files open the **Convert** tab (`/convert`). Same day: move the Convert to Markdown **button** off the case ticket onto that chrome tab (after Settings). PDFs are **text layer only** via OSS **pdf.js** (`pdfjs-dist`) in the browser. **No images, no OCR, no upload to a SaaS converter.** Files never leave the machine.
 
 ### Drop mix (Jev’s case ticket)
 
 | Kind | Extensions / types | Behavior |
 |---|---|---|
-| Markdown | `.md`, `.markdown`, `text/markdown` | Drop **into Jev’s case** as attach blocks. **No convert pane.** |
-| Convert | `.txt`, `.html`, `.htm`, `.docx`, `.pdf` | Auto-open **Convert to Markdown**. Per-file progress. |
-| Legacy Word | `.doc` (OLE / `application/msword`) | Open the convert pane with an error: **save as .docx**. No cheap reliable browser path for OLE `.doc`. |
-| Mix | markdown + convert | Markdown attaches; convert files open the pane. |
+| Markdown | `.md`, `.markdown`, `text/markdown` | Drop **into Jev’s case** as attach blocks. **Stay on Workshop.** |
+| Convert | `.txt`, `.html`, `.htm`, `.docx`, `.pdf` | Navigate to **`/convert`**. Per-file progress. |
+| Legacy Word | `.doc` (OLE / `application/msword`) | Navigate to `/convert` with an error: **save as .docx**. No cheap reliable browser path for OLE `.doc`. |
+| Mix | markdown + convert | Markdown attaches on Workshop; convert files open the Convert tab. |
 | Other | anything else | Inline error on the ticket (`role="alert"`). Not `alert()`. |
 
-**Add .md** stays markdown-only.
+**Add .md** stays markdown-only on the ticket. **Do not** put a Convert to Markdown button back on Jev’s case.
 
-**Convert to Markdown** control on the ticket: file picker `accept` for `.txt,.html,.htm,.docx,.pdf,.doc` plus matching MIME types, `multiple`. Opens the convert pane. Does not attach until an action.
+**Convert to Markdown** control lives on `/convert`: file picker `accept` for `.txt,.html,.htm,.docx,.pdf,.doc` plus matching MIME types, `multiple`. Drop zone on that page too. Does not attach until an action.
 
-Drag-and-drop onto the **whole Jev’s case ticket**.
+Drag-and-drop onto the **whole Jev’s case ticket** still works: convertables **open the Convert tab**. `.md` does not.
 
-### Convert pane
+### Convert page (`/convert`)
 
-When any convert file is queued, the Workshop **board splits**: Convert pane takes **half** (default 50%). Quiet custom splitter (same mill/pine seam as LLM \| Jev — not a dashed orange hatch). Hidden on mobile; panes stack. `resize: none` on the preview textarea.
+Full page — not a half Workshop board.
 
-Eyebrow: **Convert to Markdown**.
+Eyebrow / heading: **Convert to Markdown**. Chrome nav label: **Convert**.
 
 Per-file row: filename, status (queued / reading / converting / done / error), progress (PDF = page n of m). Select a done file to preview resulting MD.
+
+Quiet custom splitter (same mill/pine seam as LLM \| Jev — not a dashed orange hatch) between the file list and the preview. Hidden on mobile; panes stack. `resize: none` on the preview textarea.
 
 **Actions** on the selected resulting MD:
 
@@ -731,7 +760,7 @@ Per-file row: filename, status (queued / reading / converting / done / error), p
 | **Download** | Browser download of the `.md`. |
 | **Save as MD** | `showSaveFilePicker` when the browser has it; otherwise same as Download. |
 
-Close (×) hides the pane. A later drop can reopen and append jobs.
+Leave via chrome nav. Switching away does not have to wipe jobs. A later drop on this page or on Jev’s case can append jobs.
 
 ### Libraries (browser, OSS)
 
@@ -764,7 +793,7 @@ Source of truth: [`docs/jev/typesafe/models.md`](jev/typesafe/models.md) (fetche
 
 OpenRouter’s Jev 1.13 listing in this snapshot still says **32,000** context — treat that as **stale vs TypeSafe**. UI copy: **Jev context window ~64,000 tokens** (TypeSafe), with a note that **state + longest question** is **32k**.
 
-Rough estimate: `ceil(chars / 4)`. Show estimated tokens on the convert pane for the resulting MD.
+Rough estimate: `ceil(chars / 4)`. Show estimated tokens on the Convert page for the resulting MD.
 
 - **Warn** if the MD (or MD + current Jev’s case) would exceed **32k** (state + longest question).
 - **Error** (block **Add to Jev’s case**) if the MD alone, or MD + current case, would exceed **64k**. Download / Save / Add to the LLM still allowed.

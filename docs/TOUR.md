@@ -27,7 +27,7 @@ Storage: `localStorage["talk-to-jev:tutorial-done"]` = `"1"` after Skip or Done.
 
 ---
 
-## Steps (10)
+## Steps (11)
 
 Each step is independent. **page** is where the overlay navigates. **hooks** are `data-tutorial` ids (first match wins). **selectors** / **texts** are fallbacks.
 
@@ -46,7 +46,7 @@ Talk to Jev wires a cheap LLM (it talks) to Jev (it does not write). One OpenRou
 - **hooks:** `case`
 - **selectors:** `.ticket`
 
-This slip is what Jev judges. The LLM can draft it. Operator snaps, local .md you drop in, converted files you add from Convert to Markdown, and (on Jacket) weather all live here as state — not as a chat with Jev.
+This slip is what Jev judges. The LLM can draft it. Operator snaps, local .md you drop in, converted files you add from the Convert tab, and (on Jacket) weather all live here as state — not as a chat with Jev.
 
 ### 3. The LLM pane talks
 
@@ -103,7 +103,16 @@ Official Jev docs live in this repo. Open a page, then the eyeball for a nice re
 
 Paste your OpenRouter key here. It stays on the server — never in git, never in the browser. Optional later: OpenAI, Anthropic, Tavily, Brave. They are saved only until those features land.
 
-### 9. History stays on this machine
+### 9. Convert to Markdown
+
+- **id:** `convert`
+- **page:** convert
+- **hooks:** `convert-page`, `convert`, `convert-nav`
+- **texts:** Convert
+
+Chrome Convert opens this tab. Drop txt, html, docx, or pdf here — or onto Jev’s case, which brings you here. Files stay in the browser. Add the markdown to the LLM, to Jev’s case, or save it.
+
+### 10. History stays on this machine
 
 - **id:** `history`
 - **page:** workshop
@@ -112,7 +121,7 @@ Paste your OpenRouter key here. It stays on the server — never in git, never i
 
 Threads live in this browser’s localStorage. Refresh restores them. Keys are never stored here.
 
-### 10. Load weather
+### 11. Load weather
 
 - **id:** `weather`
 - **page:** workshop
