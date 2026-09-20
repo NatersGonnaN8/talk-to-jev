@@ -259,25 +259,24 @@ ${propose}`;
 }
 
 function clientGone(res: ServerResponse): boolean {
-  const req = res.req;
-  return (
-    res.writableEnded ||
-    res.destroyed ||
-    !res.writable ||
-    Boolean(req?.destroyed)
-  );
+  return res.writableEnded || res.destroyed;
 }
 
 function wireClientAbort(res: ServerResponse): AbortController {
   const abort = new AbortController();
-  const onClose = () => {
+  const req = res.req;
+  const onAbort = () => {
     if (!abort.signal.aborted) abort.abort();
   };
-  res.on("close", onClose);
+  const onResClose = () => {
+    if (!res.writableEnded) onAbort();
+  };
+  req.on("aborted", onAbort);
+  res.on("close", onResClose);
   abort.signal.addEventListener("abort", () => {
-    res.off("close", onClose);
+    req.off("aborted", onAbort);
+    res.off("close", onResClose);
   });
-  if (clientGone(res)) abort.abort();
   return abort;
 }
 
