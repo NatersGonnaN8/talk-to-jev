@@ -60,6 +60,7 @@ export function cloneChatMessage(m: ChatMessage): ChatMessage {
     content: m.content,
     ...(m.thoughts ? { thoughts: m.thoughts } : {}),
     ...(m.tools?.length ? { tools: m.tools.map((t) => ({ ...t })) } : {}),
+    ...(typeof m.ms === "number" && Number.isFinite(m.ms) ? { ms: m.ms } : {}),
   };
 }
 

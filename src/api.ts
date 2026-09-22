@@ -185,6 +185,7 @@ export type LlmStreamEvent =
       answers: Record<string, JevAnswer>;
       model?: string;
       usage?: unknown;
+      elapsedMs?: number;
     }
   | {
       type: "inspect";
@@ -294,6 +295,7 @@ export function eventsFromPayload(json: SsePayload): LlmStreamEvent[] {
         answers: json.answers,
         model: json.model,
         usage: json.usage,
+        ...(typeof json.elapsedMs === "number" ? { elapsedMs: json.elapsedMs } : {}),
       });
     }
   }

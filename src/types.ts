@@ -16,6 +16,8 @@ export type ChatMessage = {
   content: string;
   thoughts?: string;
   tools?: ChatToolCall[];
+  /** Wall-clock ms for a finished assistant turn. */
+  ms?: number;
 };
 
 export type QuestionType = "choice" | "noul" | "score";

@@ -7,7 +7,7 @@ import {
 } from "./violenceGate";
 
 export type JevCallResult =
-  | { ok: true; model: string; answers: unknown; usage: unknown }
+  | { ok: true; model: string; answers: unknown; usage: unknown; elapsedMs: number }
   | { ok: false; status: number; message: string; code?: string };
 
 export async function callJev(opts: {
@@ -22,6 +22,7 @@ export async function callJev(opts: {
     return { ok: false, status: 400, message: gate.message, code: gate.code };
   }
   const questions = rewriteChoiceKeysInQuestions(opts.questions);
+  const started = performance.now();
   const upstream = await fetch("https://openrouter.ai/api/alpha/decisions", {
     method: "POST",
     headers: openRouterHeaders(opts.apiKey),
@@ -45,5 +46,6 @@ export async function callJev(opts: {
     model: typeof payload.model === "string" ? payload.model : opts.model,
     answers: attachChoiceLegends(payload.answers, questions),
     usage: payload.usage,
+    elapsedMs: Math.max(0, Math.round(performance.now() - started)),
   };
 }

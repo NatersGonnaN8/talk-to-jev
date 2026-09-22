@@ -748,6 +748,7 @@ async function executeTool(
         model: result.model,
         answers: result.answers,
         usage: result.usage,
+        elapsedMs: result.elapsedMs,
       },
     });
     emit(res, {
@@ -758,6 +759,7 @@ async function executeTool(
       answers: result.answers,
       model: result.model,
       usage: result.usage,
+      elapsedMs: result.elapsedMs,
     });
     return JSON.stringify({
       ok: true,

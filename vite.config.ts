@@ -337,6 +337,7 @@ function workshopApi(): Plugin {
               model: result.model,
               answers: result.answers,
               usage: result.usage,
+              elapsedMs: result.elapsedMs,
             });
           }
 

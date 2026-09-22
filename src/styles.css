@@ -471,6 +471,15 @@ textarea.case,
 
 .hint,
 .empty,
+.bubble-time {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--mute);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .meta {
   color: var(--mute);
   font-size: 0.85rem;

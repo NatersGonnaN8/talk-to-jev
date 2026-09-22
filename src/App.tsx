@@ -16,6 +16,7 @@ import type {
   JevQuestion,
   QuestionType,
 } from "./types";
+import { formatDuration } from "./formatDuration";
 import { DevInspector } from "./DevInspector";
 import { DocsPage } from "./pages/Docs";
 import {
@@ -152,13 +153,25 @@ function summarizeAnswers(answers: Record<string, JevAnswer>) {
   return lines.join("\n");
 }
 
+function jevUsageLine(model: unknown, usage: unknown, elapsedMs: unknown) {
+  const row = usage as { input_tokens?: number; cost?: number } | undefined;
+  return [
+    model ? String(model) : "",
+    row?.input_tokens != null ? `${row.input_tokens} in` : "",
+    row?.cost != null ? `$${Number(row.cost).toFixed(6)}` : "",
+    formatDuration(elapsedMs),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function cloneMsg(m: ChatMessage): ChatMessage {
   return cloneChatMessage(m);
 }
 
 function patchLastAssistant(
   messages: ChatMessage[],
-  patch: Partial<Pick<ChatMessage, "content" | "thoughts" | "tools">>,
+  patch: Partial<Pick<ChatMessage, "content" | "thoughts" | "tools" | "ms">>,
 ): ChatMessage[] {
   const copy = messages.map(cloneMsg);
   for (let i = copy.length - 1; i >= 0; i--) {
@@ -169,6 +182,7 @@ function patchLastAssistant(
       content: patch.content ?? prev.content,
       thoughts: patch.thoughts ?? prev.thoughts,
       tools: patch.tools ?? prev.tools,
+      ms: patch.ms ?? prev.ms,
     });
     return copy;
   }
@@ -179,6 +193,7 @@ function patchLastAssistant(
       content: patch.content ?? "",
       thoughts: patch.thoughts,
       tools: patch.tools,
+      ms: patch.ms,
     }),
   ];
 }
@@ -790,6 +805,8 @@ function Workshop({
       { role: "assistant", content: "" },
     ];
     const ac = new AbortController();
+    const turnStarted = performance.now();
+    let turnOpen = true;
     llmAbortRef.current = ac;
     streamLockRef.current = true;
     stickToBottomRef.current = true;
@@ -886,15 +903,7 @@ function Workshop({
           );
           answersRef.current = nextAnswers;
           setAnswers(nextAnswers);
-          const usage = ev.usage as
-            | { input_tokens?: number; cost?: number }
-            | undefined;
-          const bits = [
-            ev.model ? String(ev.model) : "",
-            usage?.input_tokens != null ? `${usage.input_tokens} in` : "",
-            usage?.cost != null ? `$${Number(usage.cost).toFixed(6)}` : "",
-          ].filter(Boolean);
-          setJevMeta(bits.join(" · "));
+          setJevMeta(jevUsageLine(ev.model, ev.usage, ev.elapsedMs));
           onToast("Jev answered.");
         },
         ac.signal,
@@ -922,6 +931,14 @@ function Workshop({
       });
       return { askedJev, failed: true, aborted: false };
     } finally {
+      if (turnOpen) {
+        const ms = Math.max(0, Math.round(performance.now() - turnStarted));
+        setMessages((m) => {
+          const next = patchLastAssistant(m, { ms });
+          messagesRef.current = next;
+          return next;
+        });
+      }
       if (llmAbortRef.current === ac) llmAbortRef.current = null;
       streamLockRef.current = false;
       if (!opts?.keepBusy) setBusy(null);
@@ -1025,15 +1042,7 @@ function Workshop({
           ready,
         ),
       );
-      const usage = payload.usage as
-        | { input_tokens?: number; cost?: number }
-        | undefined;
-      const bits = [
-        payload.model ? String(payload.model) : "",
-        usage?.input_tokens != null ? `${usage.input_tokens} in` : "",
-        usage?.cost != null ? `$${Number(usage.cost).toFixed(6)}` : "",
-      ].filter(Boolean);
-      setJevMeta(bits.join(" · "));
+      setJevMeta(jevUsageLine(payload.model, payload.usage, payload.elapsedMs));
     } catch (err) {
       const code =
         err && typeof err === "object" && "code" in err

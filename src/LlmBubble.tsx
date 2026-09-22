@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDuration } from "./formatDuration";
 import type { ChatMessage, ChatToolCall } from "./types";
 import { MdProse } from "./MdProse";
 
@@ -124,6 +125,9 @@ export function LlmBubble({
         <ToolCard key={t.id} tool={t} />
       ))}
       {prose ? <MdProse text={prose} /> : null}
+      {!streaming && message.ms != null ? (
+        <p className="bubble-time">{formatDuration(message.ms)}</p>
+      ) : null}
     </div>
   );
 }
