@@ -1,6 +1,6 @@
 # Talk to Jev — SPEC
 
-**Status:** v0.46 — 2026-09-20  
+**Status:** v0.47 — 2026-09-21  
 **Product:** Talk to Jev  
 **Position:** Weekend OSS Workshop — at-a-glance of **how Jev works**; practice LLM + Jev, then go build your own; labeled **prototype** / **inspiration**; not deep serious work, not the last mill  
 **Folder:** `C:\Users\uttle\Projects\Talk to Jev`  
@@ -41,7 +41,7 @@ The LLM is the cheap prose half. Jev is the cheap decision half. The app is the 
 - Standing **LLM instructions** (Settings) persist in this browser’s localStorage (`talk-to-jev:llm-instructions`). They are **not** a secret: not `.env.local`, not a `VITE_` public env, not `/api/settings`. Empty / whitespace-only = off.
 - Never persist `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`, `BRAVE_API_KEY`, or any other secret in localStorage / history JSON. Chat history and LLM instructions are local; keys are not.
 - Settings offers **OpenRouter only**. OpenAI / Anthropic / Tavily / Brave are not paste routes. OpenRouter powers the LLM and Jev.
-- No multi-user, no deploy, no billing UI.
+- No multi-user, no hosted deploy, no billing UI. A public URL that holds keys is out. A double-click launcher on the operator’s own Windows or Mac (§17) is in: same loopback server, not a new host.
 - Do not call Jev via chat completions (that 400s). Do not ask Jev to write poems or code.
 - No Jev model picker on the LLM composer or Settings. Jev stays `typesafe/jev-1.13` (or `JEV_MODEL`). The composer select is OpenRouter **chat** models only.
 - No second weather API key, no paid weather wrapper. Weather is Open-Meteo (free, no key), server-side only.
@@ -1185,6 +1185,28 @@ Rough estimate: `ceil(chars / 4)`. Show estimated tokens on the Convert page for
 - OCR / Tesseract / cloud PDF APIs
 - New upload endpoint
 - Secrets in convert output or history
+
+---
+
+## 17. One-click local app (Windows and macOS)
+
+Nater (2026-09-21): the release should start with a double-click, and Mac is in the same release as Windows. This is still the local Workshop. It is not a native window, not an installer, and not a hosted site.
+
+| | |
+|---|---|
+| **Windows** | Double-click `Talk-to-Jev.cmd` at the repo root. |
+| **macOS** | Double-click `Talk-to-Jev.command` at the repo root. |
+
+Both run `scripts/open-app.mjs`.
+
+- **Node.js 20+** is required. If `node` is missing, say so and open [nodejs.org](https://nodejs.org). Do not bundle a second Node runtime into an `.exe` or `.app`.
+- A notarized Mac `.app` is out from this repo: Gatekeeper signing has to happen on a Mac with an Apple Developer ID. A `.command` downloaded from the internet may be quarantined the first time — Finder, right-click, **Open**.
+- If `GET http://127.0.0.1:5182/api/health` is already **200**, open the default browser and **do not** start a second server (`strictPort`).
+- If `node_modules` is missing, run `npm install`, then `npm run dev`.
+- Then open `http://127.0.0.1:5182/`.
+- Bind stays `127.0.0.1` port **5182**. Keys stay in gitignored `.env.local`. The CSRF gate is unchanged. No `0.0.0.0`. No new port.
+
+The console window stays open while the server runs so a first install is visible. Closing it stops the server this click started. It does not stop a server that was already running.
 
 ---
 
