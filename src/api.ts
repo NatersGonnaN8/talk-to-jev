@@ -209,6 +209,7 @@ type SsePayload = {
   answers?: Record<string, JevAnswer>;
   model?: string;
   usage?: unknown;
+  elapsedMs?: number;
   message?: string;
   argsSummary?: string;
   resultSummary?: string;

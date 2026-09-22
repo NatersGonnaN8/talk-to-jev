@@ -2,12 +2,18 @@
  * OpenRouter model list for the Workshop LLM picker.
  * The key stays on the server. Jev ids never enter the chat catalog.
  */
-import { openRouterHeaders } from "./openrouter.ts";
-
 export type OpenRouterChatModel = { id: string; name: string };
 
 const MODELS_URL = "https://openrouter.ai/api/v1/models";
 const MAX_MODELS = 2000;
+
+function modelListHeaders(apiKey: string) {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    "HTTP-Referer": "http://127.0.0.1:5182",
+    "X-Title": "Talk to Jev",
+  };
+}
 
 function isJevId(id: string) {
   return /^typesafe\/jev(\b|[/-:]|$)/i.test(id.trim());
@@ -52,7 +58,7 @@ export async function listOpenRouterModels(apiKey: string | undefined): Promise<
     return { ok: false, status: 501, message: "Need OPENROUTER_API_KEY in .env.local." };
   }
   const upstream = await fetch(MODELS_URL, {
-    headers: openRouterHeaders(apiKey!),
+    headers: modelListHeaders(apiKey!),
   });
   if (!upstream.ok) {
     return { ok: false, status: 502, message: "OpenRouter model list failed." };

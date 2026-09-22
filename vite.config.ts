@@ -18,6 +18,7 @@ import { DEFAULT_JEV, DEFAULT_LLM } from "./server/openrouter";
 import { resolveChatModel } from "./server/chatModel";
 import { callJev } from "./server/jev";
 import { runLlmSession } from "./server/llm";
+import { listOpenRouterModels } from "./server/openrouterModels";
 import { checkCatalogEmbed } from "./server/embedCheck";
 import { workshopPayloadBlocked } from "./server/violenceGate";
 
@@ -195,7 +196,6 @@ function workshopApi(): Plugin {
 
           if (req.method === "POST" && url === "/api/openrouter/models") {
             await jsonBody(req);
-            const { listOpenRouterModels } = await import("./server/openrouterModels.ts");
             const listed = await listOpenRouterModels(env.OPENROUTER_API_KEY);
             if (!listed.ok) {
               return send(res, listed.status, { ok: false, message: listed.message });

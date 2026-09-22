@@ -85,17 +85,31 @@ export const LLM_TOOLS = [
         type: "object",
         properties: {
           questions: {
-            type: "object",
+            type: "array",
             description:
-              "Map of snake_case question id → { type, instructions, criteria }. choice criteria is option descriptions (free human text, spaces OK; keys may be semantic; they become \"1\",\"2\",… on the card and for Jev); score criteria is an array of level labels; noul criteria is { true, false }.",
-            additionalProperties: {
+              "Array of question objects, never strings. Every item must have id, type, and instructions. choice and score also need criteria as an array of strings. noul omits criteria.",
+            items: {
               type: "object",
+              additionalProperties: false,
               properties: {
+                id: {
+                  type: "string",
+                  description: "Real snake_case id, for example next_action.",
+                },
                 type: { type: "string", enum: ["choice", "noul", "score"] },
-                instructions: { type: "string" },
-                criteria: {},
+                instructions: {
+                  type: "string",
+                  description: "The complete question Jev should answer.",
+                },
+                criteria: {
+                  type: "array",
+                  minItems: 2,
+                  items: { type: "string" },
+                  description:
+                    "Choice option descriptions in order, or score legend low to high. Omit for noul.",
+                },
               },
-              required: ["type", "instructions"],
+              required: ["id", "type", "instructions"],
             },
           },
         },
@@ -153,12 +167,39 @@ function toolsForMode(mode: LlmMode) {
   return LLM_TOOLS;
 }
 
+const QUESTIONS_TOOL_SHAPE = `Exact set_jev_questions arguments:
+{"questions":[
+  {"id":"next_action","type":"choice","instructions":"What should happen next?","criteria":["Hold","Proceed"]},
+  {"id":"needs_review","type":"noul","instructions":"Does this need review?"},
+  {"id":"risk","type":"score","instructions":"How risky is this?","criteria":["Low","Medium","High"]}
+]}
+Use this exact field naming and array structure. Send only the types you need.`;
+
+function describeQuestionsArgs(args: Record<string, unknown>): string {
+  const questions = args.questions;
+  if (questions == null) {
+    return `Received top-level fields: ${Object.keys(args).join(", ") || "(none)"}; missing questions array.`;
+  }
+  if (typeof questions === "string") {
+    return "Received questions as a JSON string; send it as an actual array, not encoded text.";
+  }
+  if (!Array.isArray(questions)) {
+    return `Received questions as ${typeof questions}; send an array.`;
+  }
+  if (!questions.length) return "Received an empty questions array.";
+  const first = questions[0];
+  if (!first || typeof first !== "object" || Array.isArray(first)) {
+    return `Received questions[0] as ${Array.isArray(first) ? "array" : typeof first}; send an object.`;
+  }
+  return `Received questions[0] fields: ${Object.keys(first as object).join(", ") || "(none)"}.`;
+}
+
 function modeBlock(mode: LlmMode) {
   if (mode === "propose-questions") {
-    return `\n\nMode: propose-questions. Call read_jev_workshop first (empty is the check), then you MUST call set_jev_questions with a complete valid map (typically 2–4 atomic questions). Do NOT call ask_jev. Do NOT reply with JSON only. After the tools, one short confirmation.`;
+    return `\n\nMode: propose-questions. Call read_jev_workshop first (empty is the check), then you MUST call set_jev_questions with 2–4 complete atomic questions. ${QUESTIONS_TOOL_SHAPE} Do NOT call ask_jev. Do NOT reply with JSON only. After the tools, one short confirmation.`;
   }
   if (mode === "random-case") {
-    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Call read_jev_workshop first (empty or leftover is the check). (2) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_state. (3) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. Real snake_case ids. Choice criteria = option descriptions in visual order (free human text with spaces — do not snake_case them; keys become mill numbers "1","2",…; descriptions are the values). Score = ordered legend strings. Noul = optional {true, false}. Do NOT call ask_jev. Asking Jev is the mill Ask Jev button. Do NOT invent probabilities. Do NOT reply with JSON only. After tools, one short confirmation, then stop. This is not the N-turn agentic loop.`;
+    return `\n\nMode: random-case. Invent once, then stop. You MUST: (1) Call read_jev_workshop first (empty or leftover is the check). (2) Invent a SHORT imaginary operator/business scenario (just enough facts to judge — not a novel) and call set_jev_state. (3) Call set_jev_questions with 3–5 atomic questions including at least one noul, one score, and one choice. ${QUESTIONS_TOOL_SHAPE} Do NOT call ask_jev. Asking Jev is the mill Ask Jev button. Do NOT invent probabilities. Do NOT reply with JSON only. After the tools, one short confirmation, then stop. This is not the N-turn agentic loop.`;
   }
   if (mode === "agentic-loop") {
     return `\n\nMode: agentic-loop. Use the CURRENT Jev’s State and current questions. Before set_jev_state or set_jev_questions, call read_jev_workshop, or read_jev_state / read_jev_questions for one side. Do NOT invent a new random scenario. Do NOT call set_jev_state to replace the ticket with fiction after a read. If questions are clean, you MUST call ask_jev. You may call set_jev_questions only if ids are dirty or you need a new option, then ask_jev. Do NOT invent probabilities. Do NOT wait for the operator. Do NOT reply with JSON only. After tools, one short confirmation.`;
@@ -633,8 +674,14 @@ async function executeTool(
   if (name === "set_jev_questions") {
     const parsed = parseJevQuestions(questionsFromToolArgs(args) ?? args);
     if (!parsed.ok) {
-      const payload = { ok: false, message: parsed.message, skipped: parsed.skipped };
-      emit(res, { type: "tool", ...base, ...payload, resultSummary: parsed.message });
+      const message = `${parsed.message} ${describeQuestionsArgs(args)} ${QUESTIONS_TOOL_SHAPE}`;
+      const payload = { ok: false, message, skipped: parsed.skipped };
+      emit(res, {
+        type: "tool",
+        ...base,
+        ...payload,
+        resultSummary: "Invalid question shape. Retry with the exact questions array.",
+      });
       return JSON.stringify(payload);
     }
     const gate = workshopPayloadBlocked(undefined, parsed.questions, VIOLENCE_GATE_TOOL_MESSAGE);

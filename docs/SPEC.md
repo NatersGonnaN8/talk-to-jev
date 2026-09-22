@@ -716,7 +716,7 @@ OpenAI-style tools on the chat-completions call. The server executes them, then 
 
 If `state` matches §5.4: `{ ok: false, code: "blocked-violence" }` to the model; do **not** write the pane.
 
-**`set_jev_questions`** — replace the editor. Map of id → question (array of `{ id, type, … }` is also accepted). Skip blank ids. If the map matches §5.4: `{ ok: false, code: "blocked-violence" }` to the model; do **not** write the pane.
+**`set_jev_questions`** — replace the editor. Tool schema teaches chat models an explicit array of `{ id, type, instructions, criteria? }`, with a separate exact schema for choice / noul / score and a concrete valid example in the mode prompt. Dynamic question maps remain accepted for backward compatibility, but the server does **not** silently infer aliases or repair malformed calls. A bad call returns the exact expected array to the LLM so it can retry correctly. Skip blank ids; never invent one. If the payload matches §5.4: `{ ok: false, code: "blocked-violence" }` to the model; do **not** write the pane.
 
 ```
 {
