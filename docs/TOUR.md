@@ -130,7 +130,7 @@ Official Jev docs live in this repo. Update Jev docs is on this page (not the he
 - **hooks:** `settings-page`, `settings`
 - **texts:** Settings
 
-Paste your OpenRouter key here. It stays on the server — never in git, never in the browser. Optional later: OpenAI, Anthropic, Tavily, Brave. They are saved only until those features land.
+Paste your OpenRouter key here. It stays on the server — never in git, never in the browser. One key runs the LLM and Jev. Get current models loads OpenRouter’s chat list into the picker.
 
 ### 12. Convert to Markdown
 

@@ -14,36 +14,8 @@ export const PROVIDERS = [
     id: "openrouter",
     env: "OPENROUTER_API_KEY",
     label: "OpenRouter",
-    why: "Required today for the LLM and Jev.",
+    why: "One key for the LLM and for Jev.",
     required: true,
-  },
-  {
-    id: "openai",
-    env: "OPENAI_API_KEY",
-    label: "OpenAI",
-    why: "Unused until direct OpenAI models land.",
-    required: false,
-  },
-  {
-    id: "anthropic",
-    env: "ANTHROPIC_API_KEY",
-    label: "Anthropic",
-    why: "Unused until direct Anthropic models land.",
-    required: false,
-  },
-  {
-    id: "tavily",
-    env: "TAVILY_API_KEY",
-    label: "Tavily",
-    why: "Unused until search lands.",
-    required: false,
-  },
-  {
-    id: "brave",
-    env: "BRAVE_API_KEY",
-    label: "Brave",
-    why: "Unused until search lands.",
-    required: false,
   },
 ] as const;
 
@@ -148,7 +120,9 @@ export function healthKeyFlags(env: Record<string, string> = loadEnvMap()) {
     tavily: false,
     brave: false,
   };
-  for (const row of rows) flags[row.id] = row.present;
+  for (const row of rows) {
+    if (row.id === "openrouter") flags.openrouter = row.present;
+  }
   return flags;
 }
 

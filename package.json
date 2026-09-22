@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5182 --strictPort --host 127.0.0.1",
-    "test": "node --experimental-strip-types --test server/dsml.test.ts server/violenceGate.test.ts server/chatModel.test.ts",
+    "test": "node --experimental-strip-types --test server/dsml.test.ts server/violenceGate.test.ts server/chatModel.test.ts server/openrouterModels.test.ts",
     "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && vite build",
     "preview": "vite preview --port 5182 --strictPort --host 127.0.0.1",
     "update-jev-docs": "node scripts/update-jev-docs.mjs"

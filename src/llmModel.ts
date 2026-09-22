@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 
 export const LLM_MODEL_KEY = "talk-to-jev:llm-model";
 export const LLM_MODEL_CHANGE = "talk-to-jev:llm-model-change";
+export const LLM_CATALOG_KEY = "talk-to-jev:llm-catalog";
+export const LLM_CATALOG_CHANGE = "talk-to-jev:llm-catalog-change";
+export const HIGHLIGHT_LLM_PICKER = "talk-to-jev:highlight-llm-picker";
 export const DEFAULT_LLM_MODEL = "deepseek/deepseek-v4-flash";
 const LLM_MODEL_MAX = 160;
 const LLM_MODEL_RE = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:+-]*$/i;
@@ -60,8 +63,52 @@ export function writeLlmModel(raw: string): string {
   return next;
 }
 
+export function readLlmCatalog(): LlmChatModel[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LLM_CATALOG_KEY) || "null") as {
+      v?: number;
+      models?: Array<{ id?: string; name?: string }>;
+    } | null;
+    if (!raw || raw.v !== 1 || !Array.isArray(raw.models)) return [];
+    const rows: LlmChatModel[] = [];
+    for (const row of raw.models) {
+      const id = normalizeLlmModel(row?.id);
+      if (!id) continue;
+      const name = typeof row?.name === "string" ? row.name.trim() : "";
+      rows.push({ id, label: name || id });
+    }
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+export function writeLlmCatalog(models: Array<{ id: string; name: string }>): number {
+  const rows: Array<{ id: string; name: string }> = [];
+  const seen = new Set<string>();
+  for (const row of models) {
+    const id = normalizeLlmModel(row.id);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const name = row.name?.trim() || id;
+    rows.push({ id, name });
+  }
+  try {
+    localStorage.setItem(LLM_CATALOG_KEY, JSON.stringify({ v: 1, models: rows }));
+  } catch {
+    /* quota */
+  }
+  try {
+    window.dispatchEvent(new Event(LLM_CATALOG_CHANGE));
+  } catch {
+    /* */
+  }
+  return rows.length;
+}
+
 export function listLlmChatModels(
   extras: Array<string | null | undefined> = [],
+  catalog: LlmChatModel[] = [],
 ): LlmChatModel[] {
   const rows: LlmChatModel[] = [];
   const seen = new Set<string>();
@@ -70,12 +117,24 @@ export function listLlmChatModels(
     if (!n || seen.has(n)) return;
     seen.add(n);
     const known = LLM_CHAT_MODELS.find((m) => m.id === n);
-    rows.push({ id: n, label: known?.label ?? label ?? n });
+    const fromCatalog = catalog.find((m) => m.id === n);
+    rows.push({ id: n, label: known?.label ?? fromCatalog?.label ?? label ?? n });
   };
   for (const row of LLM_CHAT_MODELS) add(row.id, row.label);
+  for (const row of catalog) add(row.id, row.label);
   for (const extra of extras) {
     if (extra) add(extra);
   }
+  return rows;
+}
+
+export function useLlmCatalog(): LlmChatModel[] {
+  const [rows, setRows] = useState(readLlmCatalog);
+  useEffect(() => {
+    const onChange = () => setRows(readLlmCatalog());
+    window.addEventListener(LLM_CATALOG_CHANGE, onChange);
+    return () => window.removeEventListener(LLM_CATALOG_CHANGE, onChange);
+  }, []);
   return rows;
 }
 

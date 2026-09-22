@@ -193,6 +193,16 @@ function workshopApi(): Plugin {
             return send(res, 200, settingsPayload());
           }
 
+          if (req.method === "POST" && url === "/api/openrouter/models") {
+            await jsonBody(req);
+            const { listOpenRouterModels } = await import("./server/openrouterModels.ts");
+            const listed = await listOpenRouterModels(env.OPENROUTER_API_KEY);
+            if (!listed.ok) {
+              return send(res, listed.status, { ok: false, message: listed.message });
+            }
+            return send(res, 200, { ok: true, models: listed.models });
+          }
+
           if (req.method === "POST" && url === "/api/settings") {
             const body = await jsonBody(req);
             if (!isProviderId(body.id)) {

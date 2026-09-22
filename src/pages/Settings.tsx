@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSettings, saveSetting } from "../api";
+import { fetchOpenRouterModels, getSettings, saveSetting } from "../api";
+import { HIGHLIGHT_LLM_PICKER, readLlmCatalog, writeLlmCatalog } from "../llmModel";
 import {
   LLM_INSTRUCTIONS_MAX,
   readLlmInstructions,
@@ -12,14 +13,18 @@ import { LlmModelPicker } from "../LlmModelPicker";
 export function SettingsPage({
   onToast,
   onSaved,
+  onPickModel,
 }: {
   onToast: (s: string) => void;
   onSaved: () => void | Promise<void>;
+  onPickModel: () => void;
 }) {
   const [keys, setKeys] = useState<KeyStatus[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [instructions, setInstructions] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [polled, setPolled] = useState(() => readLlmCatalog().length > 0);
   const [err, setErr] = useState("");
 
   const load = useCallback(async () => {
@@ -57,6 +62,36 @@ export function SettingsPage({
     }
   };
 
+  const onCheckModels = async () => {
+    setChecking(true);
+    try {
+      const models = await fetchOpenRouterModels();
+      const count = writeLlmCatalog(models);
+      setPolled(count > 0);
+      onToast(
+        count
+          ? `Loaded ${count} models into the Workshop picker.`
+          : "OpenRouter returned no chat models.",
+      );
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Could not load models");
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const onSelectModel = () => {
+    try {
+      sessionStorage.setItem(HIGHLIGHT_LLM_PICKER, "1");
+    } catch {
+      /* */
+    }
+    onPickModel();
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event(HIGHLIGHT_LLM_PICKER));
+    }, 40);
+  };
+
   const onSaveInstructions = () => {
     const next = writeLlmInstructions(instructions);
     setInstructions(next);
@@ -68,19 +103,20 @@ export function SettingsPage({
   return (
     <main className="settings" data-tutorial="settings-page">
       <section className="settings-intro">
-        <span className="eyebrow">Bring your own keys</span>
+        <span className="eyebrow">Bring your own key</span>
         <h1 className="pane-title">Settings</h1>
         <p>
-          Keys stay on this computer in gitignored <code>.env.local</code>. The
-          browser never stores them. OpenRouter runs the LLM and Jev today. The
-          other slots wait for search and direct models. Standing LLM
-          instructions live in this browser, not in that file. The LLM chat
-          model is the composer picker — same persist here, not that file.
+          One OpenRouter key stays on this computer in gitignored{" "}
+          <code>.env.local</code>. The browser never stores it. That key runs
+          the LLM and Jev. Standing LLM instructions live in this browser, not
+          in that file.
         </p>
       </section>
       {err ? <p className="empty">{err}</p> : null}
       <ul className="key-list">
-        {keys.map((k) => (
+        {keys
+          .filter((k) => k.id === "openrouter")
+          .map((k) => (
           <li
             key={k.id}
             className={k.id === "openrouter" ? "key-row live" : "key-row"}
@@ -133,14 +169,30 @@ export function SettingsPage({
               <button
                 className="btn solid"
                 type="submit"
-                disabled={busy !== null}
+                disabled={busy !== null || checking}
               >
                 {busy === k.id ? "Saving…" : "Save"}
+              </button>
+              <button
+                className="btn ghost"
+                type="button"
+                disabled={!k.present || busy !== null || checking}
+                onClick={() => void onCheckModels()}
+              >
+                {checking ? "Getting…" : "Get current models"}
               </button>
             </form>
           </li>
         ))}
       </ul>
+      {polled ? (
+        <p className="models-polled" role="status">
+          Current models polled. Select your model in the Workshop.
+          <button className="btn solid" type="button" onClick={onSelectModel}>
+            Select your model
+          </button>
+        </p>
+      ) : null}
       <section className="llm-model-card">
         <header className="key-head">
           <div>

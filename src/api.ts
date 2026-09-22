@@ -21,6 +21,25 @@ export async function getSettings(): Promise<SettingsResponse> {
   return body;
 }
 
+export async function fetchOpenRouterModels(): Promise<
+  Array<{ id: string; name: string }>
+> {
+  const res = await fetch("/api/openrouter/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  const body = (await res.json()) as {
+    ok?: boolean;
+    message?: string;
+    models?: Array<{ id: string; name: string }>;
+  };
+  if (!res.ok || !body.ok || !Array.isArray(body.models)) {
+    throw new Error(body.message || "Could not load models");
+  }
+  return body.models;
+}
+
 export async function saveSetting(
   id: string,
   value: string,

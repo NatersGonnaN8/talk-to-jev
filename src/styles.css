@@ -1255,6 +1255,116 @@ textarea.case,
   cursor: not-allowed;
 }
 
+.llm-model-combo {
+  position: relative;
+  min-width: 0;
+}
+
+.llm-model-combo > .flip-host,
+.llm-model-combo > .flip-tip {
+  display: block;
+  width: 100%;
+}
+
+.composer-model,
+button.llm-model-pick {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+}
+
+.composer-model span,
+button.llm-model-pick span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-model.is-highlight,
+button.llm-model-pick.is-highlight {
+  outline: 2px solid var(--pine, #1f6b45);
+  outline-offset: 2px;
+}
+
+.llm-model-menu {
+  position: fixed;
+  z-index: 80;
+  background: #fffdf8;
+  border: 1px solid #142018;
+  border-radius: 8px;
+  padding: 0.45rem;
+  box-sizing: border-box;
+}
+
+.llm-model-search {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #b7c4b6;
+  background: #fffdf8;
+  border-radius: 6px;
+  padding: 0 0.45rem;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--ink);
+  resize: none;
+}
+
+.llm-model-menu ul {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  overflow: auto;
+}
+
+.llm-model-menu li button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--ink);
+  padding: 0.28rem 0.35rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.llm-model-menu li button[aria-selected="true"] {
+  background: #e7f0e4;
+}
+
+.llm-model-menu li button code {
+  font-family: var(--font-code);
+  font-size: 0.68rem;
+  color: var(--mute);
+}
+
+.llm-model-empty {
+  padding: 0.35rem;
+  color: var(--mute);
+  font-size: 0.85rem;
+}
+
+.models-polled {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.15rem 0 0.85rem;
+  padding: 0.7rem 0.85rem;
+  background: #fffdf8;
+  border: 1px solid #142018;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+}
+
 .composer-stop {
   width: 32px;
   height: 32px;
@@ -2327,7 +2437,7 @@ select:focus-visible,
 
 .key-form {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 0.45rem;
   align-items: center;
 }

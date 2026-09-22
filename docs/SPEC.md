@@ -40,7 +40,7 @@ The LLM is the cheap prose half. Jev is the cheap decision half. The app is the 
 - Workshop history is **this browser’s localStorage only** (this machine, this origin). Refresh restores it.
 - Standing **LLM instructions** (Settings) persist in this browser’s localStorage (`talk-to-jev:llm-instructions`). They are **not** a secret: not `.env.local`, not a `VITE_` public env, not `/api/settings`. Empty / whitespace-only = off.
 - Never persist `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`, `BRAVE_API_KEY`, or any other secret in localStorage / history JSON. Chat history and LLM instructions are local; keys are not.
-- OpenAI / Anthropic / Tavily / Brave may be **saved** in Settings (BYOK). They are **not called** in MVP. OpenRouter still powers the LLM and Jev.
+- Settings offers **OpenRouter only**. OpenAI / Anthropic / Tavily / Brave are not paste routes. OpenRouter powers the LLM and Jev.
 - No multi-user, no deploy, no billing UI.
 - Do not call Jev via chat completions (that 400s). Do not ask Jev to write poems or code.
 - No Jev model picker on the LLM composer or Settings. Jev stays `typesafe/jev-1.13` (or `JEV_MODEL`). The composer select is OpenRouter **chat** models only.
@@ -59,10 +59,8 @@ Env names (standard):
 | Slot | Env | MVP |
 |---|---|---|
 | OpenRouter | `OPENROUTER_API_KEY` | **Required** for LLM + Jev |
-| OpenAI | `OPENAI_API_KEY` | Saved only; unused until direct models land |
-| Anthropic | `ANTHROPIC_API_KEY` | Saved only; unused until direct models land |
-| Tavily | `TAVILY_API_KEY` | Saved only; unused until search lands |
-| Brave | `BRAVE_API_KEY` | Saved only; unused until search lands |
+
+Nater (2026-09-21): OpenRouter is plenty. Settings shows **one** key row. Do **not** offer OpenAI, Anthropic, Tavily, or Brave paste routes. Leftover env lines for those names may sit in `.env.local`; the UI does not read or write them.
 
 - Never prefix these with `VITE_` (Vite would ship them to the browser).
 - `.env.local` **wins** over a Windows user-level `OPENROUTER_API_KEY` (that env var can be stale and 401). Unused slots stay as empty `KEY=` lines.
@@ -204,7 +202,10 @@ Nater (2026-09-20) circled the LLM composer, **left of Send**, and asked for the
 **Chrome**
 
 - **Workshop LLM composer** (`article.pane.llm > form.composer`): native `<select>` immediately **left of Send** (and left of **Stop** while streaming). Textarea stays first (`resize: none`). Compact. Public Sans, mixed case, **never** ALL CAPS, **never** Bricolage. Fragment Mono only for the pane-head model **id** subtitle. User chrome is **pane**, not mill stamp.
-- Option labels are short mixed-case names (e.g. **DeepSeek V4 Flash**). Values are OpenRouter ids. Catalog (MVP, cheapest-first after the default pin): `deepseek/deepseek-v4-flash` (default), `deepseek/deepseek-v4.1-flash`, `google/gemini-2.5-flash-lite`, `google/gemini-2.5-flash`, `qwen/qwen3-32b`, `meta-llama/llama-3.3-70b-instruct`, `openai/gpt-4.1-mini`, `anthropic/claude-3.5-haiku`. If persist or `LLM_MODEL` is a valid chat slug not in that list, append it as an extra option (label = id). Do **not** fetch the full OpenRouter catalog in MVP.
+- Option labels are short mixed-case names (e.g. **DeepSeek V4 Flash**). Values are OpenRouter ids. Built-in floor list (cheapest-first after the default pin): `deepseek/deepseek-v4-flash` (default), `deepseek/deepseek-v4.1-flash`, `google/gemini-2.5-flash-lite`, `google/gemini-2.5-flash`, `qwen/qwen3-32b`, `meta-llama/llama-3.3-70b-instruct`, `openai/gpt-4.1-mini`, `anthropic/claude-3.5-haiku`. If persist or `LLM_MODEL` is a valid chat slug not in that list, append it as an extra option (label = id).
+- **Get current models** (Settings, on the OpenRouter row, only after that key is present): button label **Get current models**. `POST /api/openrouter/models` uses the server key against OpenRouter `GET /api/v1/models`. Never return the key. Drop `typesafe/jev*`. Keep text-out chat models. Persist `{ v: 1, models: [{ id, name }] }` in `localStorage["talk-to-jev:llm-catalog"]` (not a secret, not `.env.local`). Composer picker and Settings picker both read it: floor list first, then the checked models (skip duplicates). Same-tab event so Workshop updates without reload. Missing key: button disabled. Toast counts how many landed.
+- After a successful poll, Settings shows a status line: **Current models polled. Select your model in the Workshop.** Beside it, button **Select your model** switches to Workshop and rings the composer picker (pine outline, opens the search). Mixed case. Not ALL CAPS.
+- The picker is a compact combobox, not a bare `<select>`, so a long catalog stays usable. Closed control still sits **left of Send**. Open: opaque menu (`#fffdf8`), **Search models** field (`resize: none`), filtered list. Flip above the composer when the row is near the bottom of the viewport so the menu stays fully on screen. High z-index. Public Sans. No Jev ids.
 - Accessible name **LLM model**. Opaque FlipTip (fully on-screen, flip above/below, pine-ink `#142018`): **OpenRouter chat model for this pane. Jev stays typesafe/jev-1.13.**
 - LLM pane-head `<code>` subtitle shows this **picked** chat id (not only the env `LLM_MODEL` from `/api/health`). Jev’s Questions subtitle stays the Jev pin.
 - **Settings** (`/settings`): mill card **LLM model** below the key rows, above **LLM instructions**. Same `<select>`, same persist, same catalog — **one source of truth**, not two independent pickers. Change applies immediately (no extra Save). Helper: **OpenRouter chat model for the Workshop LLM. Jev stays pinned.**
@@ -478,7 +479,7 @@ Exact live copy + hooks (keep 1:1 with `src/tutorial.ts` / [`docs/TOUR.md`](TOUR
 8. **Jev’s Questions** (`jev` → `jev` / `ask-jev` / `feed-jev`). Typed `choice` / `noul` / `score` + **Ask Jev**. **Send answers to LLM** sits next to Ask Jev. Live body is Nater’s walk copy.
 9. **Example Uses** — nine operator snaps plus one weather snap (Jacket), same list as Workshop **Preset States**.
 10. **Docs** — Nice view (rendered Markdown), Code view (raw snapshot), boxed-i Iframe **only when the live page will embed**. **Update Jev docs** is on this page (toolbar), not the header. May navigate to `/docs`.
-11. **Settings** BYOK if that page exists (optional later: OpenAI, Anthropic, Tavily, Brave — still no keys in the browser).
+11. **Settings** — one OpenRouter key (no other provider rows). **Get current models** when that key is present.
 12. **Convert** — chrome **Convert** tab (`/convert`). Drop txt / html / docx / pdf here, or onto Jev’s State (that still opens this tab). Files stay in the browser.
 13. **History** if the Jev’s State row control exists (not chrome-right).
 14. **Load weather** if that control is **visible** (Jacket preset only; Open-Meteo input, not a third model). Skip when the weather row is hidden on a business preset.
@@ -500,21 +501,22 @@ Layout:
 ```
 [ chrome ]
 [ manila intro slip ]
-[ five key rows ]
+[ one OpenRouter key row + Get current models ]
 [ LLM model mill card ]
 [ LLM instructions mill card ]
 ```
 
 Page title **Settings** (`h1.pane-title`) matches **Jev’s Questions** size. Key-row names, the **LLM model** section title, and the **LLM instructions** section title (`h2.pane-title`) are the same tier. Kicker `.eyebrow` (**Bring your own keys**) stays smaller. Public Sans; mixed case; **never** Bricolage; **never** `text-transform: uppercase`; **never** wide-tracking stamps. Fragment Mono only on real env ids (`OPENROUTER_API_KEY`, …).
 
-Each key row, in this order: **OpenRouter**, **OpenAI**, **Anthropic**, **Tavily**, **Brave**.
+One key row: **OpenRouter**.
 
-- Label + short why (OpenRouter = LLM + Jev today; others unused until search / direct models land)
+- Label + short why (OpenRouter runs the LLM and Jev)
 - Password-style input + **Save** (no native resize grips)
+- **Get current models** beside Save. Enabled only when the OpenRouter key is present. Mixed case, Public Sans, same button family as Save’s neighbor (ghost or solid — not ALL CAPS). Click loads the OpenRouter model list into the Workshop LLM picker (§5.3a). While the request runs, the label is **Getting…** and the button is disabled.
 - Status **Key ready** / **missing** without revealing the value. Ready may show last-4 only
 - Tips (status / last-4 help) are **opaque**, fully on-screen, and **flip** (below if there is room; above if the row is low — never under sticky chrome)
 
-Saving one key row POSTs `/api/settings` `{ id, value }` and writes that env var on the server. Empty save clears the slot. Clear the input after a successful save. OpenRouter still powers LLM + Jev; do not wire Tavily / Brave / OpenAI / Anthropic live calls in MVP.
+Saving the key row POSTs `/api/settings` `{ id: "openrouter", value }` and writes `OPENROUTER_API_KEY` on the server. Empty save clears that slot. Clear the input after a successful save. No other provider paste routes.
 
 **LLM model** (mill card below the key list, above **LLM instructions** — same card chrome as a key row, not a second page):
 
@@ -1080,6 +1082,7 @@ Before calling Workshop done:
 61. Workshop markdown: put `**hello**` in Jev’s State (or an LLM user/assistant bubble). **Ticket / bubble shows hello in bold**, not asterisks. Click State: still painted bold (caret in the ticket — no `**hello**` asterisks, no textarea dump). Blur: still painted. Refresh: the raw string is still in `talk-to-jev:chats` and still renders. Thoughts mill and tool cards stay as now (not a second Docs iframe). Drop .md still attaches. Streaming deltas do not yank an unpinned `.thread`. No CSRF change.
 62. **Violence gate.** `npm test` covers `server/violenceGate.ts`: abstract blocked fixtures fail closed; refund / abuse-risk / “kill the post” fixtures stay allowed. Do **not** Ask Jev on a live poisoned card. A matching `POST /api/jev` is **400** `blocked-violence` (inline error on Jev’s Questions). A matching `set_jev_state` / `set_jev_questions` is a tool error and does **not** write panes. No CSRF change. No `docs/jev` rewrite.
 63. LLM composer shows a compact **LLM model** `<select>` **left of Send** (Public Sans, mixed case, not ALL CAPS, not Bricolage). Default `deepseek/deepseek-v4-flash`. No `typesafe/jev*` option. Change to another catalog id; Settings **LLM model** shows the same value (`talk-to-jev:llm-model`). Send a short no-tools “ok”: Inspector **To LLM** / mill `sent.model` is that id (not Jev). Pane-head LLM `<code>` matches. While streaming, picker is **disabled** and **Stop** still works. Reload keeps the pick. Jev pane subtitle stays `typesafe/jev-1.13`. No CSRF change.
+64. `/settings` shows **one** key row, **OpenRouter**. No OpenAI, Anthropic, Tavily, or Brave rows. With the key present, **Get current models** fills `talk-to-jev:llm-catalog`. Status reads **Current models polled. Select your model in the Workshop.** **Select your model** opens Workshop and highlights the composer picker. That picker has **Search models**. Floor defaults stay at the top. No `typesafe/jev*`. Missing key: **Get current models** is disabled.
 
 ---
 

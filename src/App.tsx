@@ -414,6 +414,7 @@ export function App() {
       {page === "settings" ? (
         <SettingsPage
           onToast={setToast}
+          onPickModel={() => go("workshop")}
           onSaved={async () => {
             try {
               setHealth(await getHealth());
