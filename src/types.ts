@@ -86,6 +86,8 @@ export type KeyStatus = {
 
 export type SettingsResponse = {
   ok: boolean;
+  /** Hosted copy: the key is set on the server and Settings cannot change it. */
+  readOnly?: boolean;
   keys: KeyStatus[];
   message?: string;
 };

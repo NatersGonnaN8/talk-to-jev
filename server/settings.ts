@@ -75,12 +75,21 @@ function hasKeyLine(text: string, key: string) {
   return false;
 }
 
+/**
+ * Hosted mode (JEV_READONLY_KEYS=1): the key comes only from the server's
+ * environment (a mounted env file), Settings cannot write it, and no file on
+ * disk is read or written for keys.
+ */
+export function keysReadOnly(): boolean {
+  return /^(1|true|yes)$/i.test((process.env.JEV_READONLY_KEYS ?? "").trim());
+}
+
 export function loadEnvMap(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (typeof v === "string") env[k] = v;
   }
-  if (!existsSync(ENV_FILE)) return env;
+  if (keysReadOnly() || !existsSync(ENV_FILE)) return env;
   for (const line of readFileSync(ENV_FILE, "utf8").split(/\r?\n/)) {
     const parsed = parseAssignment(line);
     if (!parsed) continue;
@@ -127,6 +136,7 @@ export function healthKeyFlags(env: Record<string, string> = loadEnvMap()) {
 }
 
 export function ensureProviderSlots() {
+  if (keysReadOnly()) return;
   let text = existsSync(ENV_FILE) ? readFileSync(ENV_FILE, "utf8") : "";
   const missing = PROVIDERS.filter((p) => !hasKeyLine(text, p.env));
   if (!missing.length && text) return;
@@ -157,6 +167,9 @@ function setKeyInText(text: string, key: string, value: string) {
 }
 
 export function upsertProviderValue(id: ProviderId, raw: string) {
+  if (keysReadOnly()) {
+    throw new Error("Keys are set on the server and cannot be changed here.");
+  }
   if (raw.length > MAX_VALUE) {
     throw new Error("Key is too long.");
   }
@@ -172,7 +185,7 @@ export function upsertProviderValue(id: ProviderId, raw: string) {
 
 export function settingsPayload() {
   ensureProviderSlots();
-  return { ok: true as const, keys: publicKeyRows() };
+  return { ok: true as const, readOnly: keysReadOnly(), keys: publicKeyRows() };
 }
 
 export function sanitizePublicError(message: string) {

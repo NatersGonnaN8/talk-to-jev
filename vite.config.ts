@@ -8,6 +8,7 @@ import { WeatherHttpError, getWeather, searchPlaces } from "./server/weather";
 import {
   healthKeyFlags,
   isProviderId,
+  keysReadOnly,
   loadEnvMap as loadDotenv,
   present,
   sanitizePublicError,
@@ -25,6 +26,29 @@ import { workshopPayloadBlocked } from "./server/violenceGate";
 const here = dirname(fileURLToPath(import.meta.url));
 const docsRoot = resolve(here, "docs", "jev");
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Where the server listens. Local defaults are unchanged (127.0.0.1:5182,
+ * strict, no extra hosts). The hosted container sets JEV_HOST=0.0.0.0 and
+ * JEV_ALLOWED_HOSTS=jev.effortlessinnovations.com behind the site's login.
+ * Foreign Host headers still get Vite's 403; there is no "allow all" switch.
+ */
+const listenHost = process.env.JEV_HOST?.trim() || "127.0.0.1";
+const listenPort = (() => {
+  const n = Number(process.env.JEV_PORT);
+  return Number.isInteger(n) && n > 0 && n < 65536 ? n : 5182;
+})();
+const extraAllowedHosts = (process.env.JEV_ALLOWED_HOSTS ?? "")
+  .split(",")
+  .map((h) => h.trim())
+  .filter((h) => h && h !== "true");
+const listen = {
+  port: listenPort,
+  strictPort: true,
+  host: listenHost,
+  cors: false,
+  ...(extraAllowedHosts.length ? { allowedHosts: extraAllowedHosts } : {}),
+};
 
 function publicError(err: unknown): string {
   const raw = err instanceof Error ? err.message : "server error";
@@ -166,223 +190,247 @@ function primerText() {
 }
 
 function workshopApi(): Plugin {
+  // One handler, registered for both `vite` (dev) and `vite preview` (hosted),
+  // so the CSRF / JSON-only / 2 MiB / allowedHosts gates are identical in both.
+  const handler = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    next: (err?: unknown) => void,
+  ) => {
+    const url = req.url?.split("?")[0] ?? "";
+    if (!url.startsWith("/api/")) return next();
+    if (!isSameOrigin(req)) {
+      return send(res, 403, { ok: false, message: "Cross-site request refused." });
+    }
+    const env = loadDotenv();
+    try {
+      if (req.method === "GET" && url === "/api/health") {
+        const docs = docsIndex();
+        const keys = healthKeyFlags(env);
+        return send(res, 200, {
+          ok: true,
+          hasKey: keys.openrouter,
+          keys,
+          jevModel: env.JEV_MODEL || DEFAULT_JEV,
+          llmModel: env.LLM_MODEL || DEFAULT_LLM,
+          docs: { files: docs.files.length, fetchedAt: docs.fetchedAt },
+        });
+      }
+
+      if (req.method === "GET" && url === "/api/settings") {
+        return send(res, 200, settingsPayload());
+      }
+
+      if (req.method === "POST" && url === "/api/openrouter/models") {
+        await jsonBody(req);
+        const listed = await listOpenRouterModels(env.OPENROUTER_API_KEY);
+        if (!listed.ok) {
+          return send(res, listed.status, { ok: false, message: listed.message });
+        }
+        return send(res, 200, { ok: true, models: listed.models });
+      }
+
+      if (req.method === "POST" && url === "/api/settings") {
+        if (keysReadOnly()) {
+          return send(res, 403, {
+            ok: false,
+            message: "Keys are set on the server and cannot be changed here.",
+          });
+        }
+        const body = await jsonBody(req);
+        if (!isProviderId(body.id)) {
+          return send(res, 400, { ok: false, message: "Unknown key slot." });
+        }
+        if (typeof body.value !== "string") {
+          return send(res, 400, { ok: false, message: "value must be a string." });
+        }
+        upsertProviderValue(body.id, body.value);
+        return send(res, 200, settingsPayload());
+      }
+
+      if (req.method === "GET" && url === "/api/docs") {
+        return send(res, 200, docsIndex());
+      }
+
+      if (req.method === "GET" && url === "/api/docs/file") {
+        const q = new URL(req.url || "", "http://127.0.0.1").searchParams.get("path") || "";
+        const abs = safeDocPath(q);
+        if (!abs) return send(res, 404, { ok: false, message: "Doc not found." });
+        const text = readFileSync(abs, "utf8");
+        return send(res, 200, { ok: true, path: q, text });
+      }
+
+      if (req.method === "GET" && url === "/api/docs/embed") {
+        const raw =
+          new URL(req.url || "", "http://127.0.0.1").searchParams.get("url") ||
+          "";
+        const probe = await checkCatalogEmbed(raw, docsIndex().files);
+        return send(res, 200, { ok: true, embed: probe.embed, src: probe.src });
+      }
+
+      if (req.method === "GET" && url === "/api/weather") {
+        const params = new URL(req.url || "", "http://127.0.0.1").searchParams;
+        try {
+          const payload = await getWeather({
+            q: params.get("q") || undefined,
+            latitude: params.get("latitude") || undefined,
+            longitude: params.get("longitude") || undefined,
+          });
+          return send(res, 200, { ok: true, ...payload });
+        } catch (err) {
+          if (err instanceof WeatherHttpError) {
+            return send(res, err.status, { ok: false, message: err.message });
+          }
+          throw err;
+        }
+      }
+
+      if (req.method === "GET" && url === "/api/geo") {
+        const q = new URL(req.url || "", "http://127.0.0.1").searchParams.get("q") || "";
+        try {
+          const results = await searchPlaces(q);
+          return send(res, 200, { ok: true, results });
+        } catch (err) {
+          if (err instanceof WeatherHttpError) {
+            return send(res, err.status, { ok: false, message: err.message });
+          }
+          throw err;
+        }
+      }
+
+      if (req.method === "POST" && url === "/api/docs/update") {
+        if (keysReadOnly()) {
+          return send(res, 403, {
+            ok: false,
+            message: "Docs update is off on the hosted copy.",
+          });
+        }
+        // Native ESM snapshotter — no TS types shipped with the .mjs
+        const { updateJevDocs } = (await import(
+          "./scripts/update-jev-docs.mjs"
+        )) as {
+          updateJevDocs: (root?: string) => Promise<{
+            ok: boolean;
+            fetchedAt: string;
+            fetched: number;
+            failed: number;
+            files: number;
+            dest: string;
+          }>;
+        };
+        const result = await updateJevDocs(here);
+        return send(res, 200, result);
+      }
+
+      if (req.method === "POST" && url === "/api/jev") {
+        const body = await jsonBody(req);
+        const questions = body.questions;
+        if (!questions || typeof questions !== "object") {
+          return send(res, 400, { ok: false, message: "questions required" });
+        }
+        const includeTranscript = Boolean(body.includeTranscript);
+        const transcript = Array.isArray(body.transcript) ? body.transcript : [];
+        const caseText = String(body.state ?? "");
+        const gate = workshopPayloadBlocked(caseText, questions);
+        if (gate.blocked) {
+          return send(res, 400, {
+            ok: false,
+            code: gate.code,
+            message: gate.message,
+          });
+        }
+        if (!present(env.OPENROUTER_API_KEY)) {
+          return send(res, 501, {
+            ok: false,
+            code: "missing-openrouter",
+            message: "Need OPENROUTER_API_KEY in .env.local.",
+          });
+        }
+        const state =
+          includeTranscript && transcript.length
+            ? { case: caseText, transcript }
+            : caseText;
+        const model = env.JEV_MODEL || DEFAULT_JEV;
+        const result = await callJev({
+          apiKey: env.OPENROUTER_API_KEY,
+          model,
+          state,
+          questions: questions as Record<string, unknown>,
+        });
+        if (!result.ok) {
+          if (result.code) {
+            return send(res, result.status === 400 ? 400 : 502, {
+              ok: false,
+              code: result.code,
+              message: result.message,
+            });
+          }
+          return send(res, 502, {
+            ok: false,
+            message: result.message,
+            status: result.status,
+          });
+        }
+        return send(res, 200, {
+          ok: true,
+          model: result.model,
+          answers: result.answers,
+          usage: result.usage,
+          elapsedMs: result.elapsedMs,
+        });
+      }
+
+      if (req.method === "POST" && url === "/api/llm") {
+        if (!present(env.OPENROUTER_API_KEY)) {
+          return send(res, 501, {
+            ok: false,
+            code: "missing-openrouter",
+            message: "Need OPENROUTER_API_KEY in .env.local.",
+          });
+        }
+        const body = await jsonBody(req);
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("X-Accel-Buffering", "no");
+        res.flushHeaders?.();
+        await runLlmSession({
+          env,
+          model: resolveChatModel(body.model, env.LLM_MODEL || DEFAULT_LLM),
+          jevModel: env.JEV_MODEL || DEFAULT_JEV,
+          primer: primerText(),
+          body: {
+            messages: body.messages,
+            state: body.state,
+            questions: body.questions,
+            jevAnswers: body.jevAnswers,
+            includeTranscript: body.includeTranscript,
+            mode: body.mode,
+            instructions: body.instructions,
+          },
+          res,
+        });
+        if (!res.writableEnded) res.end();
+        return;
+      }
+
+      return send(res, 404, { ok: false, message: "unknown api" });
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return send(res, err.status, { ok: false, message: err.message });
+      }
+      return send(res, 500, { ok: false, message: publicError(err) });
+    }
+  };
   return {
     name: "talk-to-jev-api",
     configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
-        const url = req.url?.split("?")[0] ?? "";
-        if (!url.startsWith("/api/")) return next();
-        if (!isSameOrigin(req)) {
-          return send(res, 403, { ok: false, message: "Cross-site request refused." });
-        }
-        const env = loadDotenv();
-        try {
-          if (req.method === "GET" && url === "/api/health") {
-            const docs = docsIndex();
-            const keys = healthKeyFlags(env);
-            return send(res, 200, {
-              ok: true,
-              hasKey: keys.openrouter,
-              keys,
-              jevModel: env.JEV_MODEL || DEFAULT_JEV,
-              llmModel: env.LLM_MODEL || DEFAULT_LLM,
-              docs: { files: docs.files.length, fetchedAt: docs.fetchedAt },
-            });
-          }
-
-          if (req.method === "GET" && url === "/api/settings") {
-            return send(res, 200, settingsPayload());
-          }
-
-          if (req.method === "POST" && url === "/api/openrouter/models") {
-            await jsonBody(req);
-            const listed = await listOpenRouterModels(env.OPENROUTER_API_KEY);
-            if (!listed.ok) {
-              return send(res, listed.status, { ok: false, message: listed.message });
-            }
-            return send(res, 200, { ok: true, models: listed.models });
-          }
-
-          if (req.method === "POST" && url === "/api/settings") {
-            const body = await jsonBody(req);
-            if (!isProviderId(body.id)) {
-              return send(res, 400, { ok: false, message: "Unknown key slot." });
-            }
-            if (typeof body.value !== "string") {
-              return send(res, 400, { ok: false, message: "value must be a string." });
-            }
-            upsertProviderValue(body.id, body.value);
-            return send(res, 200, settingsPayload());
-          }
-
-          if (req.method === "GET" && url === "/api/docs") {
-            return send(res, 200, docsIndex());
-          }
-
-          if (req.method === "GET" && url === "/api/docs/file") {
-            const q = new URL(req.url || "", "http://127.0.0.1").searchParams.get("path") || "";
-            const abs = safeDocPath(q);
-            if (!abs) return send(res, 404, { ok: false, message: "Doc not found." });
-            const text = readFileSync(abs, "utf8");
-            return send(res, 200, { ok: true, path: q, text });
-          }
-
-          if (req.method === "GET" && url === "/api/docs/embed") {
-            const raw =
-              new URL(req.url || "", "http://127.0.0.1").searchParams.get("url") ||
-              "";
-            const probe = await checkCatalogEmbed(raw, docsIndex().files);
-            return send(res, 200, { ok: true, embed: probe.embed, src: probe.src });
-          }
-
-          if (req.method === "GET" && url === "/api/weather") {
-            const params = new URL(req.url || "", "http://127.0.0.1").searchParams;
-            try {
-              const payload = await getWeather({
-                q: params.get("q") || undefined,
-                latitude: params.get("latitude") || undefined,
-                longitude: params.get("longitude") || undefined,
-              });
-              return send(res, 200, { ok: true, ...payload });
-            } catch (err) {
-              if (err instanceof WeatherHttpError) {
-                return send(res, err.status, { ok: false, message: err.message });
-              }
-              throw err;
-            }
-          }
-
-          if (req.method === "GET" && url === "/api/geo") {
-            const q = new URL(req.url || "", "http://127.0.0.1").searchParams.get("q") || "";
-            try {
-              const results = await searchPlaces(q);
-              return send(res, 200, { ok: true, results });
-            } catch (err) {
-              if (err instanceof WeatherHttpError) {
-                return send(res, err.status, { ok: false, message: err.message });
-              }
-              throw err;
-            }
-          }
-
-          if (req.method === "POST" && url === "/api/docs/update") {
-            // Native ESM snapshotter — no TS types shipped with the .mjs
-            const { updateJevDocs } = (await import(
-              "./scripts/update-jev-docs.mjs"
-            )) as {
-              updateJevDocs: (root?: string) => Promise<{
-                ok: boolean;
-                fetchedAt: string;
-                fetched: number;
-                failed: number;
-                files: number;
-                dest: string;
-              }>;
-            };
-            const result = await updateJevDocs(here);
-            return send(res, 200, result);
-          }
-
-          if (req.method === "POST" && url === "/api/jev") {
-            const body = await jsonBody(req);
-            const questions = body.questions;
-            if (!questions || typeof questions !== "object") {
-              return send(res, 400, { ok: false, message: "questions required" });
-            }
-            const includeTranscript = Boolean(body.includeTranscript);
-            const transcript = Array.isArray(body.transcript) ? body.transcript : [];
-            const caseText = String(body.state ?? "");
-            const gate = workshopPayloadBlocked(caseText, questions);
-            if (gate.blocked) {
-              return send(res, 400, {
-                ok: false,
-                code: gate.code,
-                message: gate.message,
-              });
-            }
-            if (!present(env.OPENROUTER_API_KEY)) {
-              return send(res, 501, {
-                ok: false,
-                code: "missing-openrouter",
-                message: "Need OPENROUTER_API_KEY in .env.local.",
-              });
-            }
-            const state =
-              includeTranscript && transcript.length
-                ? { case: caseText, transcript }
-                : caseText;
-            const model = env.JEV_MODEL || DEFAULT_JEV;
-            const result = await callJev({
-              apiKey: env.OPENROUTER_API_KEY,
-              model,
-              state,
-              questions: questions as Record<string, unknown>,
-            });
-            if (!result.ok) {
-              if (result.code) {
-                return send(res, result.status === 400 ? 400 : 502, {
-                  ok: false,
-                  code: result.code,
-                  message: result.message,
-                });
-              }
-              return send(res, 502, {
-                ok: false,
-                message: result.message,
-                status: result.status,
-              });
-            }
-            return send(res, 200, {
-              ok: true,
-              model: result.model,
-              answers: result.answers,
-              usage: result.usage,
-              elapsedMs: result.elapsedMs,
-            });
-          }
-
-          if (req.method === "POST" && url === "/api/llm") {
-            if (!present(env.OPENROUTER_API_KEY)) {
-              return send(res, 501, {
-                ok: false,
-                code: "missing-openrouter",
-                message: "Need OPENROUTER_API_KEY in .env.local.",
-              });
-            }
-            const body = await jsonBody(req);
-            res.statusCode = 200;
-            res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-            res.setHeader("Cache-Control", "no-store");
-            res.setHeader("X-Accel-Buffering", "no");
-            res.flushHeaders?.();
-            await runLlmSession({
-              env,
-              model: resolveChatModel(body.model, env.LLM_MODEL || DEFAULT_LLM),
-              jevModel: env.JEV_MODEL || DEFAULT_JEV,
-              primer: primerText(),
-              body: {
-                messages: body.messages,
-                state: body.state,
-                questions: body.questions,
-                jevAnswers: body.jevAnswers,
-                includeTranscript: body.includeTranscript,
-                mode: body.mode,
-                instructions: body.instructions,
-              },
-              res,
-            });
-            if (!res.writableEnded) res.end();
-            return;
-          }
-
-          return send(res, 404, { ok: false, message: "unknown api" });
-        } catch (err) {
-          if (err instanceof HttpError) {
-            return send(res, err.status, { ok: false, message: err.message });
-          }
-          return send(res, 500, { ok: false, message: publicError(err) });
-        }
-      });
+      server.middlewares.use(handler);
+    },
+    // Registered directly (not returned as a post hook) so it runs before
+    // preview's static / SPA fallback handler.
+    configurePreviewServer(server) {
+      server.middlewares.use(handler);
     },
   };
 }
@@ -392,16 +440,6 @@ export default defineConfig({
   optimizeDeps: {
     include: ["mammoth", "turndown", "pdfjs-dist"],
   },
-  server: {
-    port: 5182,
-    strictPort: true,
-    host: "127.0.0.1",
-    cors: false,
-  },
-  preview: {
-    port: 5182,
-    strictPort: true,
-    host: "127.0.0.1",
-    cors: false,
-  },
+  server: { ...listen },
+  preview: { ...listen },
 });

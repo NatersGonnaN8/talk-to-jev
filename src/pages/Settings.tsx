@@ -20,6 +20,7 @@ export function SettingsPage({
   onPickModel: () => void;
 }) {
   const [keys, setKeys] = useState<KeyStatus[]>([]);
+  const [readOnly, setReadOnly] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [instructions, setInstructions] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function SettingsPage({
     try {
       const data = await getSettings();
       setKeys(data.keys);
+      setReadOnly(Boolean(data.readOnly));
       setErr("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not load settings");
@@ -148,9 +150,14 @@ export function SettingsPage({
               className="key-form"
               onSubmit={(e) => {
                 e.preventDefault();
-                void onSave(k.id);
+                if (!readOnly) void onSave(k.id);
               }}
             >
+              {readOnly ? (
+                <p className="key-why">
+                  This key is set on the server. It can't be changed here.
+                </p>
+              ) : (
               <input
                 type="password"
                 name={`key-${k.id}`}
@@ -166,6 +173,8 @@ export function SettingsPage({
                 }
                 aria-label={`${k.label} API key`}
               />
+              )}
+              {readOnly ? null : (
               <button
                 className="btn solid"
                 type="submit"
@@ -173,6 +182,7 @@ export function SettingsPage({
               >
                 {busy === k.id ? "Saving…" : "Save"}
               </button>
+              )}
               <button
                 className="btn ghost"
                 type="button"
