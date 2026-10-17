@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isPublicMode } from "./publicMode.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const ENV_FILE = resolve(here, "..", ".env.local");
@@ -81,6 +82,8 @@ function hasKeyLine(text: string, key: string) {
  * disk is read or written for keys.
  */
 export function keysReadOnly(): boolean {
+  // Public mode forces this on, so a half-set deploy can never leave Settings writable.
+  if (isPublicMode(process.env)) return true;
   return /^(1|true|yes)$/i.test((process.env.JEV_READONLY_KEYS ?? "").trim());
 }
 
@@ -185,7 +188,10 @@ export function upsertProviderValue(id: ProviderId, raw: string) {
 
 export function settingsPayload() {
   ensureProviderSlots();
-  return { ok: true as const, readOnly: keysReadOnly(), keys: publicKeyRows() };
+  const isPublic = isPublicMode(process.env);
+  // Public mode: not even the last four characters of the server key leave the server.
+  const keys = publicKeyRows().map((row) => (isPublic ? { ...row, last4: null } : row));
+  return { ok: true as const, readOnly: keysReadOnly(), public: isPublic, keys };
 }
 
 export function sanitizePublicError(message: string) {

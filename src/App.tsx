@@ -58,6 +58,8 @@ import { ConvertPane } from "./ConvertPane";
 import { partitionDroppedFiles } from "./convert/formats";
 import { UseCasesPage } from "./UseCases";
 import { SettingsPage } from "./pages/Settings";
+import { PublicBanner } from "./PublicBanner";
+import { effectiveModel, useByokKey, usePublicInfo } from "./publicMode";
 import { HistoryPanel } from "./HistoryPanel";
 import { TutorialOverlay } from "./TutorialOverlay";
 import { LlmBubble, ThinkingMill } from "./LlmBubble";
@@ -414,10 +416,12 @@ export function App() {
           </button>
         </div>
       ) : null}
+      <PublicBanner onOpenSettings={() => go("settings")} />
       {page === "docs" ? (
         <DocsPage
           snapshotTick={docsTick}
           updating={updating}
+          readOnly={Boolean(health?.public)}
           onUpdateDocs={onUpdateDocs}
         />
       ) : null}
@@ -585,6 +589,10 @@ function Workshop({
     total: number;
   } | null>(null);
   const [llmModel] = useLlmModel();
+  // Re-render when the free-tier info or the visitor key changes, so the shown model is the one that will be sent.
+  usePublicInfo();
+  useByokKey();
+  const shownModel = effectiveModel(llmModel);
   const llmModelRef = useRef(llmModel);
   llmModelRef.current = llmModel;
   const agentLockRef = useRef(false);
@@ -1327,7 +1335,7 @@ function Workshop({
         <header className="pane-head">
           <div>
             <h2 className="pane-title">LLM</h2>
-            <code>{llmModel}</code>
+            <code>{shownModel}</code>
           </div>
           <div className="row-actions" data-tutorial="wire">
             <div className="llm-mill-slot">

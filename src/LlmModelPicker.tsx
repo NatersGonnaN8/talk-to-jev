@@ -7,6 +7,7 @@ import {
   useLlmCatalog,
   useLlmModel,
 } from "./llmModel";
+import { useByokKey, usePublicInfo } from "./publicMode";
 
 type MenuPlace = { top: number; left: number; width: number; maxHeight: number };
 
@@ -21,9 +22,19 @@ export function LlmModelPicker({
   className?: string;
   tip?: string;
 }) {
-  const [model, setModel] = useLlmModel();
+  const [stored, setModel] = useLlmModel();
   const catalog = useLlmCatalog();
-  const options = listLlmChatModels([model, extraId], catalog);
+  const pub = usePublicInfo();
+  const byok = useByokKey();
+  // Public copy without the visitor's own key: only the free models are offered.
+  const freeTier = pub.public && !byok && pub.freeModels.length > 0;
+  const options = freeTier
+    ? pub.freeModels.map((m) => ({ id: m.id, label: m.name }))
+    : listLlmChatModels([stored, extraId], catalog);
+  const model =
+    freeTier && !options.some((row) => row.id === stored)
+      ? pub.defaultFreeModel || options[0].id
+      : stored;
   const current = options.find((row) => row.id === model) ?? options[0];
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

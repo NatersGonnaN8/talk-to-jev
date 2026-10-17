@@ -1,10 +1,11 @@
-import { openRouterHeaders } from "./openrouter";
-import { attachChoiceLegends, rewriteChoiceKeysInQuestions } from "./questions";
+import { openRouterBase, openRouterHeaders } from "./openrouter.ts";
+import { friendlyUpstreamMessage, type Access } from "./publicMode.ts";
+import { attachChoiceLegends, rewriteChoiceKeysInQuestions } from "./questions.ts";
 import {
   VIOLENCE_GATE_CODE,
   ticketFromJevState,
   workshopPayloadBlocked,
-} from "./violenceGate";
+} from "./violenceGate.ts";
 
 export type JevCallResult =
   | { ok: true; model: string; answers: unknown; usage: unknown; elapsedMs: number }
@@ -16,6 +17,8 @@ export async function callJev(opts: {
   state: unknown;
   questions: Record<string, unknown>;
   signal?: AbortSignal;
+  /** Who is paying, for friendly error wording. */
+  tier?: Access["kind"];
 }): Promise<JevCallResult> {
   const gate = workshopPayloadBlocked(ticketFromJevState(opts.state), opts.questions);
   if (gate.blocked) {
@@ -23,7 +26,7 @@ export async function callJev(opts: {
   }
   const questions = rewriteChoiceKeysInQuestions(opts.questions);
   const started = performance.now();
-  const upstream = await fetch("https://openrouter.ai/api/alpha/decisions", {
+  const upstream = await fetch(`${openRouterBase()}/api/alpha/decisions`, {
     method: "POST",
     headers: openRouterHeaders(opts.apiKey),
     body: JSON.stringify({
@@ -38,7 +41,7 @@ export async function callJev(opts: {
     return {
       ok: false,
       status: upstream.status,
-      message: "Jev request failed (details omitted).",
+      message: friendlyUpstreamMessage(upstream.status, opts.tier, "Jev"),
     };
   }
   return {

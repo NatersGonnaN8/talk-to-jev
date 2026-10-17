@@ -3,8 +3,8 @@
  * Mutates Workshop via SSE tool events — never a JSON dump as the product.
  */
 import type { ServerResponse } from "node:http";
-import { callJev } from "./jev";
-import { stripDsml } from "./dsml";
+import { callJev } from "./jev.ts";
+import { stripDsml } from "./dsml.ts";
 import {
   completeChat as completeOpenRouterChat,
   isAbortError,
@@ -12,19 +12,25 @@ import {
   summarizeToolArgs,
   type OrToolCall,
   type ToolChoice,
-} from "./llm-stream";
+} from "./llm-stream.ts";
 import {
   parseJevQuestions,
   questionsAreClean,
   questionsFromToolArgs,
   stripBlankQuestions,
   type JevQuestion,
-} from "./questions";
-import { sanitizePublicError } from "./settings";
+} from "./questions.ts";
+import { sanitizePublicError } from "./settings.ts";
+import {
+  friendlyUpstreamMessage,
+  scrubKnown,
+  type Access,
+  type UsageGate,
+} from "./publicMode.ts";
 import {
   VIOLENCE_GATE_TOOL_MESSAGE,
   workshopPayloadBlocked,
-} from "./violenceGate";
+} from "./violenceGate.ts";
 
 const MAX_ROUNDS = 8;
 const MAX_STATE_CHARS = 400_000;
@@ -552,6 +558,7 @@ async function completeChat(opts: {
   toolChoice: ToolChoice;
   tools?: unknown;
   includeReasoning?: boolean;
+  maxTokens?: number;
   deferContent?: boolean;
   onThought?: (text: string) => void;
   onDelta?: (text: string) => void;
@@ -559,6 +566,7 @@ async function completeChat(opts: {
 }) {
   return completeOpenRouterChat({
     apiKey: opts.apiKey,
+    maxTokens: opts.maxTokens,
     model: opts.model,
     messages: opts.messages,
     tools: opts.tools ?? LLM_TOOLS,
@@ -575,7 +583,10 @@ async function executeTool(
   name: string,
   args: Record<string, unknown>,
   ctx: {
-    env: Record<string, string>;
+    /** Decided once per request by the caller. Nothing here reads the environment for a key. */
+    apiKey: string;
+    tier: Access["kind"];
+    gate?: UsageGate;
     jevModel: string;
     includeTranscript: boolean;
     transcript: Array<{ role: string; content: string }>;
@@ -757,13 +768,18 @@ async function executeTool(
     } catch {
       /* ignore */
     }
-    const result = await callJev({
-      apiKey: ctx.env.OPENROUTER_API_KEY,
-      model: ctx.jevModel,
-      state,
-      questions: clean,
-      signal: ctx.signal,
-    });
+    const denied =
+      ctx.gate?.jev(JSON.stringify({ state, questions: clean }).length) ?? null;
+    const result = denied
+      ? ({ ok: false, status: denied.status, message: denied.message } as const)
+      : await callJev({
+          apiKey: ctx.apiKey,
+          model: ctx.jevModel,
+          state,
+          questions: clean,
+          signal: ctx.signal,
+          tier: ctx.tier,
+        });
     if (!result.ok) {
       emit(res, {
         type: "inspect",
@@ -831,7 +847,13 @@ function salvageQuestionsFromText(text: string): Record<string, JevQuestion> | n
 }
 
 export async function runLlmSession(opts: {
-  env: Record<string, string>;
+  /** The key to spend, chosen by the caller (server key, or the visitor's own). */
+  apiKey: string;
+  tier: Access["kind"];
+  /** Free tier only: counts every upstream LLM request and Jev call, and can refuse. */
+  gate?: UsageGate;
+  /** Free tier only: output cap and loop-turn cap. */
+  limits?: { maxTokens?: number; maxRounds?: number };
   model: string;
   jevModel: string;
   primer: string;
@@ -867,6 +889,7 @@ export async function runLlmSession(opts: {
     ...transcript.map((m) => ({ role: m.role, content: m.content })),
   ];
 
+  const maxRounds = Math.max(2, Math.min(MAX_ROUNDS, opts.limits?.maxRounds ?? MAX_ROUNDS));
   const abort = wireClientAbort(opts.res);
   const millTools = toolsForMode(mode);
 
@@ -899,9 +922,21 @@ export async function runLlmSession(opts: {
       : "auto";
   let includeReasoning = true;
 
-  const runChat = async (choice: ToolChoice, streamed: { delta: boolean; acc: string }) =>
-    completeChat({
-      apiKey: opts.env.OPENROUTER_API_KEY,
+  const runChat = async (choice: ToolChoice, streamed: { delta: boolean; acc: string }) => {
+    // Every upstream request counts, retries included, not just every session.
+    const denied = opts.gate?.llm() ?? null;
+    if (denied) {
+      return {
+        ok: false as const,
+        status: denied.status,
+        retryTools: false,
+        retryReasoning: false,
+        message: denied.message,
+      };
+    }
+    return completeChat({
+      apiKey: opts.apiKey,
+      maxTokens: opts.limits?.maxTokens,
       model: opts.model,
       messages,
       tools: millTools,
@@ -922,6 +957,7 @@ export async function runLlmSession(opts: {
       },
       signal: abort.signal,
     });
+  };
 
   const runTool = async (
     name: string,
@@ -937,7 +973,9 @@ export async function runLlmSession(opts: {
       argsSummary,
     });
     return executeTool(name, args, {
-      env: opts.env,
+      apiKey: opts.apiKey,
+      tier: opts.tier,
+      gate: opts.gate,
       jevModel: opts.jevModel,
       includeTranscript,
       transcript,
@@ -951,9 +989,9 @@ export async function runLlmSession(opts: {
   };
 
   try {
-    for (let round = 0; round < MAX_ROUNDS; round++) {
+    for (let round = 0; round < maxRounds; round++) {
       if (abort.signal.aborted || clientGone(opts.res)) return;
-      if (round === MAX_ROUNDS - 1) toolChoice = "none";
+      if (round === maxRounds - 1) toolChoice = "none";
       else if (
         !work.readWorkshop &&
         round === 0 &&
@@ -994,7 +1032,13 @@ export async function runLlmSession(opts: {
       }
 
       if (!result.ok) {
-        emit(opts.res, { type: "error", message: sanitizePublicError(result.message) });
+        const text = /^LLM request failed/.test(result.message)
+          ? friendlyUpstreamMessage(result.status, opts.tier, "LLM")
+          : result.message;
+        emit(opts.res, {
+          type: "error",
+          message: sanitizePublicError(scrubKnown(text, opts.apiKey)),
+        });
         emit(opts.res, { type: "done" });
         return;
       }
@@ -1050,12 +1094,12 @@ export async function runLlmSession(opts: {
         }
       }
 
-      if (modeMustAskJev(mode) && !work.askedJev && round < MAX_ROUNDS - 1) {
+      if (modeMustAskJev(mode) && !work.askedJev && round < maxRounds - 1) {
         toolChoice = "required";
         continue;
       }
 
-      if (modeMustInvent(mode) && !millInventDone(work) && round < MAX_ROUNDS - 1) {
+      if (modeMustInvent(mode) && !millInventDone(work) && round < maxRounds - 1) {
         if (content && !work.appliedQuestions) {
           const salvaged = salvageQuestionsFromText(content);
           if (salvaged) {
@@ -1111,7 +1155,9 @@ export async function runLlmSession(opts: {
     if (isAbortError(err) || abort.signal.aborted || clientGone(opts.res)) {
       return;
     }
-    const message = sanitizePublicError(err instanceof Error ? err.message : "LLM failed");
+    const message = sanitizePublicError(
+      scrubKnown(err instanceof Error ? err.message : "LLM failed", opts.apiKey),
+    );
     emit(opts.res, { type: "error", message });
     emit(opts.res, { type: "done" });
   }

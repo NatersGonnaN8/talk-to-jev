@@ -88,6 +88,8 @@ export type SettingsResponse = {
   ok: boolean;
   /** Hosted copy: the key is set on the server and Settings cannot change it. */
   readOnly?: boolean;
+  /** Public copy: Settings shows the visitor's own key, not the server key. */
+  public?: boolean;
   keys: KeyStatus[];
   message?: string;
 };
@@ -105,6 +107,14 @@ export type Health = {
   jevModel: string;
   llmModel: string;
   docs: { files: number; fetchedAt: string };
+  /** Public copy: anyone can use it, free tier or their own key. */
+  public?: boolean;
+  freeTier?: {
+    available: boolean;
+    models: Array<{ id: string; name: string }>;
+    defaultModel: string;
+  };
+  githubUrl?: string;
 };
 
 export type DocListItem = {

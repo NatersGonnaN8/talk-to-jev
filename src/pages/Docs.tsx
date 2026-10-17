@@ -170,10 +170,13 @@ export function DocsPage({
   snapshotTick,
   updating,
   onUpdateDocs,
+  readOnly,
 }: {
   snapshotTick: number;
   updating: boolean;
   onUpdateDocs: () => void | Promise<void>;
+  /** Hosted copy: the snapshot is refreshed on the maintainer machine, not here. */
+  readOnly?: boolean;
 }) {
   const boot = useMemo(() => loadDocsRailPrefs(), []);
   const [files, setFiles] = useState<DocListItem[]>([]);
@@ -351,14 +354,20 @@ export function DocsPage({
           className="btn ghost"
           type="button"
           data-tutorial="update-docs"
-          disabled={updating}
+          disabled={updating || readOnly}
           onClick={() => void onUpdateDocs()}
         >
           {updating ? "Updating…" : "Update Jev docs"}
         </button>
         <p className="docs-tools-why">
-          Refresh the official Jev snapshot in this repo. Same as{" "}
-          <code>npm run update-jev-docs</code>.
+          {readOnly ? (
+            "The snapshot is refreshed by the maintainer. Run the app locally to refresh your own copy."
+          ) : (
+            <>
+              Refresh the official Jev snapshot in this repo. Same as{" "}
+              <code>npm run update-jev-docs</code>.
+            </>
+          )}
         </p>
       </div>
       <div className="docs-body">

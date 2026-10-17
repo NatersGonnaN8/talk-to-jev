@@ -4,6 +4,7 @@ import {
   patchDevCall,
 } from "./devLog";
 import { readLlmInstructions } from "./llmInstructions";
+import { byokHeaders, effectiveModel, readByokKey, setPublicInfo } from "./publicMode";
 import type { Health, JevAnswer, JevQuestion, SettingsResponse } from "./types";
 import type { WeatherResponse } from "./weather";
 
@@ -11,7 +12,26 @@ export const BLOCKED_VIOLENCE_CODE = "blocked-violence";
 
 export async function getHealth(): Promise<Health> {
   const res = await fetch("/api/health");
-  return (await res.json()) as Health;
+  const health = (await res.json()) as Health;
+  setPublicInfo({
+    public: Boolean(health.public),
+    freeAvailable: Boolean(health.freeTier?.available),
+    freeModels: health.freeTier?.models ?? [],
+    defaultFreeModel: health.freeTier?.defaultModel ?? "",
+  });
+  if (health.public) {
+    // On the public copy a visitor can run on the free tier or on their own key.
+    health.hasKey = Boolean(health.freeTier?.available) || Boolean(readByokKey());
+  }
+  return health;
+}
+
+export async function getUsage(): Promise<{
+  public: boolean;
+  free?: { llmLeft: number; jevLeft: number };
+}> {
+  const res = await fetch("/api/usage", { cache: "no-store" });
+  return (await res.json()) as { public: boolean; free?: { llmLeft: number; jevLeft: number } };
 }
 
 export async function getSettings(): Promise<SettingsResponse> {
@@ -26,7 +46,7 @@ export async function fetchOpenRouterModels(): Promise<
 > {
   const res = await fetch("/api/openrouter/models", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...byokHeaders() },
     body: "{}",
   });
   const body = (await res.json()) as {
@@ -133,7 +153,7 @@ export async function askJev(payload: {
   try {
     const res = await fetch("/api/jev", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...byokHeaders() },
       body: JSON.stringify(payload),
     });
     const body = await res.json();
@@ -347,7 +367,7 @@ export async function streamLlm(
 ): Promise<string> {
   const title = payload.mode || "chat";
   const instructions = readLlmInstructions();
-  const model = payload.model?.trim();
+  const model = payload.model ? effectiveModel(payload.model.trim()) : undefined;
   const body = {
     ...payload,
     ...(model ? { model } : {}),
@@ -381,7 +401,7 @@ export async function streamLlm(
   try {
     const res = await fetch("/api/llm", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...byokHeaders() },
       cache: "no-store",
       body: JSON.stringify(body),
       signal,

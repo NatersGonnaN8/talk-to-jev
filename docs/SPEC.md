@@ -52,7 +52,7 @@ The LLM is the cheap prose half. Jev is the cheap decision half. The app is the 
 
 ## 3. Auth and models
 
-**Bring your own keys (BYOK).** Keys live on the **server** in gitignored `.env.local`. Never commit that file. The browser never sees raw keys (not in HTML, JS bundles, localStorage, or API JSON). Paste in **Settings** (`/settings`) — that POSTs `/api/settings` and writes `.env.local`. Contributors may copy `env.local.template` (empty values, comments only). Do **not** use `.env.example` as a paste target.
+**Local copy: bring your own keys (BYOK).** (The public hosted copy works differently, see section 17. Everything below is the local and admin behavior, unchanged.) Keys live on the **server** in gitignored `.env.local`. Never commit that file. The browser never sees raw keys (not in HTML, JS bundles, localStorage, or API JSON). Paste in **Settings** (`/settings`) — that POSTs `/api/settings` and writes `.env.local`. Contributors may copy `env.local.template` (empty values, comments only). Do **not** use `.env.example` as a paste target.
 
 Env names (standard):
 
@@ -495,6 +495,8 @@ There is **no** bundled “Pass work across the wire” step. Keep `data-tutoria
 
 ### 6.5 Settings — `/settings`
 
+(Public copy, `JEV_PUBLIC=1`: the OpenRouter key row is replaced by the visitor's own key card, section 17.4.)
+
 **Job:** BYOK home **and** standing LLM instructions. Paste provider keys. Keys stay on this machine in gitignored `.env.local`. The browser never stores raw keys in localStorage. LLM instructions are **not** a key — they persist in this browser only.
 
 Layout:
@@ -598,6 +600,8 @@ Nater (2026-09-20): always log LLM and Jev payloads; inspector **hidden by defau
 All JSON unless noted. Never echo the API key. Never dump upstream bodies that might contain secrets. Bind `127.0.0.1` only; do **not** set wide-open CORS (`Access-Control-Allow-Origin: *`). Same-origin UI does not need CORS.
 
 **CSRF gate (2026-09-19).** `cors: false` only stops other sites from *reading* responses; a malicious page in the operator's browser can still *send* a preflight-free POST to `127.0.0.1:5182` and swap the OpenRouter key or burn credits. So every `/api/*` request is refused with **403** when `Sec-Fetch-Site` is present and not `same-origin` / `none`, or when `Origin` is present and is not `http(s)://<Host>` (Host is trusted because Vite `allowedHosts` already 403s foreign hosts). POST bodies must be `Content-Type: application/json` or the server returns **415** (cross-site preflight-free POSTs can only be `text/plain` / form types). Requests with neither header (curl, address bar, same-origin GET) pass. Never relax this to `Access-Control-Allow-Origin`.
+
+**Public copy (2026-10-17).** `JEV_PUBLIC=1` opens the hosted copy to anyone with no login: free tier or bring-your-own-key. All of it is in section 17. This paragraph and the table below describe the local and admin behavior.
 
 **Hosted copy (2026-10-16).** The same app can run on the VPS at `https://jev.effortlessinnovations.com`, behind the site's one login (Authelia, admins only, via Traefik). It runs `vite preview` (`npm run serve`) from a Docker image; `vite.config.ts` registers the **same** `/api/*` handler for `configureServer` and `configurePreviewServer`, so the CSRF gate, JSON-only POST, 2 MiB cap and `allowedHosts` check are identical to dev. Nothing in the gate changed. Behind Traefik the `Host` header is the public host and the browser's `Origin` is `https://<that host>`, so `isSameOrigin` already passes; the gate does **not** read `X-Forwarded-*` (do not add that: it would widen the gate). Listening is configured by env only, and the local defaults are unchanged: `JEV_HOST` (default `127.0.0.1`), `JEV_PORT` (default `5182`, still `strictPort`), `JEV_ALLOWED_HOSTS` (comma list added to Vite's `allowedHosts`; never "all"). `JEV_READONLY_KEYS=1` (hosted mode): the OpenRouter key comes **only** from the server's environment (a mounted env file), no `.env.local` is read or written, `POST /api/settings` and `POST /api/docs/update` return **403**, and `GET /api/settings` adds `readOnly: true` (the Settings page then hides the key form). Keys never enter the image or the bundle (`VITE_` is never used; the Docker ignore list is a whitelist). Files and runbook: `hostinger-deploy/jev/` (`Dockerfile`, `Dockerfile.dockerignore`, `DEPLOY.md`).
 
@@ -1190,6 +1194,61 @@ Rough estimate: `ceil(chars / 4)`. Show estimated tokens on the Convert page for
 - Secrets in convert output or history
 
 ---
+
+## 17. Public mode (`JEV_PUBLIC=1`, 2026-10-17)
+
+Nater (2026-10-17): "It would be really cool if we could just host that app on my site, so then they don't even have to do anything. They can just bring in their BYOK key, or even do it for free. Can we do it so that they use our free OpenRouter key? If they want more advanced models, they can either just download the GitHub, or they can use their own OpenRouter key within the app and our website."
+
+`JEV_PUBLIC=1` on the hosted container (`https://jev.effortlessinnovations.com`) lets anyone use the app with no login. Unset, nothing changes: local and the old login-gated hosted copy behave exactly as in §3 and §7. Code: `server/api.ts` (the handler, shared by `vite`, `vite preview` and the tests), `server/publicMode.ts` (config, model gate, caps, BYOK header; pure and unit tested), `server/netutil.ts` (client IP), `src/publicMode.ts`, `src/PublicBanner.tsx`.
+
+### 17.1 Two ways in
+
+| | Free tier | BYOK |
+|---|---|---|
+| Key | the server's `OPENROUTER_API_KEY` (a dedicated key with a credit limit) | the visitor's own OpenRouter key |
+| LLM models | only the allowlist `JEV_FREE_MODELS`, every id ending in `:free` | any chat model (never a Jev id on `/api/llm`) |
+| Jev | the server key, pinned `typesafe/jev-1.13`, counted | the visitor's key |
+| Caps | per-IP and global daily caps, capped `max_tokens`, capped loop turns, capped input | none; only the per-IP anti-abuse rate limits |
+
+The server decides the key and the model once per request and passes the key explicitly down the call chain. Nothing downstream reads `OPENROUTER_API_KEY`. Public mode forces `JEV_READONLY_KEYS` on, so Settings can never write, no `.env.local` is read, `POST /api/settings` and `POST /api/docs/update` return **403**, and `GET /api/settings` returns `last4: null` (no part of the server key leaves the server).
+
+### 17.2 Free tier rules (server-enforced; the client's pick is only a request)
+
+- **Model gate.** The chat model must be an exact match in `JEV_FREE_MODELS` and end in `:free`. Missing or empty means the free default. Anything else (a paid id, a lookalike such as `openai/gpt-5:free`, a case spoof, a Jev id) gets **403** `model-not-free` with a message that points to BYOK and GitHub. The server's `LLM_MODEL` is never used on the free tier, and `/api/health` reports the free default as `llmModel`. Startup refuses a `JEV_FREE_MODELS` entry that does not end in `:free`, so a typo cannot open a paid model to the server key. Default list (verified 2026-10-17 against OpenRouter's model list: each supports `tools` and `tool_choice`, has no expiry date, and had a healthy endpoint): `nvidia/nemotron-3-super-120b-a12b:free` (default), `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`.
+- **Caps (in memory, UTC-midnight windows, per IP and global).** Every upstream LLM request counts (retries and each loop round too, not only each session), and every Jev call counts (the `ask_jev` tool and `POST /api/jev`). Defaults: `JEV_FREE_LLM_PER_IP_PER_DAY=40`, `JEV_FREE_LLM_GLOBAL_PER_DAY=600`, `JEV_FREE_LLM_GLOBAL_PER_MIN=15`, `JEV_FREE_JEV_PER_IP_PER_DAY=25`, `JEV_FREE_JEV_GLOBAL_PER_DAY=300`. OpenRouter's own free-model limit is per account: 20 requests/min, and 50/day (under $10 of credits bought, ever) or 1,000/day (at least $10). The global numbers stay under that (set `JEV_FREE_LLM_GLOBAL_PER_DAY=40` if the account has under $10 bought). Caps reset on restart (the container filesystem is read-only), so the OpenRouter key's credit limit is the real backstop.
+- **Output and loop caps.** `JEV_FREE_MAX_TOKENS=4096` (reasoning models spend it on thinking too), `JEV_FREE_MAX_ROUNDS=6` (the loop's own maximum is 8).
+- **Input caps.** `JEV_FREE_MAX_STATE_CHARS=24000` and `JEV_FREE_MAX_QUESTIONS_CHARS=24000` (oversize gets **413**), at most `JEV_FREE_MAX_MESSAGES=20` chat turns of `JEV_FREE_MAX_MESSAGE_CHARS=6000` each, instructions cut to `JEV_FREE_MAX_INSTRUCTION_CHARS=2000`. The whole Jev payload (case, cards and chat transcript together) is capped at `JEV_FREE_MAX_JEV_CHARS=40000` characters (about 10,000 tokens at most), refused with **413** `limit-size` before it is counted and before anything is sent. Only the clamped chat goes to Jev. Worst-case free Jev spend: 300 calls/day x 10,000 tokens x $0.042 per million tokens is about $0.13/day, about $4/month. (Jev's own context is 262,144 tokens, so this cap is what bounds the cost, not the model.)
+- **Friendly refusals.** At a cap: **429** with `Retry-After` and "The free tier is used up for now. It resets at midnight UTC. To keep going, paste your own OpenRouter key in Settings, or get the app on GitHub: https://github.com/NatersGonnaN8/talk-to-jev". Per-minute: "busy, try again in a minute". Upstream 429 on the free tier maps to the busy message; 402 (the dedicated key hit its credit limit) maps to the used-up message. Inside the loop the same text reaches the chat as an error, or as the `ask_jev` tool failure.
+- `GET /api/usage` returns what is left for this visitor (`{ free: { llmLeft, jevLeft } }`) for the banner.
+- Free providers may log or train on prompts. The banner says so.
+
+### 17.3 BYOK key handling
+
+- The visitor pastes the key in Settings. It is stored only in the browser: `sessionStorage` by default (gone with the tab); an opt-in "Remember on this device" uses `localStorage`, with a warning for shared computers. Storage key: `talk-to-jev:byok-key`.
+- It travels in one request header, `X-Jev-OpenRouter-Key`, on `POST /api/llm`, `POST /api/jev` and `POST /api/openrouter/models` only. Never in a body, a URL, the Inspector, history, or the dev log. The server validates the shape (`[A-Za-z0-9_-]{20,512}`, else **400** `bad-key`, with a message that does not repeat it), uses it for that request, and drops it. Never logged, never stored, never written to disk, never echoed.
+- Error text is key-free by construction: upstream bodies are never surfaced (a hostile upstream that echoes `Authorization` is tested), upstream statuses become fixed friendly lines ("OpenRouter did not accept your key", "out of credit"), and any known key (visitor or server) is scrubbed from a thrown message before it is sent.
+- The model list for BYOK is the public catalog fetched with no key and cached 10 minutes. The free tier gets the allowlist with no upstream call.
+
+### 17.4 UI
+
+- `PublicBanner` under the chrome (public copy only): "Free to try, no login." What the free tier is (free models, daily limit shared by everyone, free providers may log prompts), what is left for you today, "Use your own key" (to Settings), "Get it on GitHub" (https://github.com/NatersGonnaN8/talk-to-jev), Hide (collapses to one line for the tab).
+- Settings (public copy): the server key row is replaced by "Your OpenRouter key": password field, Save key, Remove key, Get current models, and the "Remember on this device" checkbox. Docs "Update Jev docs" is disabled with a reason.
+- Model picker: the free tier shows only the free models; with a visitor key it shows the usual catalog. A stored non-free pick on the free tier is replaced by the free default when sent.
+- With neither a server key nor a visitor key the Ask buttons stay disabled as before.
+
+### 17.5 Abuse and hardening
+
+- `clientIp` is copied from the booking page, which was proven against a real Traefik: `CF-Connecting-IP` is believed only when the TCP peer is a private address and the last `X-Forwarded-For` hop (added by Traefik) is a Cloudflare range; otherwise the last hop, otherwise the peer. IPv6 is bucketed by /64. Overrides: `JEV_TRUSTED_PROXIES`, `JEV_CLOUDFLARE_RANGES` (the default list is Cloudflare's published ranges, fetched 2026-10-17).
+- Per-IP limits on every `/api/*` request (`JEV_RL_API_PER_IP_PER_MIN=240`), on the heavy POSTs (`JEV_RL_HEAVY_PER_IP_PER_MIN=20`), and on anything that fetches the network for a visitor: weather, geocoding, the docs embed probe and the model list (`JEV_RL_LOOKUP_PER_IP_PER_MIN=30`, `JEV_RL_LOOKUP_GLOBAL_PER_MIN=300`). Concurrent `/api/llm` streams: `JEV_MAX_CONCURRENT=12` total, `JEV_MAX_CONCURRENT_PER_IP=2`.
+- `POST /api/docs/update` (the only route that writes to disk or fetches arbitrary web content) is off. The embed probe only fetches https URLs that are catalog sources.
+- The §7 gates stay: CSRF, JSON-only, 2 MiB, `allowedHosts`, and the §5.4 violence gate (also on the free tier and on BYOK).
+- Hosted pages (`vite preview` with `JEV_PUBLIC` or `JEV_READONLY_KEYS`) send a Content-Security-Policy with no `unsafe-eval` and no inline script: `default-src 'self'`, `script-src 'self'`, `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com` (React and the sanitized prose set style attributes), `font-src 'self' https://fonts.gstatic.com`, `img-src 'self' data: blob:` (a prompt-injected markdown image cannot phone home), `connect-src 'self'`, `worker-src 'self' blob:`, `frame-src https:` (the Docs live view), `object-src 'none'`, `base-uri 'none'`, `form-action 'self'`, `frame-ancestors 'none'`; plus `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `X-Frame-Options: DENY`, COOP. `vite dev` is unchanged.
+- Rendered markdown (LLM bubbles, Docs, the ticket) goes through DOMPurify (installed 3.4.17, which fixes the advisory the 3.4.15 range allowed) with `style`, `form`, `svg`, `base`, `template` and `srcdoc` forbidden and data URIs dropped. Visitors share no content, so a bad render can only hit their own page; the BYOK key in `localStorage` is why the "remember" option carries a warning.
+- Server logs name the model, mode and counts, never a key or a body.
+
+### 17.6 Test seam
+
+`JEV_OPENROUTER_BASE` (default `https://openrouter.ai`) points every OpenRouter call at a mock. Test only; never set it in production. Proof: `server/api.public.test.ts` runs the real handler against a mock upstream that records `Authorization` and `model` for every call.
 
 ## Remaining (prototype)
 

@@ -4,12 +4,12 @@ import {
   mergeDsmlCalls,
   parseDsml,
   stripDsml,
-} from "./dsml";
-import { openRouterHeaders } from "./openrouter";
+} from "./dsml.ts";
+import { openRouterBase, openRouterHeaders } from "./openrouter.ts";
 import {
   parseJevQuestions,
   questionsFromToolArgs,
-} from "./questions";
+} from "./questions.ts";
 
 export type OrToolCall = {
   id: string;
@@ -345,6 +345,8 @@ export async function completeChat(opts: {
   tools: unknown;
   toolChoice: ToolChoice;
   includeReasoning: boolean;
+  /** Output cap (free tier). Omitted = provider default. */
+  maxTokens?: number;
   deferContent?: boolean;
   onThought?: (text: string) => void;
   onDelta?: (text: string) => void;
@@ -357,12 +359,13 @@ export async function completeChat(opts: {
     tool_choice: opts.toolChoice,
     messages: opts.messages,
   };
+  if (opts.maxTokens) body.max_tokens = opts.maxTokens;
   if (opts.includeReasoning) {
     body.include_reasoning = true;
     body.reasoning = { exclude: false };
   }
 
-  const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const upstream = await fetch(`${openRouterBase()}/api/v1/chat/completions`, {
     method: "POST",
     headers: openRouterHeaders(opts.apiKey),
     body: JSON.stringify(body),

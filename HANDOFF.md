@@ -19,6 +19,10 @@ Paste in **Settings**. Keys write to gitignored `.env.local` on the server. Brow
 | `OPENROUTER_API_KEY` | Required for LLM + Jev |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `TAVILY_API_KEY` / `BRAVE_API_KEY` | Saved only, not called |
 
+## Public mode (2026-10-17, `JEV_PUBLIC=1`)
+
+The hosted site can run open to everyone: a free tier on the server key (free `:free` models only, per-IP and global daily caps) or the visitor's own OpenRouter key kept in their browser and sent in the `X-Jev-OpenRouter-Key` header. Unset, nothing changes. Design: `docs/SPEC.md` section 17. Code: `server/api.ts` (the handler, shared with the tests), `server/publicMode.ts`, `server/netutil.ts`, `src/publicMode.ts`, `src/PublicBanner.tsx`. `npm test` includes `api.public.test.ts` (real handler against a mock OpenRouter). Deploy notes: `hostinger-deploy/jev/DEPLOY.md`.
+
 ## Security posture (verified live 2026-09-20)
 
 - CSRF gate on every `/api/*`: foreign `Origin` or cross-site `Sec-Fetch-Site` → **403**. Non-JSON POST → **415**. Body over 2 MiB → **413**. Foreign `Host` → **403** (Vite `allowedHosts`). Docs path traversal → **404**. Same-origin JSON POST → **200**; header-less GET (curl) → **200**.

@@ -12,6 +12,17 @@ Report privately via [GitHub Security Advisories](https://github.com/NatersGonna
 
 The attacker is **a web page in the operator's own browser**, not a remote host. `127.0.0.1` is unreachable from the internet; a tab is not. A malicious page can POST to `http://127.0.0.1:5182/api/settings` or `/api/llm` and swap the OpenRouter key or burn credits even though CORS is off — `cors: false` only blocks *reading* responses, not *sending*. The local server therefore refuses cross-site `/api/*` requests (**403**) and non-JSON POST bodies (**415**). Same-origin UI and tools with neither `Origin` nor `Sec-Fetch-Site` (curl, address bar) still work. See [`docs/SPEC.md`](docs/SPEC.md) §7 (API / CSRF gate) and §14 (open-source gate).
 
-## Hosted copy
+## Hosted copy (login-gated)
 
 A hosted copy may run at `https://jev.effortlessinnovations.com`, only behind the site's single login (Authelia, admin group, two-factor). It runs read-only for keys (`JEV_READONLY_KEYS=1`): the OpenRouter key lives in a root-only env file on the server, is never in the image or the bundle, and the Settings page cannot change it. The same CSRF, JSON-only, size and host gates apply. The container publishes no port; only Traefik reaches it. See `docs/SPEC.md` §7.
+
+## Public hosted copy (`JEV_PUBLIC=1`)
+
+The same site can run open to everyone with no login. There are two ways in, and neither lets a visitor reach the server's key beyond what is allowed:
+
+- **Free tier.** The server's own OpenRouter key is used only with an allowlist of `:free` models (`JEV_FREE_MODELS`, validated at startup), with capped output, capped loop turns, capped input, and per-IP and global daily caps on LLM requests and Jev calls. The model is decided on the server; a client that asks for a paid model is refused (403). Use a dedicated OpenRouter key with a credit limit for this: the in-memory caps reset on restart, the key limit does not.
+- **Bring your own key.** The visitor's OpenRouter key stays in their browser (`sessionStorage`, or `localStorage` if they opt in). It is sent in one request header per call, used for that call only, and is never logged, stored, written to disk, or echoed back. Error messages are fixed text; upstream bodies are never shown.
+
+Public mode forces keys read-only (no Settings writes, no docs refresh, no part of the server key shown), adds a Content-Security-Policy without `unsafe-eval`, rate-limits every route per client IP (Cloudflare-aware, with the same trust rule as the booking page), and keeps the CSRF, JSON-only, size, host and violence gates. Full design: `docs/SPEC.md` section 17.
+
+Nothing is shared between visitors, so a bad render can only hit the visitor's own page. A key kept in `localStorage` is readable by any script that runs on this origin, which is why the CSP is strict and the "remember" option is opt-in with a warning. Report problems privately, as above.

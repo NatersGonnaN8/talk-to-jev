@@ -123,7 +123,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: "settings",
     title: "Settings — bring your own key",
-    body: "Paste your OpenRouter key here. It stays on the server — never in git, never in the browser. One key runs the LLM and Jev. Get current models loads OpenRouter’s chat list into the picker.",
+    body: "Paste your OpenRouter key here. On your own machine it stays on the server, never in git or the browser. On the hosted free site you can skip it, or paste your own key to unlock every model; it then stays in this browser only. One key runs the LLM and Jev. Get current models loads OpenRouter’s chat list into the picker.",
     page: "settings",
     hooks: ["settings-page", "settings"],
     texts: ["Settings"],

@@ -4,12 +4,13 @@
  */
 export type OpenRouterChatModel = { id: string; name: string };
 
-const MODELS_URL = "https://openrouter.ai/api/v1/models";
+import { openRouterBase } from "./openrouter.ts";
+
 const MAX_MODELS = 2000;
 
-function modelListHeaders(apiKey: string) {
+function modelListHeaders(apiKey: string | undefined): Record<string, string> {
   return {
-    Authorization: `Bearer ${apiKey}`,
+    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     "HTTP-Referer": "http://127.0.0.1:5182",
     "X-Title": "Talk to Jev",
   };
@@ -50,15 +51,22 @@ export function chatModelsFromOpenRouter(payload: unknown): OpenRouterChatModel[
   return rows;
 }
 
-export async function listOpenRouterModels(apiKey: string | undefined): Promise<
+/**
+ * `anonymous: true` (public mode) lists the public catalog with no key at all:
+ * the list is the same for everyone, so the server key is never spent on it.
+ */
+export async function listOpenRouterModels(
+  apiKey: string | undefined,
+  opts: { anonymous?: boolean } = {},
+): Promise<
   | { ok: true; models: OpenRouterChatModel[] }
   | { ok: false; status: number; message: string }
 > {
-  if (!apiKey?.trim()) {
+  if (!opts.anonymous && !apiKey?.trim()) {
     return { ok: false, status: 501, message: "Need OPENROUTER_API_KEY in .env.local." };
   }
-  const upstream = await fetch(MODELS_URL, {
-    headers: modelListHeaders(apiKey!),
+  const upstream = await fetch(`${openRouterBase()}/api/v1/models`, {
+    headers: modelListHeaders(opts.anonymous ? undefined : apiKey),
   });
   if (!upstream.ok) {
     return { ok: false, status: 502, message: "OpenRouter model list failed." };
