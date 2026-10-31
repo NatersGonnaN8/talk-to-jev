@@ -4,8 +4,9 @@
  * mount it on a plain http server, so every gate is the same everywhere.
  *
  * Local default: loopback only, one operator, keys in .env.local (unchanged).
- * JEV_PUBLIC=1: anyone, no login. Free tier on the server key (free models
- * only, capped) or BYOK with the visitor's own key in a request header.
+ * JEV_PUBLIC=1: anyone, no login. BYOK with the visitor's own key in a
+ * request header. JEV_FREE_TIER=1 adds a free tier on the server key (free
+ * models only, capped); without it the server key is never spent.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
@@ -41,6 +42,7 @@ import {
   DAY_MS,
   FREE_MODEL_LABELS,
   GITHUB_URL,
+  KEY_NEEDED_MESSAGE,
   MINUTE_MS,
   RateLimiter,
   clampFreeInput,
@@ -292,6 +294,8 @@ export function createApiHandler(opts: ApiOptions = {}) {
     }
     const env = loadEnvMap();
     const serverKey = env.OPENROUTER_API_KEY;
+    // Public mode spends the server key only when the free tier is switched on and a key is set.
+    const freeOn = pub.freeTier && present(serverKey);
     let visitorKey: string | null = null;
     try {
       // Who is asking, for limits only. Local mode has one operator and no limits.
@@ -309,8 +313,9 @@ export function createApiHandler(opts: ApiOptions = {}) {
       /**
        * Decide the key once. Admin: the server key, any model (local and the
        * old login-gated deploy). Public: a valid BYOK header means the
-       * visitor's key; otherwise the free tier on the server key. The header
-       * is read only on the three endpoints that spend a key.
+       * visitor's key; otherwise the free tier on the server key when it is
+       * on, and "add your key" when it is not. The header is read only on the
+       * three endpoints that spend a key.
        */
       const accessFor = (): { access: Access } | { refuse: () => void } => {
         if (!pub.enabled) {
@@ -326,14 +331,10 @@ export function createApiHandler(opts: ApiOptions = {}) {
           visitorKey = read.key;
           return { access: { kind: "byok", apiKey: read.key } };
         }
-        if (!present(serverKey)) {
+        if (!freeOn) {
           return {
             refuse: () =>
-              send(res, 501, {
-                ok: false,
-                code: "free-unavailable",
-                message: `The free tier is not available right now. Paste your own OpenRouter key in Settings, or get the app on GitHub: ${GITHUB_URL}`,
-              }),
+              send(res, 401, { ok: false, code: "key-needed", message: KEY_NEEDED_MESSAGE }),
           };
         }
         return { access: { kind: "free", apiKey: serverKey as string } };
@@ -347,14 +348,14 @@ export function createApiHandler(opts: ApiOptions = {}) {
           hasKey: keys.openrouter,
           keys,
           jevModel: env.JEV_MODEL || DEFAULT_JEV,
-          // Public mode never advertises the paid LLM_MODEL: the free tier has its own default.
-          llmModel: pub.enabled ? pub.defaultFreeModel : env.LLM_MODEL || DEFAULT_LLM,
+          // With the free tier on, public mode never advertises the paid LLM_MODEL: the free tier has its own default.
+          llmModel: freeOn ? pub.defaultFreeModel : env.LLM_MODEL || DEFAULT_LLM,
           docs: { files: docs.files.length, fetchedAt: docs.fetchedAt },
           ...(pub.enabled
             ? {
                 public: true,
                 freeTier: {
-                  available: present(serverKey),
+                  available: freeOn,
                   models: freeModelRows(),
                   defaultModel: pub.defaultFreeModel,
                 },
@@ -366,6 +367,7 @@ export function createApiHandler(opts: ApiOptions = {}) {
 
       if (req.method === "GET" && url === "/api/usage") {
         if (!pub.enabled) return send(res, 200, { ok: true, public: false });
+        if (!freeOn) return send(res, 200, { ok: true, public: true });
         const left = freeUsage(limiter, pub, ip);
         return send(res, 200, {
           ok: true,
@@ -393,7 +395,7 @@ export function createApiHandler(opts: ApiOptions = {}) {
         if (!byok.ok) {
           return send(res, 400, { ok: false, code: "bad-key", message: byok.message });
         }
-        if (!byok.key) {
+        if (!byok.key && freeOn) {
           // Free tier: the allowlist is the picker. No upstream call, no server key spent.
           return send(res, 200, { ok: true, models: freeModelRows(), tier: "free" });
         }

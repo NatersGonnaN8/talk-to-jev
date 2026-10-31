@@ -2,11 +2,12 @@
  * Public mode (JEV_PUBLIC=1): anyone can use the hosted copy without a login.
  *
  * Two ways in:
- *  - Free tier: the server's own OpenRouter key, but ONLY with an allowlist of
- *    ":free" chat models, capped output, capped loop turns, and per-IP and
- *    global daily caps on LLM requests and Jev calls.
- *  - BYOK: the visitor sends their own OpenRouter key in a request header. It
- *    is used for that one request, never logged, never stored, never echoed.
+ *  - BYOK (the default and, unless JEV_FREE_TIER=1, the only way): the visitor
+ *    sends their own OpenRouter key in a request header. It is used for that
+ *    one request, never logged, never stored, never echoed.
+ *  - Free tier (opt in with JEV_FREE_TIER=1): the server's own OpenRouter key,
+ *    but ONLY with an allowlist of ":free" chat models, capped output, capped
+ *    loop turns, and per-IP and global daily caps on LLM requests and Jev calls.
  *
  * Everything here is pure (no I/O, no relative imports) so it is unit tested.
  * With JEV_PUBLIC unset nothing in here changes local or admin behavior.
@@ -35,6 +36,12 @@ export const FREE_MODEL_LABELS: Record<string, string> = {
 
 export type PublicConfig = {
   enabled: boolean;
+  /**
+   * JEV_FREE_TIER=1 turns on the free tier (the server key with free models).
+   * Off by default: public mode is bring-your-own-key only, and the server key
+   * is never spent on a visitor, even if one is set.
+   */
+  freeTier: boolean;
   freeModels: string[];
   defaultFreeModel: string;
   freeMaxTokens: number;
@@ -108,6 +115,7 @@ export function loadPublicConfig(env: EnvLike): PublicConfig {
   }
   return {
     enabled: isPublicMode(env),
+    freeTier: /^(1|true|yes)$/i.test((env.JEV_FREE_TIER ?? "").trim()),
     freeModels,
     defaultFreeModel: wanted,
     // Reasoning models spend max_tokens on thinking too, so this is not tiny.
@@ -156,6 +164,8 @@ export function readByokKey(
   if (!BYOK_KEY_RE.test(key)) return { ok: false, message: BAD_KEY_MESSAGE };
   return { ok: true, key };
 }
+
+export const KEY_NEEDED_MESSAGE = `Paste your own OpenRouter key in Settings to use the LLM and Jev here. It stays in your browser and is billed to you by OpenRouter. Or run the app on your own machine: ${GITHUB_URL}`;
 
 export type Access =
   | { kind: "admin"; apiKey: string }

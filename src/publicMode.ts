@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 /**
- * Public mode on the client: the free tier, and a visitor's own OpenRouter key.
+ * Public mode on the client: a visitor's own OpenRouter key, and the free
+ * tier when the server has it switched on (off on the hosted copy).
  *
  * The key lives only in this browser. Default: sessionStorage (gone when the
  * tab closes). Opt-in "remember on this device": localStorage. It is sent in
@@ -10,6 +11,7 @@ import { useEffect, useState } from "react";
  */
 
 export const GITHUB_URL = "https://github.com/NatersGonnaN8/talk-to-jev";
+export const EI_HOME_URL = "https://effortlessinnovations.com";
 export const BYOK_HEADER = "X-Jev-OpenRouter-Key";
 
 const KEY_STORE = "talk-to-jev:byok-key";
@@ -119,9 +121,9 @@ export function useByokKey(): string {
   return key;
 }
 
-/** On the free tier (public copy, no visitor key) the picker and every request are limited to the free list. */
+/** On the free tier (public copy with the free tier on, no visitor key) the picker and every request are limited to the free list. */
 export function freeOnly(): boolean {
-  return info.public && !readByokKey();
+  return info.public && info.freeAvailable && !readByokKey();
 }
 
 /** The model to actually send: a stored pick that is not free falls back to the free default. */

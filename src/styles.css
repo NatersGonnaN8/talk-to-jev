@@ -123,6 +123,31 @@ textarea {
   gap: 0.6rem;
 }
 
+.chrome-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: #eef6ee;
+  text-decoration: none;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.chrome-link:hover,
+.chrome-link:focus-visible {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 860px) {
+  .chrome-gh-text {
+    display: none;
+  }
+}
+
 .pill {
   font-family: var(--font-ui);
   font-size: 0.72rem;

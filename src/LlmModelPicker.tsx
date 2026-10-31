@@ -26,8 +26,8 @@ export function LlmModelPicker({
   const catalog = useLlmCatalog();
   const pub = usePublicInfo();
   const byok = useByokKey();
-  // Public copy without the visitor's own key: only the free models are offered.
-  const freeTier = pub.public && !byok && pub.freeModels.length > 0;
+  // Public copy with the free tier on and no visitor key: only the free models are offered.
+  const freeTier = pub.public && pub.freeAvailable && !byok && pub.freeModels.length > 0;
   const options = freeTier
     ? pub.freeModels.map((m) => ({ id: m.id, label: m.name }))
     : listLlmChatModels([stored, extraId], catalog);

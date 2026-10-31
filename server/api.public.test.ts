@@ -98,8 +98,10 @@ after(() => {
   upstream.close();
 });
 
+// Most tests below cover the opt-in free tier; the "BYOK only" tests turn it off.
 const BASE_ENV: Record<string, string> = {
   JEV_PUBLIC: "1",
+  JEV_FREE_TIER: "1",
   OPENROUTER_API_KEY: SERVER_KEY,
 };
 let savedEnv: Record<string, string | undefined> = {};
@@ -498,14 +500,59 @@ test("free tier: models endpoint shows only the free list and spends no key", as
 test("free tier unavailable when the server has no key: friendly message, BYOK still works", async () => {
   await startApp({ OPENROUTER_API_KEY: "" });
   const r = await call("POST", "/api/llm", { body: chatBody(FREE_MODEL) });
-  assert.equal(r.status, 501);
-  assert.equal(JSON.parse(r.text).code, "free-unavailable");
+  assert.equal(r.status, 401);
+  assert.equal(JSON.parse(r.text).code, "key-needed");
   const byok = await call("POST", "/api/llm", {
     body: chatBody(PAID_MODEL),
     headers: { "X-Jev-OpenRouter-Key": VISITOR_KEY },
   });
   assert.equal(byok.status, 200);
   assert.equal(seen[0].auth, `Bearer ${VISITOR_KEY}`);
+});
+
+// --------------------------------------------------------------- BYOK only
+
+test("BYOK only (the default): with no key the LLM and Jev ask for one, and a server key is never spent", async () => {
+  // JEV_FREE_TIER unset, but a server key is present anyway: it must stay unused.
+  await startApp({ JEV_FREE_TIER: "" });
+  const health = JSON.parse((await call("GET", "/api/health")).text);
+  assert.equal(health.public, true);
+  assert.equal(health.freeTier.available, false);
+  assert.equal(health.llmModel, "deepseek/deepseek-v4-flash");
+  const usage = JSON.parse((await call("GET", "/api/usage")).text);
+  assert.equal(usage.free, undefined);
+
+  const llm = await call("POST", "/api/llm", { body: chatBody(FREE_MODEL) });
+  assert.equal(llm.status, 401);
+  const llmBody = JSON.parse(llm.text);
+  assert.equal(llmBody.code, "key-needed");
+  assert.ok(llmBody.message.includes("Settings"));
+  assert.ok(llmBody.message.includes(GITHUB_URL));
+  const jev = await call("POST", "/api/jev", { body: jevBody });
+  assert.equal(jev.status, 401);
+  assert.equal(JSON.parse(jev.text).code, "key-needed");
+
+  // The model list still works with no key: it is the public catalog, fetched with no Authorization.
+  const models = await call("POST", "/api/openrouter/models", { body: {} });
+  assert.equal(models.status, 200);
+  assert.equal(JSON.parse(models.text).tier, "byok");
+  for (const s of seen) assert.equal(s.auth, "");
+  assert.ok(!seen.some((s) => s.path !== "/api/v1/models"));
+  assertNoKeys("byok only, no key", llm.text, jev.text, models.text);
+});
+
+test("BYOK only (the default): the visitor key runs the LLM, ask_jev and /api/jev, and the server key never goes upstream", async () => {
+  await startApp({ JEV_FREE_TIER: "" });
+  const headers = { "X-Jev-OpenRouter-Key": VISITOR_KEY };
+  const r = await call("POST", "/api/llm", { body: chatBody(PAID_MODEL), headers });
+  assert.equal(r.status, 200);
+  const j = await call("POST", "/api/jev", { body: jevBody, headers });
+  assert.equal(j.status, 200);
+  assert.ok(seen.length >= 2);
+  for (const s of seen) {
+    assert.equal(s.auth, `Bearer ${VISITOR_KEY}`);
+  }
+  assertNoKeys("byok only", r.text, j.text);
 });
 
 // -------------------------------------------------------------------- BYOK

@@ -21,7 +21,7 @@ Paste in **Settings**. Keys write to gitignored `.env.local` on the server. Brow
 
 ## Public mode (2026-10-17, `JEV_PUBLIC=1`)
 
-The hosted site can run open to everyone: a free tier on the server key (free `:free` models only, per-IP and global daily caps) or the visitor's own OpenRouter key kept in their browser and sent in the `X-Jev-OpenRouter-Key` header. Unset, nothing changes. Design: `docs/SPEC.md` section 17. Code: `server/api.ts` (the handler, shared with the tests), `server/publicMode.ts`, `server/netutil.ts`, `src/publicMode.ts`, `src/PublicBanner.tsx`. `npm test` includes `api.public.test.ts` (real handler against a mock OpenRouter). Deploy notes: `hostinger-deploy/jev/DEPLOY.md`.
+**2026-10-31: bring your own key only.** The free tier is off unless `JEV_FREE_TIER=1`, and the hosted copy has no server key: every visitor pastes their own OpenRouter key. The header links to GitHub (with the GitHub mark) and to effortlessinnovations.com. Local check: `npm run build`, then the `talk-to-jev-public` launch entry on 5232. Older note: the hosted site can run open to everyone: a free tier on the server key (free `:free` models only, per-IP and global daily caps) or the visitor's own OpenRouter key kept in their browser and sent in the `X-Jev-OpenRouter-Key` header. Unset, nothing changes. Design: `docs/SPEC.md` section 17. Code: `server/api.ts` (the handler, shared with the tests), `server/publicMode.ts`, `server/netutil.ts`, `src/publicMode.ts`, `src/PublicBanner.tsx`. `npm test` includes `api.public.test.ts` (real handler against a mock OpenRouter). Deploy notes: `hostinger-deploy/jev/DEPLOY.md`.
 
 ## Security posture (verified live 2026-09-20)
 

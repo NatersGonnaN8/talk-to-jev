@@ -17,6 +17,7 @@ import {
   looksLikeKey,
   saveByokKey,
   useByokKey,
+  usePublicInfo,
 } from "../publicMode";
 
 export function SettingsPage({
@@ -32,6 +33,7 @@ export function SettingsPage({
   const [readOnly, setReadOnly] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const byokKey = useByokKey();
+  const freeTier = usePublicInfo().freeAvailable;
   const [byokDraft, setByokDraft] = useState("");
   const [remember, setRemember] = useState(byokRemembered);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -85,7 +87,7 @@ export function SettingsPage({
     }
     saveByokKey(byokDraft, remember);
     setByokDraft("");
-    onToast("Your key is saved in this browser. Any model, no daily limit.");
+    onToast("Your key is saved in this browser. Any model, billed to you by OpenRouter.");
     await onSaved();
   };
 
@@ -93,7 +95,11 @@ export function SettingsPage({
     clearByokKey();
     setByokDraft("");
     setRemember(false);
-    onToast("Your key is removed from this browser. Back on the free tier.");
+    onToast(
+      freeTier
+        ? "Your key is removed from this browser. Back on the free tier."
+        : "Your key is removed from this browser.",
+    );
     await onSaved();
   };
 
@@ -139,14 +145,20 @@ export function SettingsPage({
     <main className="settings" data-tutorial="settings-page">
       <section className="settings-intro">
         <span className="eyebrow">
-          {isPublic ? "Free tier or your own key" : "Bring your own key"}
+          {isPublic && freeTier ? "Free tier or your own key" : "Bring your own key"}
         </span>
         <h1 className="pane-title">Settings</h1>
-        {isPublic ? (
+        {isPublic && freeTier ? (
           <p>
             You can use the free tier with no key. To use any OpenRouter model
             with no daily limit, paste your own OpenRouter key below. Standing
             LLM instructions live in this browser.
+          </p>
+        ) : isPublic ? (
+          <p>
+            This site has no key of its own. Paste your own OpenRouter key below
+            to run the LLM and Jev. Standing LLM instructions live in this
+            browser.
           </p>
         ) : (
           <p>
@@ -164,7 +176,7 @@ export function SettingsPage({
             <div>
               <h2 className="pane-title">Your OpenRouter key</h2>
               <p className="key-why">
-                Optional. Billed to you by OpenRouter. It stays in this browser
+                {freeTier ? "Optional. " : "Needed to run the LLM and Jev. "}Billed to you by OpenRouter. It stays in this browser
                 and goes to this site only as a request header, used for that
                 one request. It is never stored on the server or logged. No key
                 yet? Create one at openrouter.ai/keys and set a credit limit on
@@ -179,7 +191,7 @@ export function SettingsPage({
               className={byokKey ? "pill ready" : "pill missing"}
               tabIndex={0}
             >
-              {byokKey ? `Key ready · ${lastFour(byokKey)}` : "Free tier"}
+              {byokKey ? `Key ready: ${lastFour(byokKey)}` : freeTier ? "Free tier" : "No key"}
             </span>
           </header>
           <form
@@ -262,7 +274,7 @@ export function SettingsPage({
                   tabIndex={0}
                 >
                   {k.present
-                    ? `Key ready${k.last4 ? ` · ${k.last4}` : ""}`
+                    ? `Key ready${k.last4 ? `: ${k.last4}` : ""}`
                     : "Missing"}
                 </span>
               </FlipTip>
